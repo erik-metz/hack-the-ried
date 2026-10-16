@@ -220,12 +220,16 @@ bool joinNetwork() {
 
   const int16_t state = node->activateOTAA();
   persistLoRaWANSecurityState();
-  if (state != RADIOLIB_ERR_NONE && state != RADIOLIB_LORAWAN_NEW_SESSION && state <= 0) {
+  if (state != RADIOLIB_ERR_NONE &&
+      state != RADIOLIB_LORAWAN_NEW_SESSION &&
+      state != RADIOLIB_LORAWAN_SESSION_RESTORED && state <= 0) {
     Serial.printf("[LORAWAN][FEHLER] Join fehlgeschlagen: %d\n", state);
     return false;
   }
 
-  Serial.println(F("[LORAWAN] Join erfolgreich."));
+  Serial.println(state == RADIOLIB_LORAWAN_SESSION_RESTORED
+      ? F("[LORAWAN] Gespeicherte TTN-Sitzung wieder aktiv.")
+      : F("[LORAWAN] Join erfolgreich."));
   return true;
 }
 
