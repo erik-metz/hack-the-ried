@@ -41,16 +41,39 @@ gateway before relying on the node for regular LoRaWAN operation. The RAK3112's
 datasheet also describes its optional built-in modem stack as 1.0.2, but this
 sketch runs RadioLib directly on the ESP32-S3 and SX1262.
 
-After OTAA succeeds, the sketch sends a 7-byte unconfirmed uplink on FPort 10
-immediately and then every five minutes. Payload v1 is:
+After OTAA succeeds, the sketch sends an unconfirmed uplink on FPort 10
+immediately and then every five minutes. The current payload v3 is a version
+byte followed by one five-byte record for each measurement:
 
-| Byte(s) | Meaning | Encoding |
+| Record byte(s) | Meaning | Encoding |
 | --- | --- | --- |
-| 0 | Payload version (`1`) | unsigned byte |
-| 1–4 | Uptime seconds | unsigned 32-bit, big-endian |
-| 5–6 | Uplink counter | unsigned 16-bit, big-endian |
+| 0 | Payload version (`3`) | unsigned byte |
+| 1 | Metric code | unsigned byte |
+| 2–5 | Metric value | signed 32-bit, big-endian |
+
+Records repeat until the end of the payload. Metric codes are stable protocol
+identifiers; the value scale and unit belong to each code:
+
+| Code | Metric | Unit | Integer scale |
+| --- | --- | --- | --- |
+| 1 | `temperature` | `°C` | tenths (raw `187` = `18.7`) |
+| 2 | `humidity` | `%` | tenths (raw `503` = `50.3`) |
+| 3 | `uv_index` | `index` | hundredths (raw `725` = `7.25`) |
+| 4 | `co2` | `ppm` | whole ppm (raw `420` = `420`) |
+
+To add a measurement, assign it a new code and documented scale, append its
+encoded value to the uplink records, and add that code to
+`payload-formatter.js`. Unknown codes remain visible as raw code/value pairs
+in the TTN decoded payload. The formatter also accepts the previous fixed
+five-byte v2 temperature/humidity payload during firmware migration. It does
+not expose the removed uptime or uplink-counter diagnostics.
+
+Install `payload-formatter.js` as the TTN uplink payload formatter for FPort 10.
+Its local protocol tests can be run with:
+
+```sh
+node --test hardware/sensor-node/rak3112/v1/payload-formatter.test.mjs
+```
 
 The LoRaWAN session and DevNonce/JoinNonce state are stored separately in ESP32
-NVS to avoid invalid rejoins after reset. Register a TTN payload formatter if
-you want named fields in Live Data; the raw bytes are sufficient to verify the
-first uplink.
+NVS to avoid invalid rejoins after reset.

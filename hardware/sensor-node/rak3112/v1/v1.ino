@@ -43,6 +43,23 @@ static constexpr uint32_t UPLINK_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_BASE_MS = 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_MAX_MS = 30UL * 60UL * 1000UL;
 static constexpr uint8_t UPLINK_FPORT = 10;
+static constexpr uint8_t PAYLOAD_VERSION = 3;
+static constexpr size_t MAX_MEASUREMENTS = 32;
+static constexpr size_t MAX_UPLINK_BYTES = 1 + MAX_MEASUREMENTS * 5;
+
+// Metric codes are part of the RAK-to-TTN wire protocol. Values are signed
+// 32-bit integers; each code defines its own scale and unit (see README).
+enum MetricCode : uint8_t {
+  METRIC_TEMPERATURE = 1,
+  METRIC_HUMIDITY = 2,
+  METRIC_UV_INDEX = 3,
+  METRIC_CO2 = 4,
+};
+
+struct EncodedMeasurement {
+  uint8_t code;
+  int32_t value;
+};
 
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RESET, LORA_BUSY);
 LoRaWANBand_t singleChannelEU868;
@@ -261,25 +278,40 @@ void updateFakeClimate() {
   fakeHumidityTenths = static_cast<uint16_t>(nextHumidity < 470 ? 470 : nextHumidity > 530 ? 530 : nextHumidity);
 }
 
-void sendClimateUplink() {
-  // Payload v2 (5 bytes), big-endian: version, temperature in 0.1 C,
-  // and relative humidity in 0.1 percent. Diagnostic counters are not sent.
+void sendTelemetryUplink() {
   updateFakeClimate();
-  uint8_t payload[5];
-  payload[0] = 2;
-  payload[1] = static_cast<uint8_t>(static_cast<uint16_t>(fakeTemperatureTenths) >> 8);
-  payload[2] = static_cast<uint8_t>(fakeTemperatureTenths);
-  payload[3] = static_cast<uint8_t>(fakeHumidityTenths >> 8);
-  payload[4] = static_cast<uint8_t>(fakeHumidityTenths);
+  // Add future sensor values here using their registered metric code.
+  // Temperature and humidity are represented in tenths of their unit.
+  const EncodedMeasurement measurements[] = {
+    {METRIC_TEMPERATURE, fakeTemperatureTenths},
+    {METRIC_HUMIDITY, static_cast<int32_t>(fakeHumidityTenths)},
+  };
+  static_assert(sizeof(measurements) / sizeof(measurements[0]) <= MAX_MEASUREMENTS,
+      "Too many measurements for one LoRaWAN uplink");
 
-  Serial.printf("[UPLINK] FPort=%u, version=%u, fake temperature=%d.%d C, fake humidity=%u.%u %%\n",
-      UPLINK_FPORT, payload[0], fakeTemperatureTenths / 10,
-      abs(fakeTemperatureTenths % 10), fakeHumidityTenths / 10,
-      fakeHumidityTenths % 10);
+  uint8_t payload[MAX_UPLINK_BYTES];
+  size_t payloadLength = 1;
+  payload[0] = PAYLOAD_VERSION;
+  for (const EncodedMeasurement& measurement : measurements) {
+    payload[payloadLength++] = measurement.code;
+    const uint32_t value = static_cast<uint32_t>(measurement.value);
+    payload[payloadLength++] = static_cast<uint8_t>(value >> 24);
+    payload[payloadLength++] = static_cast<uint8_t>(value >> 16);
+    payload[payloadLength++] = static_cast<uint8_t>(value >> 8);
+    payload[payloadLength++] = static_cast<uint8_t>(value);
+  }
+
+  Serial.printf("[UPLINK] FPort=%u, version=%u, measurements=%u, payload=%u bytes\n",
+      UPLINK_FPORT, payload[0], static_cast<unsigned>(sizeof(measurements) / sizeof(measurements[0])),
+      static_cast<unsigned>(payloadLength));
+  for (const EncodedMeasurement& measurement : measurements) {
+    Serial.printf("[UPLINK] metric=%u, raw=%ld\n", measurement.code,
+        static_cast<long>(measurement.value));
+  }
 
   uint8_t downlink[16];
   size_t downlinkLength = sizeof(downlink);
-  const int16_t state = node->sendReceive(payload, sizeof(payload), UPLINK_FPORT,
+  const int16_t state = node->sendReceive(payload, payloadLength, UPLINK_FPORT,
       downlink, &downlinkLength);
   persistLoRaWANSecurityState();
   if (state < RADIOLIB_ERR_NONE) {
@@ -332,7 +364,7 @@ void setup() {
   joined = joinNetwork();
   if (joined) {
     joinRetryCount = 0;
-    sendClimateUplink();
+    sendTelemetryUplink();
     lastUplinkMs = millis();
   } else {
     scheduleJoinRetry();
@@ -351,7 +383,7 @@ void loop() {
   }
   if (joined && millis() - lastUplinkMs >= UPLINK_INTERVAL_MS) {
     lastUplinkMs = millis();
-    sendClimateUplink();
+    sendTelemetryUplink();
   }
   if (radioReady && !joined && credentialsConfigured() &&
       static_cast<int32_t>(millis() - nextJoinAttemptMs) >= 0) {
@@ -359,7 +391,7 @@ void loop() {
     joined = joinNetwork();
     if (joined) {
       joinRetryCount = 0;
-      sendClimateUplink();
+      sendTelemetryUplink();
       lastUplinkMs = millis();
     } else {
       scheduleJoinRetry();
