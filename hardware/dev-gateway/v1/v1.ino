@@ -67,6 +67,8 @@ WiFiUDP udp;
 
 uint8_t gatewayEui[8];
 uint16_t token = 0;
+IPAddress pullResponseAddress;
+uint16_t pullResponsePort = 0;
 volatile bool packetReceived = false;
 uint32_t rxCount = 0;
 uint32_t gpsBytes = 0;
@@ -367,7 +369,9 @@ bool sendTxAck(uint16_t responseToken, const char* error) {
     packetLength += static_cast<size_t>(jsonLength);
   }
 
-  if (!udp.beginPacket(LNS_HOST, LNS_PORT)) return false;
+  // Reply to the exact server endpoint that sent this PULL_RESP. Resolving
+  // the TTN hostname again can select a different backend and lose the ACK.
+  if (pullResponsePort == 0 || !udp.beginPacket(pullResponseAddress, pullResponsePort)) return false;
   const size_t written = udp.write(packet, packetLength);
   const bool sent = udp.endPacket() == 1 && written == packetLength;
   Serial.printf("[UDP] TX_ACK error=%s sent=%s bytes=%u\n", error,
@@ -524,6 +528,8 @@ void processUdp() {
   }
   else if (buffer[3] == PUSH_ACK) statusLine = "TTN uplink ACK";
   else if (buffer[3] == PULL_RESP) {
+    pullResponseAddress = udp.remoteIP();
+    pullResponsePort = udp.remotePort();
     Serial.printf("[UDP] PULL_RESP received (%d bytes).\n", length);
     handlePullResponse(responseToken, &buffer[4], length - 4);
   }
