@@ -41,6 +41,8 @@ static constexpr int8_t LORA_BUSY = 48;
 
 static constexpr uint32_t SERIAL_BAUD = 115200;
 static constexpr uint32_t UPLINK_INTERVAL_MS = 5UL * 60UL * 1000UL;
+static constexpr uint32_t JOIN_RETRY_BASE_MS = 60UL * 1000UL;
+static constexpr uint32_t JOIN_RETRY_MAX_MS = 30UL * 60UL * 1000UL;
 static constexpr uint8_t UPLINK_FPORT = 10;
 
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RESET, LORA_BUSY);
@@ -52,6 +54,8 @@ bool radioReady = false;
 bool joined = false;
 uint32_t packetCounter = 0;
 uint32_t lastUplinkMs = 0;
+uint32_t nextJoinAttemptMs = 0;
+uint8_t joinRetryCount = 0;
 
 int8_t hexNibble(char value) {
   if (value >= '0' && value <= '9') return value - '0';
@@ -202,6 +206,8 @@ bool joinNetwork() {
     Serial.printf("[LORAWAN][FEHLER] OTAA-Konfiguration fehlgeschlagen: %d\n", beginState);
     return false;
   }
+  // beginOTAA clears RadioLib's RAM buffers, so reload the persisted nonces
+  // and session before every retry.
   restoreLoRaWANSession();
 
   // Match the single-channel Heltec development gateway (868.1 MHz, SF7).
@@ -233,6 +239,17 @@ bool joinNetwork() {
   return true;
 }
 
+void scheduleJoinRetry() {
+  uint32_t delayMs = JOIN_RETRY_BASE_MS;
+  const uint8_t shifts = joinRetryCount < 5 ? joinRetryCount : 5;
+  delayMs <<= shifts;
+  if (delayMs > JOIN_RETRY_MAX_MS) delayMs = JOIN_RETRY_MAX_MS;
+  if (joinRetryCount < 255) ++joinRetryCount;
+  nextJoinAttemptMs = millis() + delayMs;
+  Serial.printf("[LORAWAN] Naechster Join-Versuch in %lu s.\n",
+      static_cast<unsigned long>(delayMs / 1000UL));
+}
+
 void sendStatusUplink() {
   // Payload v1 (7 bytes), big-endian: version, uptime_seconds, packet_counter.
   uint8_t payload[7];
@@ -257,6 +274,13 @@ void sendStatusUplink() {
   persistLoRaWANSecurityState();
   if (state < RADIOLIB_ERR_NONE) {
     Serial.printf("[UPLINK][FEHLER] Senden/Empfang fehlgeschlagen: %d\n", state);
+    if (state == RADIOLIB_ERR_NETWORK_NOT_JOINED) {
+      Serial.println(F("[LORAWAN] Stack meldet keine aktive Sitzung; Sitzung wird verworfen, Nonces bleiben erhalten."));
+      node->clearSession();
+      persistLoRaWANSecurityState();
+      joined = false;
+      scheduleJoinRetry();
+    }
   } else {
     Serial.println(F("[UPLINK] Nachricht an LoRaWAN-Stack übergeben."));
     if (downlinkLength > 0) {
@@ -297,8 +321,11 @@ void setup() {
   preferences.begin("rak3112lw", false);
   joined = joinNetwork();
   if (joined) {
+    joinRetryCount = 0;
     sendStatusUplink();
     lastUplinkMs = millis();
+  } else {
+    scheduleJoinRetry();
   }
 }
 
@@ -315,6 +342,18 @@ void loop() {
   if (joined && millis() - lastUplinkMs >= UPLINK_INTERVAL_MS) {
     lastUplinkMs = millis();
     sendStatusUplink();
+  }
+  if (radioReady && !joined && credentialsConfigured() &&
+      static_cast<int32_t>(millis() - nextJoinAttemptMs) >= 0) {
+    Serial.println(F("[LORAWAN] Starte automatischen Wiederverbindungsversuch."));
+    joined = joinNetwork();
+    if (joined) {
+      joinRetryCount = 0;
+      sendStatusUplink();
+      lastUplinkMs = millis();
+    } else {
+      scheduleJoinRetry();
+    }
   }
   delay(20);
 }
