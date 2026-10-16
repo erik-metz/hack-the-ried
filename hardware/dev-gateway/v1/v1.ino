@@ -390,6 +390,7 @@ void resumeReceive() {
   radio.setPreambleLength(LORA_PREAMBLE);
   radio.setSyncWord(LORA_SYNC_WORD);
   radio.setCRC(true);
+  radio.invertIQ(false);
   setRxMode();
   if (radio.startReceive() != RADIOLIB_ERR_NONE) statusLine = "RX restart failed";
 }
@@ -404,6 +405,8 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   const char* encoded = txpk["data"];
   const char* dataRate = txpk["datr"];
   const char* codingRate = txpk["codr"] | "4/5";
+  const bool invertIq = txpk["ipol"] | false;
+  const bool noPhyCrc = txpk["ncrc"] | false;
   int sf = 0; float bandwidth = 0;
   if (!encoded || !parseDataRate(dataRate, sf, bandwidth)) {
     Serial.println(F("[DOWNLINK][ERROR] PULL_RESP ohne unterstützte Datenrate/Payload."));
@@ -431,7 +434,8 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   radio.standby();
   radio.setFrequency(frequency); radio.setSpreadingFactor(sf); radio.setBandwidth(bandwidth);
   radio.setCodingRate(5); radio.setPreambleLength(LORA_PREAMBLE);
-  radio.setSyncWord(LORA_SYNC_WORD); radio.setCRC(true);
+  radio.setSyncWord(LORA_SYNC_WORD); radio.setCRC(!noPhyCrc);
+  radio.invertIQ(invertIq);
   if (!immediate) {
     while (static_cast<int32_t>(txTimestamp - micros()) > 2000) delay(1);
     while (static_cast<int32_t>(txTimestamp - micros()) > 0) delayMicroseconds(50);
@@ -440,8 +444,9 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   const int state = radio.transmit(payload, decoded);
   const char* txAckError = state == RADIOLIB_ERR_NONE ? "NONE" : "TX_POWER";
   const bool ackSent = sendTxAck(responseToken, txAckError);
-  Serial.printf("[DOWNLINK] TX result=%d payload=%u bytes; ACK datagram=%s.\n",
-      state, static_cast<unsigned>(decoded), ackSent ? "sent" : "failed");
+  Serial.printf("[DOWNLINK] TX result=%d payload=%u bytes; ipol=%s ncrc=%s; ACK datagram=%s.\n",
+      state, static_cast<unsigned>(decoded), invertIq ? "true" : "false",
+      noPhyCrc ? "true" : "false", ackSent ? "sent" : "failed");
   statusLine = state == RADIOLIB_ERR_NONE ? "Downlink sent" : "Downlink failed";
   resumeReceive();
 }
