@@ -11,6 +11,7 @@ from endpoints import (
     satellite,
     satellite_tracking,
     sensors,
+    sensor_integrations,
     social_daily_life,
     street_closures,
     telemetry,
@@ -25,6 +26,7 @@ api_router.include_router(collected.router)
 api_router.include_router(satellite.router)
 api_router.include_router(satellite_tracking.router)
 api_router.include_router(sensors.router, tags=["Sensors Metadata"])
+api_router.include_router(sensor_integrations.router)
 api_router.include_router(telemetry.router, tags=["Telemetry Data"])
 api_router.include_router(archives.router)
 api_router.include_router(data_exports.router)
