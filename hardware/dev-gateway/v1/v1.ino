@@ -351,13 +351,26 @@ void sendPullData() {
 }
 
 void sendTxAck(uint16_t responseToken, const char* error) {
-  char json[80];
-  const int jsonLength = snprintf(json, sizeof(json), "{\"txpk_ack\":{\"error\":\"%s\"}}", error);
   uint8_t packet[96] = { 0x02, static_cast<uint8_t>(responseToken >> 8),
       static_cast<uint8_t>(responseToken), TX_ACK };
-  if (jsonLength <= 0 || static_cast<size_t>(jsonLength) + 4 > sizeof(packet)) return;
-  memcpy(&packet[4], json, jsonLength);
-  if (udp.beginPacket(LNS_HOST, LNS_PORT)) { udp.write(packet, jsonLength + 4); udp.endPacket(); }
+  memcpy(&packet[4], gatewayEui, sizeof(gatewayEui));
+  size_t packetLength = 12;
+
+  // Semtech UDP TX_ACK packets include the gateway EUI in bytes 4–11.
+  // A successful acknowledgement has no JSON body; errors carry txpk_ack.
+  if (strcmp(error, "NONE") != 0) {
+    char json[80];
+    const int jsonLength = snprintf(json, sizeof(json),
+        "{\"txpk_ack\":{\"error\":\"%s\"}}", error);
+    if (jsonLength <= 0 || static_cast<size_t>(jsonLength) + packetLength > sizeof(packet)) return;
+    memcpy(&packet[packetLength], json, jsonLength);
+    packetLength += static_cast<size_t>(jsonLength);
+  }
+
+  if (udp.beginPacket(LNS_HOST, LNS_PORT)) {
+    udp.write(packet, packetLength);
+    udp.endPacket();
+  }
 }
 
 bool parseDataRate(const char* dataRate, int& sf, float& bandwidth) {
