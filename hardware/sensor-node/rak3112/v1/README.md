@@ -25,13 +25,13 @@ DIO2; the TCXO is enabled at 1.6 V via DIO3.
 
 ## Enable TTN OTAA
 
-Copy `secrets.h.example` to `secrets.h` in this directory. Copy JoinEUI and
-DevEUI into their `uint64_t` fields; paste the TTN NwkKey and AppKey as their
-32-character hexadecimal strings without converting them to byte arrays. The
-sketch parses both keys into bytes at startup. The repository ignores files
-named `secrets.h`. Select LoRaWAN Specification 1.1.0 in TTN: this sketch uses
-RadioLib's 1.1 OTAA path and needs separate NwkKey and AppKey. An all-zero
-JoinEUI is accepted for a DIY device. The
+Copy `secrets.h.example` to `secrets.h` in this directory. Paste the TTN
+JoinEUI and DevEUI as 16-character hexadecimal strings, and the NwkKey and
+AppKey as 32-character hexadecimal strings. The sketch parses them at startup;
+you do not need to convert them to integers or byte arrays. The repository
+ignores files named `secrets.h`. Select LoRaWAN Specification 1.1.0 in TTN:
+this sketch uses RadioLib's 1.1 OTAA path and needs separate NwkKey and AppKey.
+An all-zero JoinEUI is accepted for a DIY device. The
 RAK3112's datasheet also describes its optional built-in modem stack as 1.0.2,
 but this sketch runs RadioLib directly on the ESP32-S3 and SX1262.
 

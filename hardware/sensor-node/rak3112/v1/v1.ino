@@ -17,8 +17,8 @@
 #else
 // Allows the USB and radio hardware checks to compile before TTN credentials
 // have been provisioned. OTAA is deliberately disabled in this state.
-static constexpr uint64_t joinEUI = 0;
-static constexpr uint64_t devEUI = 0;
+static constexpr char joinEUIHex[] = "";
+static constexpr char devEUIHex[] = "";
 static constexpr char nwkKeyHex[] = "";
 static constexpr char appKeyHex[] = "";
 #define HAS_LORAWAN_CREDENTIALS 0
@@ -26,6 +26,8 @@ static constexpr char appKeyHex[] = "";
 
 static uint8_t nwkKey[16] = {};
 static uint8_t appKey[16] = {};
+static uint64_t joinEUI = 0;
+static uint64_t devEUI = 0;
 
 // RAK3112 internal SX1262 wiring (not the Heltec pin map).
 static constexpr int8_t LORA_NSS = 7;
@@ -78,8 +80,27 @@ bool parseKey(const char* text, uint8_t output[16]) {
   return *text == '\0';
 }
 
+bool parseEui(const char* text, uint64_t& output) {
+  while (isHexSeparator(*text)) ++text;
+  if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) text += 2;
+
+  uint64_t value = 0;
+  for (uint8_t i = 0; i < 16; ++i) {
+    while (isHexSeparator(*text)) ++text;
+    const int8_t nibble = hexNibble(*text++);
+    if (nibble < 0) return false;
+    value = (value << 4) | static_cast<uint64_t>(nibble);
+  }
+
+  while (isHexSeparator(*text)) ++text;
+  if (*text != '\0') return false;
+  output = value;
+  return true;
+}
+
 bool credentialsConfigured() {
 #if HAS_LORAWAN_CREDENTIALS
+  if (!parseEui(joinEUIHex, joinEUI) || !parseEui(devEUIHex, devEUI)) return false;
   // An all-zero JoinEUI is valid for a DIY device; the DevEUI must be set.
   if (devEUI == 0) return false;
   if (!parseKey(appKeyHex, appKey) || !parseKey(nwkKeyHex, nwkKey)) return false;
