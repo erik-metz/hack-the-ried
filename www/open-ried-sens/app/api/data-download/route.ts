@@ -22,29 +22,29 @@ export async function GET(request: Request) {
     const days = (Date.parse(query.get("end")!) - Date.parse(query.get("start")!)) / 86400000;
     if (days < 0 || days >= 31) return error("Bitte einen Zeitraum von höchstens 31 Tagen wählen (Start vor Ende).", 400);
   }
+  const url = new URL("/api/v1/downloads", env.BACKEND_API_URL);
+  url.search = query.toString();
+  if (!check) {
+    // Let the VPS serve the long-lived ZIP stream directly. Proxying it
+    // through a serverless Next.js function can truncate large archives.
+    return new Response(null, { status: 302, headers: {
+      Location: url.toString(),
+      "Cache-Control": "no-store",
+    } });
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
   try {
-    const url = new URL("/api/v1/downloads", env.BACKEND_API_URL);
-    url.search = query.toString();
     const response = await fetch(url, { cache: "no-store", signal: AbortSignal.any([controller.signal, request.signal]) });
     clearTimeout(timeout);
     if (!response.ok) {
       const body = await response.json().catch(() => null);
       return error(typeof body?.detail === "string" ? body.detail : "Daten konnten nicht geladen werden. Bitte später erneut versuchen.", response.status);
     }
-    if (check) {
-      const body = await response.json();
-      if (body.available !== true) throw new Error("Invalid availability response");
-      return Response.json({ available: true }, { headers: { "Cache-Control": "no-store" } });
-    }
-    if (!response.headers.get("Content-Type")?.startsWith("application/zip")) throw new Error("Invalid download format");
-    // Stream the ZIP; the timeout applies to response headers, not the download duration.
-    return new Response(response.body, { headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="open-ried-sens-${sample ? "sample" : `${topic}-${query.get("start")}-${query.get("end")}`}.zip"`,
-      "Cache-Control": "no-store",
-    } });
+    const body = await response.json();
+    if (body.available !== true) throw new Error("Invalid availability response");
+    return Response.json({ available: true }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     clearTimeout(timeout);
     return error("Der Datenexport ist momentan nicht erreichbar. Bitte später erneut versuchen.", 502);
