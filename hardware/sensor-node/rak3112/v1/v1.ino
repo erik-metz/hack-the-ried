@@ -35,6 +35,7 @@ static constexpr int8_t LORA_SCK = 5;
 static constexpr int8_t LORA_MOSI = 6;
 static constexpr int8_t LORA_MISO = 3;
 static constexpr int8_t LORA_RESET = 8;
+static constexpr int8_t LORA_ANT_SWITCH_POWER = 4;
 static constexpr int8_t LORA_DIO1 = 47;
 static constexpr int8_t LORA_BUSY = 48;
 
@@ -170,6 +171,10 @@ void restoreLoRaWANSession() {
 
 bool initRadio() {
   Serial.println(F("[RADIO] Initialisiere SPI (SCK=5, MISO=3, MOSI=6, NSS=7)..."));
+  // RAK3212 routes the SX1262 RF switch supply to internal GPIO4 (ANT_SW).
+  pinMode(LORA_ANT_SWITCH_POWER, OUTPUT);
+  digitalWrite(LORA_ANT_SWITCH_POWER, HIGH);
+  Serial.println(F("[RADIO] ANT_SW (GPIO4) eingeschaltet."));
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_NSS);
 
   Serial.println(F("[RADIO] Initialisiere SX1262 (EU868, TCXO 1.6 V)..."));

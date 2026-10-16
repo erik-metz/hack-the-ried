@@ -70,6 +70,7 @@ uint16_t token = 0;
 IPAddress pullResponseAddress;
 uint16_t pullResponsePort = 0;
 volatile bool packetReceived = false;
+volatile uint32_t packetRxTimestamp = 0;
 uint32_t rxCount = 0;
 uint32_t gpsBytes = 0;
 uint32_t gpsSentences = 0;
@@ -86,7 +87,10 @@ float lastSnr = 0;
 String statusLine = "Booting";
 bool displayReady = false;
 
-void setFlag() { packetReceived = true; }
+void setFlag() {
+  packetRxTimestamp = micros();
+  packetReceived = true;
+}
 void setRxMode() { digitalWrite(FEM_CTX, LOW); }
 void setTxMode() { digitalWrite(FEM_CTX, HIGH); }
 
@@ -322,11 +326,12 @@ bool sendJson(uint8_t identifier, const JsonDocument& doc) {
   return udp.endPacket() == 1;
 }
 
-void sendPushData(const uint8_t* payload, size_t length, int16_t rssi, float snr) {
+void sendPushData(const uint8_t* payload, size_t length, int16_t rssi, float snr,
+                  uint32_t rxTimestamp) {
   StaticJsonDocument<1024> doc;
   JsonArray rxpk = doc.createNestedArray("rxpk");
   JsonObject pk = rxpk.createNestedObject();
-  pk["tmst"] = micros(); pk["chan"] = 0; pk["rfch"] = 0;
+  pk["tmst"] = rxTimestamp; pk["chan"] = 0; pk["rfch"] = 0;
   pk["freq"] = LORA_FREQUENCY; pk["stat"] = 1; pk["modu"] = "LORA";
   char dataRate[16];
   snprintf(dataRate, sizeof(dataRate), "SF%dBW%d", LORA_SF, static_cast<int>(LORA_BW));
@@ -335,7 +340,11 @@ void sendPushData(const uint8_t* payload, size_t length, int16_t rssi, float snr
   pk["data"] = base64Encode(payload, length);
   addGatewayStatus(doc);
   if (doc.overflowed()) { statusLine = "Uplink JSON full"; return; }
-  statusLine = sendJson(PUSH_DATA, doc) ? "Uplink forwarded" : "UDP push failed";
+  const bool forwarded = sendJson(PUSH_DATA, doc);
+  Serial.printf("[UPLINK] LoRa RX %u bytes RSSI=%d dBm SNR=%.1f dB tmst=%lu; TTN forward=%s\n",
+      static_cast<unsigned>(length), rssi, snr,
+      static_cast<unsigned long>(rxTimestamp), forwarded ? "yes" : "no");
+  statusLine = forwarded ? "Uplink forwarded" : "UDP push failed";
 }
 
 void sendStatus() {
@@ -349,7 +358,15 @@ void sendPullData() {
       static_cast<uint8_t>(token), PULL_DATA };
   ++token;
   memcpy(&packet[4], gatewayEui, sizeof(gatewayEui));
-  if (udp.beginPacket(LNS_HOST, LNS_PORT)) { udp.write(packet, sizeof(packet)); udp.endPacket(); }
+  if (!udp.beginPacket(LNS_HOST, LNS_PORT)) {
+    Serial.println(F("[UDP] PULL_DATA beginPacket failed."));
+    return;
+  }
+  const size_t written = udp.write(packet, sizeof(packet));
+  const bool sent = udp.endPacket() == 1 && written == sizeof(packet);
+  Serial.printf("[UDP] PULL_DATA sent=%s bytes=%u token=%u\n",
+      sent ? "yes" : "no", static_cast<unsigned>(written),
+      static_cast<unsigned>(token - 1));
 }
 
 bool sendTxAck(uint16_t responseToken, const char* error) {
@@ -489,10 +506,8 @@ void processGps() {
     digitalWrite(GNSS_EN_PIN, gpsProbeEnable[gpsProbeIndex]);
     pinMode(GNSS_WAKE_PIN, OUTPUT);
     digitalWrite(GNSS_WAKE_PIN, HIGH);
-    delay(150);
     gpsSerial.setRxBufferSize(2048);
     gpsSerial.begin(gpsProbeBauds[gpsProbeIndex], SERIAL_8N1, GPS_RX, GPS_TX);
-    delay(50);
     gpsSerial.println(F("$PMTK000*32"));
     gpsSerial.println(F("$PMTK225,0*2B"));
     lastGpsProbe = millis();
@@ -514,10 +529,15 @@ void processGps() {
 void processUdp() {
   const int packetSize = udp.parsePacket();
   if (packetSize <= 0) return;
+  const IPAddress sourceAddress = udp.remoteIP();
+  const uint16_t sourcePort = udp.remotePort();
   uint8_t buffer[1024];
   const int length = udp.read(buffer, min(packetSize, static_cast<int>(sizeof(buffer))));
   if (length < 4) return;
   const uint16_t responseToken = (static_cast<uint16_t>(buffer[1]) << 8) | buffer[2];
+  Serial.printf("[UDP] RX type=0x%02X bytes=%d from=%s:%u token=%u\n",
+      buffer[3], length, sourceAddress.toString().c_str(), sourcePort,
+      static_cast<unsigned>(responseToken));
   if (buffer[3] == PULL_ACK) {
     statusLine = "TTN connected";
     static bool loggedPullAck = false;
@@ -582,7 +602,7 @@ void loop() {
     const int readState = length <= sizeof(payload) ? radio.readData(payload, length) : RADIOLIB_ERR_PACKET_TOO_LONG;
     if (readState == RADIOLIB_ERR_NONE) {
       lastRssi = radio.getRSSI(); lastSnr = radio.getSNR(); ++rxCount;
-      sendPushData(payload, length, lastRssi, lastSnr);
+      sendPushData(payload, length, lastRssi, lastSnr, packetRxTimestamp);
     } else {
       statusLine = "Bad uplink packet";
     }
