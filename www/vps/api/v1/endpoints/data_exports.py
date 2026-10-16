@@ -190,7 +190,7 @@ async def stream_export(pool, topic, start, end):
     sink = ZipBuffer()
     async with pool.connection() as conn, conn.transaction():
         await conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-        await conn.execute("SET LOCAL statement_timeout = '25s'")
+        await conn.execute("SET LOCAL statement_timeout = '60s'")
         generated_at = (await (await conn.execute('SELECT transaction_timestamp() AS time')).fetchone())['time']
         counts = {}
         archive = zipfile.ZipFile(sink, 'w', compression=zipfile.ZIP_DEFLATED)
@@ -235,7 +235,7 @@ async def download_data(
     try:
         async with pool.connection() as conn, conn.transaction():
             await conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            await conn.execute("SET LOCAL statement_timeout = '25s'")
+            await conn.execute("SET LOCAL statement_timeout = '60s'")
             if not sample:
                 queries = export_queries(topic, start_time, end_time)
                 # Validate that there is data before the browser starts a download.

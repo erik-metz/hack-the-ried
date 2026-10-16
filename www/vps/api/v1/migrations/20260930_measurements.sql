@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS readings (
     CHECK ((period_start IS NULL AND period_end IS NULL) OR
         (period_start IS NOT NULL AND period_end IS NOT NULL AND period_start < period_end))
 );
+CREATE INDEX IF NOT EXISTS idx_readings_observed_measurement
+    ON readings (observed_at, measurement_id);
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
         PERFORM create_hypertable('readings', 'observed_at', if_not_exists => TRUE);
