@@ -55,16 +55,9 @@ test("decodes all registered BOM sensor identifiers", () => {
   ]);
 });
 
-test("continues decoding the previous climate payload during migration", () => {
-  const result = decode({ bytes: [2, 0, 171, 1, 247] });
-  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
-    { metric: "temperature", unit: "°C", value: 17.1 },
-    { metric: "humidity", unit: "%", value: 50.3 },
-  ]);
-});
-
 test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [] }).errors);
+  assert.ok(decode({ bytes: [2, 0, 171, 1, 247] }).errors);
   assert.ok(decode({ fPort: 9, bytes: [3, ...record(1, 180)] }).errors);
   assert.ok(decode({ bytes: [3, 1, 0] }).errors);
   assert.ok(decode({ bytes: [3, ...record(1, 180), ...record(1, 190)] }).errors);

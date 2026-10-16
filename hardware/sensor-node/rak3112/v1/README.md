@@ -102,9 +102,9 @@ To add a measurement, assign it a new code and documented scale, append its
 encoded value to the uplink records, and add that code to
 `payload-formatter.js`. Until a code is registered, the formatter still sends
 it downstream as `metric_<code>` with unit `raw`, and also exposes the raw
-code/value pair as `unknown_measurements`. The formatter accepts the previous
-fixed five-byte v2 temperature/humidity payload during firmware migration. It
-does not expose the removed uptime or uplink-counter diagnostics.
+code/value pair as `unknown_measurements`. The formatter accepts version 3
+payloads only. It does not expose the removed uptime or uplink-counter
+diagnostics.
 
 Install `payload-formatter.js` as the TTN uplink payload formatter for FPort 10.
 Its local protocol tests can be run with:

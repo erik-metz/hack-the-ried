@@ -10,7 +10,6 @@ function decodeUplink(input) {
   }
 
   const version = bytes[0];
-  if (version === 2) return decodeVersion2(bytes);
   if (version !== 3) return { errors: [`Unsupported payload version: ${version}`] };
   if (bytes.length < 6 || (bytes.length - 1) % 5 !== 0) {
     return { errors: ["Version 3 payload must contain complete 5-byte measurement records"] };
@@ -90,20 +89,4 @@ function decodeMetric(code, raw) {
     case 41: return { metric: "sound_event_class", unit: "class", value: raw };
     default: return undefined;
   }
-}
-
-function decodeVersion2(bytes) {
-  if (bytes.length !== 5) return { errors: ["Version 2 payload must be exactly 5 bytes"] };
-  let temperature = (bytes[1] << 8) | bytes[2];
-  if (temperature & 0x8000) temperature -= 0x10000;
-  const humidity = (bytes[3] << 8) | bytes[4];
-  return {
-    data: {
-      version: 2,
-      measurements: [
-        { metric: "temperature", unit: "°C", value: temperature / 10 },
-        { metric: "humidity", unit: "%", value: humidity / 10 },
-      ],
-    },
-  };
 }
