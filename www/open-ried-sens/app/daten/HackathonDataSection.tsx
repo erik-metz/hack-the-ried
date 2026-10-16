@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const inputClass = "mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-slate-100 focus-visible:outline-2 focus-visible:outline-emerald-400";
 const buttonClass = "rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400";
@@ -8,6 +8,17 @@ const buttonClass = "rounded-xl px-4 py-3 text-sm font-semibold transition-color
 export default function HackathonDataSection() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const startDateInput = useRef<HTMLInputElement>(null);
+  const endDateInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const today = new Date();
+    const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - 7);
+    if (endDateInput.current) endDateInput.current.value = end.toISOString().slice(0, 10);
+    if (startDateInput.current) startDateInput.current.value = start.toISOString().slice(0, 10);
+  }, []);
 
   async function download(params: URLSearchParams) {
     setBusy(true);
@@ -70,10 +81,10 @@ export default function HackathonDataSection() {
             </select>
           </label>
           <label className="text-sm font-medium">Von (UTC)
-            <input type="date" name="start" required className={inputClass} />
+            <input ref={startDateInput} type="date" name="start" required className={inputClass} />
           </label>
           <label className="text-sm font-medium">Bis (UTC, einschließlich)
-            <input type="date" name="end" required className={inputClass} />
+            <input ref={endDateInput} type="date" name="end" required className={inputClass} />
           </label>
         </fieldset>
         <p className="text-xs text-slate-400">Bis zu 31 Tage pro Export, ohne Zeilenlimit. Baustellen und Sperrungen enthalten gespeicherte Meldungen, deren Gültigkeit den Zeitraum überlappt.</p>
