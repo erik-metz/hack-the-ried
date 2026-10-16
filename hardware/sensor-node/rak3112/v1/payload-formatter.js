@@ -34,13 +34,11 @@ function decodeUplink(input) {
       bytes[offset + 4];
     const decoded = decodeMetric(code, raw);
     if (decoded) measurements.push(decoded);
-    else unknownMeasurements.push({ code, raw_value: raw });
-  }
-  if (measurements.length === 0) {
-    return {
-      data: { version, measurements, unknown_measurements: unknownMeasurements },
-      warnings: ["Payload contains no metric codes known to this formatter"],
-    };
+    else {
+      // Preserve unregistered values through integrations and the database.
+      measurements.push({ metric: `metric_${code}`, unit: "raw", value: raw });
+      unknownMeasurements.push({ code, raw_value: raw });
+    }
   }
   const data = { version, measurements };
   if (unknownMeasurements.length) data.unknown_measurements = unknownMeasurements;

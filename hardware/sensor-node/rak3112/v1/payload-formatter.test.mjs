@@ -30,7 +30,10 @@ test("keeps unknown metric codes and raw values visible", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(result.data.unknown_measurements)), [
     { code: 99, raw_value: 1234 },
   ]);
-  assert.equal(result.data.measurements[0].value, 18);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "metric_99", unit: "raw", value: 1234 },
+    { metric: "temperature", unit: "°C", value: 18 },
+  ]);
 });
 
 test("continues decoding the previous climate payload during migration", () => {
