@@ -51,7 +51,6 @@ Preferences preferences;
 
 bool radioReady = false;
 bool joined = false;
-uint32_t packetCounter = 0;
 uint32_t lastUplinkMs = 0;
 uint32_t nextJoinAttemptMs = 0;
 uint8_t joinRetryCount = 0;
@@ -262,28 +261,19 @@ void updateFakeClimate() {
   fakeHumidityTenths = static_cast<uint16_t>(nextHumidity < 470 ? 470 : nextHumidity > 530 ? 530 : nextHumidity);
 }
 
-void sendStatusUplink() {
-  // Payload v1 (11 bytes), big-endian: version, uptime_seconds, packet_counter,
-  // temperature in 0.1 C, and relative humidity in 0.1 percent.
+void sendClimateUplink() {
+  // Payload v2 (5 bytes), big-endian: version, temperature in 0.1 C,
+  // and relative humidity in 0.1 percent. Diagnostic counters are not sent.
   updateFakeClimate();
-  uint8_t payload[11];
-  const uint32_t uptimeSeconds = millis() / 1000UL;
-  ++packetCounter;
-  payload[0] = 1;
-  payload[1] = static_cast<uint8_t>(uptimeSeconds >> 24);
-  payload[2] = static_cast<uint8_t>(uptimeSeconds >> 16);
-  payload[3] = static_cast<uint8_t>(uptimeSeconds >> 8);
-  payload[4] = static_cast<uint8_t>(uptimeSeconds);
-  payload[5] = static_cast<uint8_t>(packetCounter >> 8);
-  payload[6] = static_cast<uint8_t>(packetCounter);
-  payload[7] = static_cast<uint8_t>(static_cast<uint16_t>(fakeTemperatureTenths) >> 8);
-  payload[8] = static_cast<uint8_t>(fakeTemperatureTenths);
-  payload[9] = static_cast<uint8_t>(fakeHumidityTenths >> 8);
-  payload[10] = static_cast<uint8_t>(fakeHumidityTenths);
+  uint8_t payload[5];
+  payload[0] = 2;
+  payload[1] = static_cast<uint8_t>(static_cast<uint16_t>(fakeTemperatureTenths) >> 8);
+  payload[2] = static_cast<uint8_t>(fakeTemperatureTenths);
+  payload[3] = static_cast<uint8_t>(fakeHumidityTenths >> 8);
+  payload[4] = static_cast<uint8_t>(fakeHumidityTenths);
 
-  Serial.printf("[UPLINK] FPort=%u, version=%u, uptime=%lu s, counter=%lu, fake temperature=%d.%d C, fake humidity=%u.%u %%\n",
-      UPLINK_FPORT, payload[0], static_cast<unsigned long>(uptimeSeconds),
-      static_cast<unsigned long>(packetCounter), fakeTemperatureTenths / 10,
+  Serial.printf("[UPLINK] FPort=%u, version=%u, fake temperature=%d.%d C, fake humidity=%u.%u %%\n",
+      UPLINK_FPORT, payload[0], fakeTemperatureTenths / 10,
       abs(fakeTemperatureTenths % 10), fakeHumidityTenths / 10,
       fakeHumidityTenths % 10);
 
@@ -342,7 +332,7 @@ void setup() {
   joined = joinNetwork();
   if (joined) {
     joinRetryCount = 0;
-    sendStatusUplink();
+    sendClimateUplink();
     lastUplinkMs = millis();
   } else {
     scheduleJoinRetry();
@@ -361,7 +351,7 @@ void loop() {
   }
   if (joined && millis() - lastUplinkMs >= UPLINK_INTERVAL_MS) {
     lastUplinkMs = millis();
-    sendStatusUplink();
+    sendClimateUplink();
   }
   if (radioReady && !joined && credentialsConfigured() &&
       static_cast<int32_t>(millis() - nextJoinAttemptMs) >= 0) {
@@ -369,7 +359,7 @@ void loop() {
     joined = joinNetwork();
     if (joined) {
       joinRetryCount = 0;
-      sendStatusUplink();
+      sendClimateUplink();
       lastUplinkMs = millis();
     } else {
       scheduleJoinRetry();

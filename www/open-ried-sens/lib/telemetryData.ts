@@ -1,8 +1,5 @@
 import type { Reading } from "./mapData";
 
-const HIDDEN_METRICS = new Set(["uplink_counter", "uptime_seconds"]);
-export const isVisibleReading = (reading: { metric: string }) => !HIDDEN_METRICS.has(reading.metric);
-
 export const seriesKey = (reading: { metric: string; unit: string }) => JSON.stringify([reading.metric, reading.unit]);
 const LABELS: Record<string, string> = {
   fuel_e5: "Super E5", fuel_e10: "Super E10", fuel_diesel: "Diesel",
@@ -42,7 +39,6 @@ export function crossingStateLabel(value: number): string {
 export function mergeReadings(...groups: Reading[][]): Reading[] {
   const latest = new Map<string, Reading>();
   for (const group of groups) for (const reading of group) {
-    if (!isVisibleReading(reading)) continue;
     if (!Number.isFinite(reading.value) || !Number.isFinite(Date.parse(reading.timestamp))) continue;
     const old = latest.get(seriesKey(reading));
     if (!old || Date.parse(old.timestamp) < Date.parse(reading.timestamp)) latest.set(seriesKey(reading), reading);
