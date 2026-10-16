@@ -101,7 +101,7 @@ bool initRadio() {
 bool joinNetwork() {
   if (!credentialsConfigured()) {
     Serial.println(F("[LORAWAN] OTAA aus: secrets.h fehlt oder enthält Platzhalter."));
-    Serial.println(F("[LORAWAN] secrets.h.example als secrets.h kopieren und TTN-Werte eintragen."));
+  Serial.println(F("[LORAWAN] secrets.h.example als secrets.h kopieren; OTAA 1.1 benoetigt NwkKey und AppKey."));
     return false;
   }
 
