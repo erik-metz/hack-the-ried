@@ -41,8 +41,9 @@ services:
     image: ghcr.io/erik-metz/open-ried-sens-api:latest
     container_name: backend_api
     working_dir: /app/v1
-    command: uvicorn main:app --host 0.0.0.0 --port 8080
+    command: uvicorn main:app --host 0.0.0.0 --port 8080 --timeout-graceful-shutdown 600
     restart: always
+    stop_grace_period: 11m
     environment:
       MEASUREMENT_READ_MODE: ${MEASUREMENT_READ_MODE:-legacy}
       DB_HOST: timescaledb
@@ -505,6 +506,7 @@ services:
     environment:
       - DOCKER_API_VERSION=1.44
       - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_STOP_TIMEOUT=11m
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_HTTP_API_PERIODIC_POLLS=false
 
