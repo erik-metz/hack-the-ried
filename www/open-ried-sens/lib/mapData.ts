@@ -1,3 +1,5 @@
+const HIDDEN_TELEMETRY_METRICS = new Set(["uplink_counter", "uptime_seconds"]);
+
 export const CATEGORIES = {
   weather: { label: "Wetter & Klima", color: "#f59e0b", path: "M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z M12 9v8" },
   soil: { label: "Boden & Bewässerung", color: "#84cc16", path: "M20 4C9 3 3 7 5 14c2 7 14 6 15-10Z M4 21l11-11" },
@@ -139,7 +141,7 @@ export function toStationNodes(sensors: ApiMapSensor[]): StationNode[] {
       result.push({
         id: s.id, name: s.friendly_name, locationName: s.friendly_name, address: s.description ?? "",
         lat: s.latitude, lng: s.longitude, categories,
-        readings: (s.readings ?? []).filter(r => Number.isFinite(r.value) && Number.isFinite(Date.parse(r.timestamp))),
+        readings: (s.readings ?? []).filter(r => !HIDDEN_TELEMETRY_METRICS.has(r.metric) && Number.isFinite(r.value) && Number.isFinite(Date.parse(r.timestamp))),
       });
     }
   }

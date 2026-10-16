@@ -364,6 +364,13 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(telemetry.unitLabel("count"), "Anzahl");
 });
 
+test("diagnostic RAK readings are hidden from station cards, map popups, and merged telemetry", () => {
+  const diagnostics = [reading("uplink_counter", 7, "count"), reading("uptime_seconds", 120, "s")];
+  const station = model.toStationNodes([sensor([...diagnostics, reading("temperature"), reading("humidity", 50, "%")])])[0];
+  assert.deepEqual(station.readings.map(item => item.metric).sort(), ["humidity", "temperature"]);
+  assert.deepEqual(Array.from(telemetry.mergeReadings(diagnostics, [reading("temperature")]), item => item.metric), ["temperature"]);
+});
+
 test("weather identity is not overridden by generic parking notes in source descriptions", () => {
   const nodes = model.toStationNodes([sensor([reading("temperature")], {
     entity_type: "WeatherObserved", source_entity_id: "urn:ngsi-ld:WeatherObserved:wettermanufaktur-123",
