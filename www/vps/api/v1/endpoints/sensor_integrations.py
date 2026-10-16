@@ -44,7 +44,7 @@ def _event_time(uplink: dict[str, Any], body: dict[str, Any]) -> datetime:
     if not isinstance(value, str):
         raise HTTPException(422, "Uplink received_at timestamp is required")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise HTTPException(422, "Uplink received_at must be ISO-8601") from exc
     if parsed.tzinfo is None:
