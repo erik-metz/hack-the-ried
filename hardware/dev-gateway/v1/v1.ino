@@ -350,7 +350,7 @@ void sendPullData() {
   if (udp.beginPacket(LNS_HOST, LNS_PORT)) { udp.write(packet, sizeof(packet)); udp.endPacket(); }
 }
 
-void sendTxAck(uint16_t responseToken, const char* error) {
+bool sendTxAck(uint16_t responseToken, const char* error) {
   uint8_t packet[96] = { 0x02, static_cast<uint8_t>(responseToken >> 8),
       static_cast<uint8_t>(responseToken), TX_ACK };
   memcpy(&packet[4], gatewayEui, sizeof(gatewayEui));
@@ -362,15 +362,17 @@ void sendTxAck(uint16_t responseToken, const char* error) {
     char json[80];
     const int jsonLength = snprintf(json, sizeof(json),
         "{\"txpk_ack\":{\"error\":\"%s\"}}", error);
-    if (jsonLength <= 0 || static_cast<size_t>(jsonLength) + packetLength > sizeof(packet)) return;
+    if (jsonLength <= 0 || static_cast<size_t>(jsonLength) + packetLength > sizeof(packet)) return false;
     memcpy(&packet[packetLength], json, jsonLength);
     packetLength += static_cast<size_t>(jsonLength);
   }
 
-  if (udp.beginPacket(LNS_HOST, LNS_PORT)) {
-    udp.write(packet, packetLength);
-    udp.endPacket();
-  }
+  if (!udp.beginPacket(LNS_HOST, LNS_PORT)) return false;
+  const size_t written = udp.write(packet, packetLength);
+  const bool sent = udp.endPacket() == 1 && written == packetLength;
+  Serial.printf("[UDP] TX_ACK error=%s sent=%s bytes=%u\n", error,
+      sent ? "yes" : "no", static_cast<unsigned>(packetLength));
+  return sent;
 }
 
 bool parseDataRate(const char* dataRate, int& sf, float& bandwidth) {
@@ -395,6 +397,7 @@ void resumeReceive() {
 void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t length) {
   StaticJsonDocument<768> doc;
   if (deserializeJson(doc, buffer, length)) {
+    Serial.println(F("[DOWNLINK][ERROR] PULL_RESP JSON ungültig."));
     sendTxAck(responseToken, "COLLISION_PACKET"); statusLine = "Bad downlink JSON"; return;
   }
   JsonObject txpk = doc["txpk"];
@@ -403,21 +406,26 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   const char* codingRate = txpk["codr"] | "4/5";
   int sf = 0; float bandwidth = 0;
   if (!encoded || !parseDataRate(dataRate, sf, bandwidth)) {
+    Serial.println(F("[DOWNLINK][ERROR] PULL_RESP ohne unterstützte Datenrate/Payload."));
     sendTxAck(responseToken, "TX_FREQ"); statusLine = "Unsupported downlink"; return;
   }
   const float frequency = txpk["freq"] | 0.0f;
   if (fabsf(frequency - LORA_FREQUENCY) > 0.001f || sf != LORA_SF ||
       fabsf(bandwidth - LORA_BW) > 0.1f || strcmp(codingRate, "4/5") != 0) {
+    Serial.printf("[DOWNLINK][ERROR] Konfiguration passt nicht: %.3f MHz SF%d BW%.0f CR%s.\n",
+        frequency, sf, bandwidth, codingRate);
     sendTxAck(responseToken, "TX_FREQ"); statusLine = "DL outside SC config"; return;
   }
   uint8_t payload[255];
   const size_t decoded = decodeBase64(encoded, payload, sizeof(payload));
   if (decoded == 0 && strlen(encoded) != 0) {
+    Serial.println(F("[DOWNLINK][ERROR] PULL_RESP Base64-Daten ungültig."));
     sendTxAck(responseToken, "COLLISION_PACKET"); statusLine = "Bad downlink data"; return;
   }
   const bool immediate = txpk["imme"] | false;
   const uint32_t txTimestamp = txpk["tmst"] | 0U;
   if (!immediate && static_cast<int32_t>(txTimestamp - micros()) < -100000) {
+    Serial.println(F("[DOWNLINK][ERROR] PULL_RESP kam nach dem Sendezeitpunkt an."));
     sendTxAck(responseToken, "TOO_LATE"); statusLine = "Downlink too late"; return;
   }
   radio.standby();
@@ -430,7 +438,10 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   }
   setTxMode();
   const int state = radio.transmit(payload, decoded);
-  sendTxAck(responseToken, state == RADIOLIB_ERR_NONE ? "NONE" : "TX_POWER");
+  const char* txAckError = state == RADIOLIB_ERR_NONE ? "NONE" : "TX_POWER";
+  const bool ackSent = sendTxAck(responseToken, txAckError);
+  Serial.printf("[DOWNLINK] TX result=%d payload=%u bytes; ACK datagram=%s.\n",
+      state, static_cast<unsigned>(decoded), ackSent ? "sent" : "failed");
   statusLine = state == RADIOLIB_ERR_NONE ? "Downlink sent" : "Downlink failed";
   resumeReceive();
 }
@@ -498,9 +509,19 @@ void processUdp() {
   const int length = udp.read(buffer, min(packetSize, static_cast<int>(sizeof(buffer))));
   if (length < 4) return;
   const uint16_t responseToken = (static_cast<uint16_t>(buffer[1]) << 8) | buffer[2];
-  if (buffer[3] == PULL_ACK) statusLine = "TTN connected";
+  if (buffer[3] == PULL_ACK) {
+    statusLine = "TTN connected";
+    static bool loggedPullAck = false;
+    if (!loggedPullAck) {
+      Serial.println(F("[UDP] PULL_ACK: TTN gateway connection active."));
+      loggedPullAck = true;
+    }
+  }
   else if (buffer[3] == PUSH_ACK) statusLine = "TTN uplink ACK";
-  else if (buffer[3] == PULL_RESP) handlePullResponse(responseToken, &buffer[4], length - 4);
+  else if (buffer[3] == PULL_RESP) {
+    Serial.printf("[UDP] PULL_RESP received (%d bytes).\n", length);
+    handlePullResponse(responseToken, &buffer[4], length - 4);
+  }
 }
 
 void setup() {
