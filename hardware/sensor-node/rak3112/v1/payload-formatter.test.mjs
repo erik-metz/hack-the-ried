@@ -36,6 +36,25 @@ test("keeps unknown metric codes and raw values visible", () => {
   ]);
 });
 
+test("decodes all registered BOM sensor identifiers", () => {
+  const result = decode({ bytes: [3, ...Array.from({ length: 41 }, (_, index) => record(index + 1, 100)).flat()] });
+  const measurements = JSON.parse(JSON.stringify(result.data.measurements));
+  assert.equal(measurements.length, 41);
+  assert.deepEqual(measurements.map(({ metric }) => metric), [
+    "temperature", "humidity", "uv_index", "co2", "scd41_temperature",
+    "scd41_humidity", "sound_level", "pm1_0", "pm2_5", "pm4_0", "pm10",
+    "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5",
+    "particle_number_pm4_0", "particle_number_pm10", "particle_size_typical",
+    "bme688_temperature", "bme688_humidity", "pressure", "bme688_gas_resistance",
+    "bme688_iaq", "bme688_static_iaq", "bme688_co2_equivalent",
+    "bme688_bvoc_equivalent", "bme688_gas_percentage", "sgp41_voc_raw",
+    "sgp41_nox_raw", "sgp41_voc_index", "sgp41_nox_index", "ambient_light",
+    "ltr390_uv_raw", "ltr390_als_raw", "rain_detected", "rain_pulses",
+    "bus_voltage", "shunt_voltage", "current", "power", "sound_dominant_frequency",
+    "sound_event_class",
+  ]);
+});
+
 test("continues decoding the previous climate payload during migration", () => {
   const result = decode({ bytes: [2, 0, 171, 1, 247] });
   assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
@@ -49,5 +68,5 @@ test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ fPort: 9, bytes: [3, ...record(1, 180)] }).errors);
   assert.ok(decode({ bytes: [3, 1, 0] }).errors);
   assert.ok(decode({ bytes: [3, ...record(1, 180), ...record(1, 190)] }).errors);
-  assert.ok(decode({ bytes: [3, ...Array(33 * 5).fill(0)] }).errors);
+  assert.ok(decode({ bytes: [3, ...Array(42 * 5).fill(0)] }).errors);
 });

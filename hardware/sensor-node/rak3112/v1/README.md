@@ -60,6 +60,43 @@ identifiers; the value scale and unit belong to each code:
 | 2 | `humidity` | `%` | tenths (raw `503` = `50.3`) |
 | 3 | `uv_index` | `index` | hundredths (raw `725` = `7.25`) |
 | 4 | `co2` | `ppm` | whole ppm (raw `420` = `420`) |
+| 5 | `scd41_temperature` | `°C` | hundredths |
+| 6 | `scd41_humidity` | `%` | hundredths |
+| 7 | `sound_level` | `dBFS` | tenths; digital level relative to full scale |
+| 8–11 | `pm1_0`, `pm2_5`, `pm4_0`, `pm10` | `µg/m³` | tenths |
+| 12–16 | `particle_number_pm0_5`, `particle_number_pm1_0`, `particle_number_pm2_5`, `particle_number_pm4_0`, `particle_number_pm10` | `#/cm³` | tenths |
+| 17 | `particle_size_typical` | `nm` | whole nm |
+| 18 | `bme688_temperature` | `°C` | hundredths |
+| 19 | `bme688_humidity` | `%` | hundredths |
+| 20 | `pressure` | `hPa` | tenths |
+| 21 | `bme688_gas_resistance` | `Ω` | whole ohms |
+| 22–23 | `bme688_iaq`, `bme688_static_iaq` | `index` | tenths |
+| 24 | `bme688_co2_equivalent` | `ppm` | whole ppm (algorithm estimate, not NDIR CO₂) |
+| 25 | `bme688_bvoc_equivalent` | `ppm` | hundredths |
+| 26 | `bme688_gas_percentage` | `%` | tenths |
+| 27–28 | `sgp41_voc_raw`, `sgp41_nox_raw` | `raw` | whole sensor signal |
+| 29–30 | `sgp41_voc_index`, `sgp41_nox_index` | `index` | whole index |
+| 31 | `ambient_light` | `lux` | tenths |
+| 32–33 | `ltr390_uv_raw`, `ltr390_als_raw` | `raw` | whole ADC signal |
+| 34 | `rain_detected` | `bool` | `0` = no, `1` = yes |
+| 35 | `rain_pulses` | `count` | whole pulses |
+| 36 | `bus_voltage` | `mV` | whole mV |
+| 37 | `shunt_voltage` | `µV` | whole µV |
+| 38 | `current` | `mA` | whole mA |
+| 39 | `power` | `mW` | whole mW |
+| 40 | `sound_dominant_frequency` | `Hz` | whole Hz |
+| 41 | `sound_event_class` | `class` | `0` = unknown, `1` = speech, `2` = vehicle, `3` = heavy rain |
+
+Codes 5–40 cover optional outputs from the sensor selection in
+`hardware/sensor-node/v2/bom.md`; they are a registry for the future v2 sensor
+build, not a claim that the current RAK3112 v1 sketch has those sensors wired
+or emits those values. The sound metrics require DSP on microphone samples;
+sound level needs calibration. BME688 IAQ/equivalent-gas fields require a
+supporting algorithm, rain pulses do not become millimetres until calibrated,
+and INA226 current depends on the configured shunt. The payload limit is 41
+records (206 bytes including the version byte). Keep each uplink within the
+active LoRaWAN data-rate payload allowance; split readings over multiple
+uplinks if the selected data rate cannot carry them.
 
 To add a measurement, assign it a new code and documented scale, append its
 encoded value to the uplink records, and add that code to

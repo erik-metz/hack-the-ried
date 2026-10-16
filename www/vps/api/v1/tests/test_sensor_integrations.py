@@ -93,6 +93,23 @@ class SensorIntegrationTests(DatabaseCase):
         self.assertEqual(error.exception.status_code, 409)
         self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 2)
 
+    async def test_accepts_full_sensor_codebook_uplink(self):
+        credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")
+        body = self.uplink()
+        body["correlation_ids"] = ["as:up:full-sensor-codebook"]
+        body["uplink_message"]["decoded_payload"]["measurements"] = [
+            {"metric": f"bom_metric_{index}", "value": index, "unit": "raw"}
+            for index in range(41)
+        ]
+        with patch.dict(os.environ, {
+            "TTN_APPLICATION_ID": "ried-sensors",
+            "TTN_WEBHOOK_USERNAME": "ttn-user",
+            "TTN_WEBHOOK_PASSWORD": "ttn-secret",
+        }):
+            accepted = await receive_sensor_uplink(body, credentials, self.pool())
+        self.assertEqual(accepted["inserted_count"], 41)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 41)
+
     async def test_invalid_credentials_and_unconfigured_application_are_rejected(self):
         with patch.dict(os.environ, {
             "TTN_APPLICATION_ID": "ried-sensors",

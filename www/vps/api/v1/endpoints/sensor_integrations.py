@@ -19,7 +19,7 @@ basic_auth = HTTPBasic(auto_error=False)
 DEVICE_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$")
 METRIC_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 UNIT_PATTERN = re.compile(r"^[^\s\x00-\x1f]{1,32}$")
-MAX_MEASUREMENTS = 32
+MAX_MEASUREMENTS = 41
 
 
 def _authenticate(credentials: HTTPBasicCredentials | None) -> None:
