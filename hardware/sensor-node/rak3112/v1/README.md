@@ -34,9 +34,12 @@ this sketch uses RadioLib's 1.1 OTAA path and needs separate NwkKey and AppKey.
 An all-zero JoinEUI is accepted for a DIY device. For the experimental
 single-channel Heltec gateway, select `Europe 868.1 MHz` as the device frequency
 plan and disable ADR under the device's Network Layer advanced MAC settings.
-The sketch fixes the node at EU868 DR5 (SF7) to match that gateway. The
-RAK3112's datasheet also describes its optional built-in modem stack as 1.0.2,
-but this sketch runs RadioLib directly on the ESP32-S3 and SX1262.
+The sketch restricts its EU868 default channels to 868.1 MHz and fixes the node
+at DR5 (SF7), matching the custom gateway's single frequency and data rate.
+This is only a development configuration; use a normal multi-channel EU868
+gateway before relying on the node for regular LoRaWAN operation. The RAK3112's
+datasheet also describes its optional built-in modem stack as 1.0.2, but this
+sketch runs RadioLib directly on the ESP32-S3 and SX1262.
 
 After OTAA succeeds, the sketch sends a 7-byte unconfirmed uplink on FPort 10
 immediately and then every five minutes. Payload v1 is:
@@ -47,6 +50,7 @@ immediately and then every five minutes. Payload v1 is:
 | 1–4 | Uptime seconds | unsigned 32-bit, big-endian |
 | 5–6 | Uplink counter | unsigned 16-bit, big-endian |
 
-The LoRaWAN session and nonce state are stored in ESP32 NVS to avoid invalid
-rejoins after reset. Register a TTN payload formatter if you want named fields
-in Live Data; the raw bytes are sufficient to verify the first uplink.
+The LoRaWAN session and DevNonce/JoinNonce state are stored separately in ESP32
+NVS to avoid invalid rejoins after reset. Register a TTN payload formatter if
+you want named fields in Live Data; the raw bytes are sufficient to verify the
+first uplink.

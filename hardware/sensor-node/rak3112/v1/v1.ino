@@ -43,7 +43,8 @@ static constexpr uint32_t UPLINK_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr uint8_t UPLINK_FPORT = 10;
 
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RESET, LORA_BUSY);
-LoRaWANNode node(&radio, &EU868);
+LoRaWANBand_t singleChannelEU868;
+LoRaWANNode* node = nullptr;
 Preferences preferences;
 
 bool radioReady = false;
@@ -117,22 +118,53 @@ void printHex64(uint64_t value) {
       static_cast<unsigned long>(value & 0xFFFFFFFFULL));
 }
 
-void persistLoRaWANSession() {
+void persistLoRaWANSecurityState() {
+  uint8_t nonceBuffer[RADIOLIB_LORAWAN_NONCES_BUF_SIZE];
+  uint8_t* nonces = node->getBufferNonces();
+  if (nonces != nullptr) {
+    memcpy(nonceBuffer, nonces, sizeof(nonceBuffer));
+    if (preferences.putBytes("nonces", nonceBuffer, sizeof(nonceBuffer)) != sizeof(nonceBuffer)) {
+      Serial.println(F("[LORAWAN][WARNUNG] Nonce-Zustand konnte nicht vollstaendig gespeichert werden."));
+    }
+  }
+
   uint8_t buffer[RADIOLIB_LORAWAN_SESSION_BUF_SIZE];
-  uint8_t* session = node.getBufferSession();
+  uint8_t* session = node->getBufferSession();
   if (session == nullptr) return;
   memcpy(buffer, session, sizeof(buffer));
-  preferences.putBytes("session", buffer, sizeof(buffer));
+  if (preferences.putBytes("session", buffer, sizeof(buffer)) != sizeof(buffer)) {
+    Serial.println(F("[LORAWAN][WARNUNG] Sitzung konnte nicht vollstaendig gespeichert werden."));
+  }
 }
 
 void restoreLoRaWANSession() {
-  uint8_t buffer[RADIOLIB_LORAWAN_SESSION_BUF_SIZE];
-  const size_t size = preferences.getBytes("session", buffer, sizeof(buffer));
-  if (size == sizeof(buffer)) {
-    node.setBufferSession(buffer);
-    Serial.println(F("[LORAWAN] Gespeicherte Sitzung/Nonce wiederhergestellt."));
+  uint8_t nonceBuffer[RADIOLIB_LORAWAN_NONCES_BUF_SIZE];
+  const size_t nonceSize = preferences.getBytes("nonces", nonceBuffer, sizeof(nonceBuffer));
+  if (nonceSize != sizeof(nonceBuffer)) {
+    Serial.println(F("[LORAWAN] Kein gespeicherter Nonce-Zustand; frischer OTAA-Join."));
+    return;
+  }
+
+  const int16_t nonceState = node->setBufferNonces(nonceBuffer);
+  if (nonceState < RADIOLIB_ERR_NONE) {
+    Serial.printf("[LORAWAN][WARNUNG] Nonces verworfen: %d; Sitzung wird nicht geladen.\n",
+        nonceState);
+    return;
+  }
+
+  uint8_t sessionBuffer[RADIOLIB_LORAWAN_SESSION_BUF_SIZE];
+  const size_t sessionSize = preferences.getBytes("session", sessionBuffer, sizeof(sessionBuffer));
+  if (sessionSize != sizeof(sessionBuffer)) {
+    Serial.println(F("[LORAWAN] Nonces wiederhergestellt; keine Sitzung gespeichert."));
+    return;
+  }
+
+  const int16_t sessionState = node->setBufferSession(sessionBuffer);
+  if (sessionState == RADIOLIB_ERR_NONE) {
+    Serial.println(F("[LORAWAN] Nonces und Sitzung wiederhergestellt."));
   } else {
-    Serial.println(F("[LORAWAN] Noch keine gespeicherte Sitzung; frischer OTAA-Join."));
+    Serial.printf("[LORAWAN][WARNUNG] Sitzung nicht wiederhergestellt: %d; OTAA-Join erforderlich.\n",
+        sessionState);
   }
 }
 
@@ -160,13 +192,17 @@ bool joinNetwork() {
     return false;
   }
 
-  node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+  const int16_t beginState = node->beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+  if (beginState != RADIOLIB_ERR_NONE) {
+    Serial.printf("[LORAWAN][FEHLER] OTAA-Konfiguration fehlgeschlagen: %d\n", beginState);
+    return false;
+  }
   restoreLoRaWANSession();
 
   // Match the single-channel Heltec development gateway (868.1 MHz, SF7).
   // Keep ADR disabled until moving to a multi-channel LoRaWAN gateway.
-  node.setADR(false);
-  const int16_t dataRateState = node.setDatarate(5);  // EU868 DR5 = SF7/BW125
+  node->setADR(false);
+  const int16_t dataRateState = node->setDatarate(5);  // EU868 DR5 = SF7/BW125
   if (dataRateState != RADIOLIB_ERR_NONE) {
     Serial.printf("[LORAWAN][FEHLER] SF7-Datenrate konnte nicht gesetzt werden: %d\n",
         dataRateState);
@@ -177,8 +213,8 @@ bool joinNetwork() {
   printHex64(devEUI);
   Serial.println(F(" ..."));
 
-  const int16_t state = node.activateOTAA();
-  persistLoRaWANSession();
+  const int16_t state = node->activateOTAA();
+  persistLoRaWANSecurityState();
   if (state != RADIOLIB_ERR_NONE && state != RADIOLIB_LORAWAN_NEW_SESSION && state <= 0) {
     Serial.printf("[LORAWAN][FEHLER] Join fehlgeschlagen: %d\n", state);
     return false;
@@ -207,9 +243,9 @@ void sendStatusUplink() {
 
   uint8_t downlink[16];
   size_t downlinkLength = sizeof(downlink);
-  const int16_t state = node.sendReceive(payload, sizeof(payload), UPLINK_FPORT,
+  const int16_t state = node->sendReceive(payload, sizeof(payload), UPLINK_FPORT,
       downlink, &downlinkLength);
-  persistLoRaWANSession();
+  persistLoRaWANSecurityState();
   if (state < RADIOLIB_ERR_NONE) {
     Serial.printf("[UPLINK][FEHLER] Senden/Empfang fehlgeschlagen: %d\n", state);
   } else {
@@ -232,6 +268,17 @@ void setup() {
 
   radioReady = initRadio();
   if (!radioReady) return;
+
+  // The development gateway listens only on 868.1 MHz. Disable the other
+  // two mandatory EU868 default channels so JoinRequests use its channel.
+  singleChannelEU868 = EU868;
+  singleChannelEU868.txFreqs[1].freq = 0;
+  singleChannelEU868.txFreqs[2].freq = 0;
+  node = new LoRaWANNode(&radio, &singleChannelEU868);
+  if (node == nullptr) {
+    Serial.println(F("[LORAWAN][FEHLER] LoRaWAN-Stack konnte nicht angelegt werden."));
+    return;
+  }
 
   if (!credentialsConfigured()) {
     Serial.println(F("[SYSTEM] Hardwaretest abgeschlossen; noch kein Funk-Join."));
