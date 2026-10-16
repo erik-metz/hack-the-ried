@@ -19,10 +19,13 @@
 // have been provisioned. OTAA is deliberately disabled in this state.
 static constexpr uint64_t joinEUI = 0;
 static constexpr uint64_t devEUI = 0;
-static const uint8_t nwkKey[16] = {};
-static const uint8_t appKey[16] = {};
+static constexpr char nwkKeyHex[] = "";
+static constexpr char appKeyHex[] = "";
 #define HAS_LORAWAN_CREDENTIALS 0
 #endif
+
+static uint8_t nwkKey[16] = {};
+static uint8_t appKey[16] = {};
 
 // RAK3112 internal SX1262 wiring (not the Heltec pin map).
 static constexpr int8_t LORA_NSS = 7;
@@ -46,9 +49,40 @@ bool joined = false;
 uint32_t packetCounter = 0;
 uint32_t lastUplinkMs = 0;
 
+int8_t hexNibble(char value) {
+  if (value >= '0' && value <= '9') return value - '0';
+  if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+  if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+  return -1;
+}
+
+bool isHexSeparator(char value) {
+  return value == ' ' || value == '\t' || value == '\r' || value == '\n' ||
+      value == ':' || value == '-';
+}
+
+bool parseKey(const char* text, uint8_t output[16]) {
+  while (isHexSeparator(*text)) ++text;
+  if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) text += 2;
+
+  for (uint8_t i = 0; i < 16; ++i) {
+    while (isHexSeparator(*text)) ++text;
+    const int8_t high = hexNibble(*text++);
+    while (isHexSeparator(*text)) ++text;
+    const int8_t low = hexNibble(*text++);
+    if (high < 0 || low < 0) return false;
+    output[i] = static_cast<uint8_t>((high << 4) | low);
+  }
+
+  while (isHexSeparator(*text)) ++text;
+  return *text == '\0';
+}
+
 bool credentialsConfigured() {
 #if HAS_LORAWAN_CREDENTIALS
-  if (joinEUI == 0 || devEUI == 0) return false;
+  // An all-zero JoinEUI is valid for a DIY device; the DevEUI must be set.
+  if (devEUI == 0) return false;
+  if (!parseKey(appKeyHex, appKey) || !parseKey(nwkKeyHex, nwkKey)) return false;
   for (uint8_t i = 0; i < sizeof(appKey); ++i) {
     if (appKey[i] != 0 || nwkKey[i] != 0) return true;
   }
@@ -101,7 +135,7 @@ bool initRadio() {
 bool joinNetwork() {
   if (!credentialsConfigured()) {
     Serial.println(F("[LORAWAN] OTAA aus: secrets.h fehlt oder enthält Platzhalter."));
-  Serial.println(F("[LORAWAN] secrets.h.example als secrets.h kopieren; OTAA 1.1 benoetigt NwkKey und AppKey."));
+    Serial.println(F("[LORAWAN] secrets.h.example als secrets.h kopieren; OTAA 1.1 benoetigt NwkKey und AppKey als 32-stellige Hex-Strings."));
     return false;
   }
 
