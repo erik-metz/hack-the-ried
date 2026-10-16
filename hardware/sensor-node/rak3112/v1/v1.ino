@@ -163,6 +163,16 @@ bool joinNetwork() {
   node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
   restoreLoRaWANSession();
 
+  // Match the single-channel Heltec development gateway (868.1 MHz, SF7).
+  // Keep ADR disabled until moving to a multi-channel LoRaWAN gateway.
+  node.setADR(false);
+  const int16_t dataRateState = node.setDatarate(5);  // EU868 DR5 = SF7/BW125
+  if (dataRateState != RADIOLIB_ERR_NONE) {
+    Serial.printf("[LORAWAN][FEHLER] SF7-Datenrate konnte nicht gesetzt werden: %d\n",
+        dataRateState);
+    return false;
+  }
+
   Serial.print(F("[LORAWAN] OTAA-Join mit DevEUI "));
   printHex64(devEUI);
   Serial.println(F(" ..."));

@@ -31,7 +31,10 @@ AppKey as 32-character hexadecimal strings. The sketch parses them at startup;
 you do not need to convert them to integers or byte arrays. The repository
 ignores files named `secrets.h`. Select LoRaWAN Specification 1.1.0 in TTN:
 this sketch uses RadioLib's 1.1 OTAA path and needs separate NwkKey and AppKey.
-An all-zero JoinEUI is accepted for a DIY device. The
+An all-zero JoinEUI is accepted for a DIY device. For the experimental
+single-channel Heltec gateway, select `Europe 868.1 MHz` as the device frequency
+plan and disable ADR under the device's Network Layer advanced MAC settings.
+The sketch fixes the node at EU868 DR5 (SF7) to match that gateway. The
 RAK3112's datasheet also describes its optional built-in modem stack as 1.0.2,
 but this sketch runs RadioLib directly on the ESP32-S3 and SX1262.
 
