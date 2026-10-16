@@ -1,10 +1,9 @@
 /*
  * RAK3112 on the RAK3212 breakout: first LoRaWAN bring-up for TTN.
  *
- * The initial uplink is intentionally small and contains only a format
- * version, uptime in seconds, and an incrementing packet counter. No sensor
- * is required. Copy secrets.h.example to secrets.h and enter this device's
- * own TTN OTAA credentials before enabling the network join.
+ * The payload includes synthetic temperature and humidity values so the full
+ * TTN-to-website ingestion path can be verified without a physical sensor.
+ * Copy secrets.h.example to secrets.h and enter this device's TTN OTAA keys.
  */
 
 #include <Arduino.h>
@@ -56,6 +55,8 @@ uint32_t packetCounter = 0;
 uint32_t lastUplinkMs = 0;
 uint32_t nextJoinAttemptMs = 0;
 uint8_t joinRetryCount = 0;
+int16_t fakeTemperatureTenths = 175;
+uint16_t fakeHumidityTenths = 500;
 
 int8_t hexNibble(char value) {
   if (value >= '0' && value <= '9') return value - '0';
@@ -250,9 +251,22 @@ void scheduleJoinRetry() {
       static_cast<unsigned long>(delayMs / 1000UL));
 }
 
+void updateFakeClimate() {
+  // A bounded random walk creates plausible decimal readings between uplinks.
+  const int16_t temperatureStep = static_cast<int16_t>(esp_random() % 9) - 4;
+  const int16_t humidityStep = static_cast<int16_t>(esp_random() % 7) - 3;
+  fakeTemperatureTenths += temperatureStep;
+  if (fakeTemperatureTenths < 150) fakeTemperatureTenths = 150;
+  if (fakeTemperatureTenths > 200) fakeTemperatureTenths = 200;
+  const int32_t nextHumidity = static_cast<int32_t>(fakeHumidityTenths) + humidityStep;
+  fakeHumidityTenths = static_cast<uint16_t>(nextHumidity < 470 ? 470 : nextHumidity > 530 ? 530 : nextHumidity);
+}
+
 void sendStatusUplink() {
-  // Payload v1 (7 bytes), big-endian: version, uptime_seconds, packet_counter.
-  uint8_t payload[7];
+  // Payload v1 (11 bytes), big-endian: version, uptime_seconds, packet_counter,
+  // temperature in 0.1 C, and relative humidity in 0.1 percent.
+  updateFakeClimate();
+  uint8_t payload[11];
   const uint32_t uptimeSeconds = millis() / 1000UL;
   ++packetCounter;
   payload[0] = 1;
@@ -262,10 +276,16 @@ void sendStatusUplink() {
   payload[4] = static_cast<uint8_t>(uptimeSeconds);
   payload[5] = static_cast<uint8_t>(packetCounter >> 8);
   payload[6] = static_cast<uint8_t>(packetCounter);
+  payload[7] = static_cast<uint8_t>(static_cast<uint16_t>(fakeTemperatureTenths) >> 8);
+  payload[8] = static_cast<uint8_t>(fakeTemperatureTenths);
+  payload[9] = static_cast<uint8_t>(fakeHumidityTenths >> 8);
+  payload[10] = static_cast<uint8_t>(fakeHumidityTenths);
 
-  Serial.printf("[UPLINK] FPort=%u, version=%u, uptime=%lu s, counter=%lu\n",
+  Serial.printf("[UPLINK] FPort=%u, version=%u, uptime=%lu s, counter=%lu, fake temperature=%d.%d C, fake humidity=%u.%u %%\n",
       UPLINK_FPORT, payload[0], static_cast<unsigned long>(uptimeSeconds),
-      static_cast<unsigned long>(packetCounter));
+      static_cast<unsigned long>(packetCounter), fakeTemperatureTenths / 10,
+      abs(fakeTemperatureTenths % 10), fakeHumidityTenths / 10,
+      fakeHumidityTenths % 10);
 
   uint8_t downlink[16];
   size_t downlinkLength = sizeof(downlink);
