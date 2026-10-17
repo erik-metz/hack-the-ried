@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, unitLabel, mergeReadings, crossingStateLabel } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 
 type Reading = { metric: string; unit: string; value: number; timestamp: string };
 type Bucket = { metric: string; unit: string; bucket: string; avg_value: number | null };
 type Telemetry = { readings: Reading[]; history: Bucket[]; start: string; end: string; historyMode?: string; historyUnavailable?: boolean; historyTruncated?: boolean };
-const number = (value: number, unit?: string) => value.toLocaleString("de-DE", { minimumFractionDigits: unit === "€/l" ? 3 : 0, maximumFractionDigits: unit === "€/l" ? 3 : 2 });
+const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
 const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 export default function TelemetryCharts({
@@ -63,11 +63,7 @@ export default function TelemetryCharts({
   const active = readings.find(reading => seriesKey(reading) === selectedSeries) ?? (mobilityEntity ? readings.find(r => r.metric === "crossing_state" || r.metric === "speed") : undefined) ?? readings[0] ?? (mobilityEntity && data?.history.length ? { metric: data.history[0].metric, unit: data.history[0].unit, value: 0, timestamp: data.history[0].bucket } : undefined);
   const history = active ? (data?.history ?? []).filter(bucket => seriesKey(bucket) === seriesKey(active) && bucket.avg_value !== null).sort((a, b) => Date.parse(a.bucket) - Date.parse(b.bucket)) : [];
   const values = history.map(bucket => bucket.avg_value!);
-  const min = values.length ? Math.min(...values) : 0;
-  const max = values.length ? Math.max(...values) : 0;
-  const padding = (max - min) * 0.1 || (fuelEntity ? 0.005 : Math.max(Math.abs(max) * 0.05, 1));
-  const lower = active?.metric === "crossing_state" ? 0 : min - padding;
-  const upper = active?.metric === "crossing_state" ? 2 : max + padding;
+  const [lower, upper] = active ? chartScale(active, values, fuelEntity) : [0, 1];
   const start = data ? Date.parse(data.start) : 0;
   const end = data ? Date.parse(data.end) : 1;
   const points = history.map(bucket => ({
@@ -174,7 +170,7 @@ export default function TelemetryCharts({
                 crossingStateLabel(reading.value)
               ) : (
                 <>
-                  {number(reading.value, reading.unit)} <span className="text-sm font-normal text-slate-400">{unitLabel(reading.unit)}</span>
+                  {number(reading.value, reading)} <span className="text-sm font-normal text-slate-400">{unitLabel(reading.unit)}</span>
                 </>
               )}
             </span>
@@ -202,11 +198,11 @@ export default function TelemetryCharts({
               ) : (
                 [lower, (lower + upper) / 2, upper].map((value, index) => <g key={index}>
                   <line x1="130" x2="785" y1={180 - index * 77.5} y2={180 - index * 77.5} stroke="#334155" strokeDasharray="4 4" />
-                  <text x="122" y={184 - index * 77.5} textAnchor="end" fill="#94a3b8" fontSize="11">{number(value, active.unit)}</text>
+                  <text x="122" y={184 - index * 77.5} textAnchor="end" fill="#94a3b8" fontSize="11">{number(isCountMetric(active) ? Math.round(value) : value, active)}</text>
                 </g>)
               )}
               {points.length > 1 && <path d={path} fill="none" stroke={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-              {points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"}><title>{time(point.bucket.bucket)}: {active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active.unit)} ${unitLabel(active.unit)}`}</title></circle>)}
+              {points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"}><title>{time(point.bucket.bucket)}: {active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active)} ${unitLabel(active.unit)}`}</title></circle>)}
             </svg>
             <div className="flex justify-between text-xs text-slate-500"><span>{time(data!.start)}</span><span>{time(data!.end)}</span></div>
           </>}
