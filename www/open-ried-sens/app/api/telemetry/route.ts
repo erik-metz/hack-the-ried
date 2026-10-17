@@ -1,7 +1,9 @@
 import { env } from "@/env";
 
 type RawReading = { metric: string; unit: string; value: number; timestamp: string };
-const HIDDEN_METRICS = new Set(["sgp41_voc_raw", "sgp41_nox_raw"]);
+const HIDDEN_METRICS = new Set([
+  "sgp41_voc_raw", "sgp41_nox_raw", "scd41_temperature", "scd41_humidity",
+]);
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const sensorId = params.get("sensor_id");

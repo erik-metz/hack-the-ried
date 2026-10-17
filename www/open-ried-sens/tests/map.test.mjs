@@ -51,6 +51,16 @@ test("SCD41 CO2 readings are air readings", () => {
   assert.deepEqual([...nodes[0].categories], ["weather", "air"]);
   assert.equal(nodes[0].readings.some(({ metric }) => metric === "co2"), true);
 });
+
+test("SCD41 temperature and humidity are omitted from frontend station readings", () => {
+  const nodes = model.toStationNodes([sensor([
+    reading("temperature", 21, "°C"),
+    reading("relative_humidity", 55, "%"),
+    reading("scd41_temperature", 29, "°C"),
+    reading("scd41_humidity", 70, "%"),
+  ])]);
+  assert.deepEqual(nodes[0].readings.map(item => item.metric), ["temperature", "relative_humidity"]);
+});
 test("new RAK devices without readings are categorized as weather", () => {
   const nodes = model.toMapNodes([sensor([], { id: "ttn-rak3112-002" })]);
   assert.deepEqual([...nodes[0].categories], ["weather"]);

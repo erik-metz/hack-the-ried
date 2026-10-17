@@ -34,6 +34,9 @@ export const SENSOR_CATEGORY_MIN_ZOOM: Record<Category, number> = {
 };
 export type Reading = { metric: string; value: number; unit: string; timestamp: string };
 export type MapMode = "category" | "temperature";
+export const HIDDEN_FRONTEND_METRICS = new Set([
+  "sgp41_voc_raw", "sgp41_nox_raw", "scd41_temperature", "scd41_humidity",
+]);
 export type Freshness = "fresh" | "stale" | "unknown" | "state";
 export type ApiMapSensor = {
   id: string; friendly_name: string; latitude: number | null; longitude: number | null;
@@ -141,7 +144,7 @@ export function toStationNodes(sensors: ApiMapSensor[]): StationNode[] {
         id: s.id, name: s.friendly_name, locationName: s.friendly_name, address: s.description ?? "",
         lat: s.latitude, lng: s.longitude, categories,
         firmwareVersion: s.firmware_version ?? null,
-        readings: (s.readings ?? []).filter(r => !["sgp41_voc_raw", "sgp41_nox_raw"].includes(r.metric) && Number.isFinite(r.value) && Number.isFinite(Date.parse(r.timestamp))),
+        readings: (s.readings ?? []).filter(r => !HIDDEN_FRONTEND_METRICS.has(r.metric) && Number.isFinite(r.value) && Number.isFinite(Date.parse(r.timestamp))),
       });
     }
   }
