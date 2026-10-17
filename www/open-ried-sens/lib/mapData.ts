@@ -37,12 +37,12 @@ export type MapMode = "category" | "temperature";
 export type Freshness = "fresh" | "stale" | "unknown" | "state";
 export type ApiMapSensor = {
   id: string; friendly_name: string; latitude: number | null; longitude: number | null;
-  description?: string | null; firmware_version?: string | null; is_hidden?: boolean; entity_type?: string | null;
+  description?: string | null; firmware_version?: number | null; is_hidden?: boolean; entity_type?: string | null;
   source_entity_id?: string | null; readings?: Reading[];
 };
 export interface StationNode {
   id: string; name: string; locationName: string; address: string; lat: number | null; lng: number | null;
-  categories: Category[]; readings: Reading[]; firmwareVersion?: string | null;
+  categories: Category[]; readings: Reading[]; firmwareVersion?: number | null;
   isAggregate?: boolean;
 }
 
@@ -79,6 +79,7 @@ export function categoriesFor(sensor: ApiMapSensor): Category[] {
     else if (sensor.id.startsWith("fac-kamue-") || sensor.id.startsWith("fac-bst-sport") || sensor.id.startsWith("fac-la-alt") || sensor.id.startsWith("fac-la-kanu") || sensor.id.startsWith("fac-bst-buerger") || sensor.id.startsWith("fac-bst-vfr")) categories.add("culture");
     else if (sensor.id.startsWith("fac-tour-")) categories.add("tourism");
     else if (sensor.id.startsWith("ttn-gw-") || sensor.id.startsWith("bnetza:emf:")) categories.add("other");
+    else if (sensor.id.startsWith("ttn-rak")) categories.add("weather");
     else if (type === "radio_tower") categories.add("other");
     else if (type === "WeatherObserved" || type === "environmental_sensor") categories.add(soil ? "soil" : "weather");
     else if (["GreenspaceRecord", "SoilMeasurement", "SoilTension"].includes(type ?? "")) categories.add("soil");

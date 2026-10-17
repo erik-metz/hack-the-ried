@@ -3,7 +3,7 @@
  *
  * The payload includes synthetic temperature and humidity values so the full
  * TTN-to-website ingestion path can be verified without a physical sensor.
- * Copy secrets.h.example to secrets.h and enter this device's TTN OTAA keys.
+ * The shared build helper injects a device-specific local profile as secrets.h.
  */
 
 #include <Arduino.h>
@@ -251,7 +251,7 @@ bool initRadio() {
 bool joinNetwork() {
   if (!credentialsConfigured()) {
     Serial.println(F("[LORAWAN] OTAA aus: secrets.h fehlt oder enthält Platzhalter."));
-    Serial.println(F("[LORAWAN] secrets.h.example als secrets.h kopieren; OTAA 1.1 benoetigt NwkKey und AppKey als 32-stellige Hex-Strings."));
+    Serial.println(F("[LORAWAN] Build mit hardware/sensor-node/rak3112/build.sh <version> <TTN-device-id>; OTAA 1.1 benoetigt NwkKey und AppKey als 32-stellige Hex-Strings."));
     return false;
   }
 

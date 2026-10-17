@@ -27,7 +27,7 @@ END $$;
 ALTER TABLE sensor_metadata ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;
 ALTER TABLE sensor_metadata ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE sensor_metadata ADD COLUMN IF NOT EXISTS description TEXT;
-ALTER TABLE sensor_metadata ADD COLUMN IF NOT EXISTS firmware_version TEXT;
+ALTER TABLE sensor_metadata ADD COLUMN IF NOT EXISTS firmware_version SMALLINT;
 ALTER TABLE sensor_metadata ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 2. Time-Series Metrics Table

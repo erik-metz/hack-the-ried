@@ -25,9 +25,9 @@ test("decodes every known metric in a version 3 TLV payload", () => {
   ]);
 });
 
-test("decodes v4 firmware metadata separately from sensor measurements", () => {
-  const result = decode({ fPort: 10, bytes: [4, 2, 0, 3, ...record(1, 187), ...record(2, 503)] });
-  assert.equal(result.data.firmware_version, "2.0.3");
+test("decodes integer firmware metadata separately from sensor measurements", () => {
+  const result = decode({ fPort: 10, bytes: [4, 2, ...record(1, 187), ...record(2, 503)] });
+  assert.equal(result.data.firmware_version, 2);
   assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
     { metric: "temperature", unit: "°C", value: 18.7 },
     { metric: "humidity", unit: "%", value: 50.3 },
@@ -72,6 +72,6 @@ test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [3, 1, 0] }).errors);
   assert.ok(decode({ bytes: [3, ...record(1, 180), ...record(1, 190)] }).errors);
   assert.ok(decode({ bytes: [3, ...Array(42 * 5).fill(0)] }).errors);
-  assert.ok(decode({ bytes: [4, 2, 0, 0, 1, 0] }).errors);
-  assert.ok(decode({ bytes: [4, ...Array(4 + 42 * 5).fill(0)] }).errors);
+  assert.ok(decode({ bytes: [4, 2, 1, 0] }).errors);
+  assert.ok(decode({ bytes: [4, 2, ...Array(42 * 5).fill(0)] }).errors);
 });

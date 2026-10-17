@@ -29,9 +29,13 @@ test("legacy metadata fallback has unknown freshness and usable source categorie
   assert.equal(model.readingFreshness(undefined, now), "unknown");
 });
 test("map nodes carry firmware version as device metadata without adding a reading", () => {
-  const nodes = model.toMapNodes([sensor([reading("temperature")], { firmware_version: "2.0.0" })]);
-  assert.equal(nodes[0].firmwareVersion, "2.0.0");
+  const nodes = model.toMapNodes([sensor([reading("temperature")], { firmware_version: 2 })]);
+  assert.equal(nodes[0].firmwareVersion, 2);
   assert.equal(nodes[0].readings.some(({ metric }) => metric === "firmware_version"), false);
+});
+test("new RAK devices without readings are categorized as weather", () => {
+  const nodes = model.toMapNodes([sensor([], { id: "ttn-rak3112-002" })]);
+  assert.deepEqual([...nodes[0].categories], ["weather"]);
 });
 test("measurement age is independent of fetch time; parking is a state, never online", () => {
   assert.equal(model.readingFreshness(reading("temperature"), now), "fresh");

@@ -36,6 +36,7 @@ class SensorIntegrationTests(DatabaseCase):
         await self.conn.execute(migration.read_text())
         firmware_migration = Path(__file__).resolve().parents[1] / "migrations/20261017_ttn_firmware_version.sql"
         await self.conn.execute(firmware_migration.read_text())
+        await self.conn.execute((Path(__file__).resolve().parents[1] / "migrations/20261018_firmware_version_number.sql").read_text())
 
     def uplink(self):
         return {
@@ -50,7 +51,7 @@ class SensorIntegrationTests(DatabaseCase):
                 "f_cnt": 42,
                 "frm_payload": "AQID",
                 "decoded_payload": {
-                    "firmware_version": "2.0.0",
+                    "firmware_version": 2,
                     "measurements": [
                         {"metric": "temperature", "value": 18.5, "unit": "°C"},
                         {"metric": "humidity", "value": 62, "unit": "%"},
@@ -83,7 +84,7 @@ class SensorIntegrationTests(DatabaseCase):
         firmware = await self.scalar(
             "SELECT firmware_version FROM sensor_metadata WHERE id='ttn-weather-node-1'"
         )
-        self.assertEqual(firmware, "2.0.0")
+        self.assertEqual(firmware, 2)
         self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data WHERE metric='firmware_version'"), 0)
         coordinates = await (await self.conn.execute(
             "SELECT latitude,longitude,is_hidden FROM sensor_metadata WHERE id='ttn-weather-node-1'"

@@ -33,6 +33,7 @@ async def init_db(pool: psycopg_pool.AsyncConnectionPool) -> None:
                 await conn.execute((Path(__file__).parent / "migrations" / "20261007_collection_status.sql").read_text())
                 firmware_migration = Path(__file__).parent / "migrations" / "20261017_ttn_firmware_version.sql"
                 await conn.execute(firmware_migration.read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261018_firmware_version_number.sql").read_text())
                 logger.info("Canonical database: skipping legacy bootstrap DDL")
                 return
     if SCHEMA_SQL:
@@ -43,6 +44,9 @@ async def init_db(pool: psycopg_pool.AsyncConnectionPool) -> None:
         except (psycopg.Error, OSError) as e:
             logger.error("Failed to initialize database schema: %s", e)
             raise
+    async with pool.connection() as conn:
+        await conn.execute((Path(__file__).parent / "migrations" / "20261017_ttn_firmware_version.sql").read_text())
+        await conn.execute((Path(__file__).parent / "migrations" / "20261018_firmware_version_number.sql").read_text())
 
 
 @asynccontextmanager

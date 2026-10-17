@@ -19,7 +19,7 @@ basic_auth = HTTPBasic(auto_error=False)
 DEVICE_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$")
 METRIC_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 UNIT_PATTERN = re.compile(r"^[^\s\x00-\x1f]{1,32}$")
-FIRMWARE_VERSION_PATTERN = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}$")
+FIRMWARE_VERSION_PATTERN = re.compile(r"^[1-9]\d{0,2}$")
 MAX_MEASUREMENTS = 41
 
 
@@ -155,10 +155,11 @@ async def receive_sensor_uplink(
     decoded_payload = uplink.get("decoded_payload")
     firmware_version = decoded_payload.get("firmware_version") if isinstance(decoded_payload, dict) else None
     if firmware_version is not None and (
-        not isinstance(firmware_version, str)
-        or not FIRMWARE_VERSION_PATTERN.fullmatch(firmware_version)
+        isinstance(firmware_version, bool)
+        or not isinstance(firmware_version, int)
+        or not FIRMWARE_VERSION_PATTERN.fullmatch(str(firmware_version))
     ):
-        raise HTTPException(422, "decoded_payload.firmware_version must be semantic major.minor.patch")
+        raise HTTPException(422, "decoded_payload.firmware_version must be an integer from 1 to 999")
     coordinates = _ttn_coordinates(uplink)
     observed_at = _event_time(uplink, body)
     event_id, payload_hash, correlations = _event_identity(
@@ -201,8 +202,8 @@ async def receive_sensor_uplink(
                 longitude=COALESCE(EXCLUDED.longitude,sensor_metadata.longitude),
                 updated_at=CASE WHEN EXCLUDED.firmware_version IS NOT NULL OR EXCLUDED.latitude IS NOT NULL
                     THEN NOW() ELSE sensor_metadata.updated_at END""",
-            (sensor_id, device_id, f"The Things Stack device {device_id}", firmware_version,
-             latitude, longitude))
+            (sensor_id, device_id, f"The Things Stack device {device_id}",
+             firmware_version, latitude, longitude))
         async with conn.cursor() as cur:
             await cur.executemany("""INSERT INTO sensor_data(timestamp,sensor_id,value,unit,metric)
                 VALUES (%s,%s,%s,%s,%s)""",

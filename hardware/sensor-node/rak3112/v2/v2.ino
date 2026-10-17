@@ -1,8 +1,8 @@
 /*
  * RAK3112 / RAK3212 with SHT41 on SDA=GPIO17, SCL=GPIO14.
  *
- * Firmware version 2.0.0 sends real SHT41 readings over TTN.
- * Copy secrets.h.example to secrets.h and enter this device's TTN OTAA keys.
+ * Firmware version 2 sends real SHT41 readings over TTN.
+ * The build helper injects a per-device secrets.h outside the repository.
  */
 
 #include <Arduino.h>
@@ -43,11 +43,9 @@ static constexpr uint32_t UPLINK_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_BASE_MS = 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_MAX_MS = 30UL * 60UL * 1000UL;
 static constexpr uint8_t UPLINK_FPORT = 10;
-static constexpr uint8_t FIRMWARE_VERSION_MAJOR = 2;
-static constexpr uint8_t FIRMWARE_VERSION_MINOR = 0;
-static constexpr uint8_t FIRMWARE_VERSION_PATCH = 0;
+static constexpr uint8_t FIRMWARE_VERSION = 2;
 static constexpr uint8_t PAYLOAD_VERSION = 4;
-static constexpr uint8_t PAYLOAD_HEADER_BYTES = 4;
+static constexpr uint8_t PAYLOAD_HEADER_BYTES = 2;
 static constexpr size_t MAX_MEASUREMENTS = 41;
 static constexpr size_t MAX_UPLINK_BYTES = PAYLOAD_HEADER_BYTES + MAX_MEASUREMENTS * 5;
 static constexpr uint8_t SHT41_ADDRESS = 0x44;
@@ -301,8 +299,8 @@ bool initRadio() {
 
 bool joinNetwork() {
   if (!credentialsConfigured()) {
-    Serial.println(F("[LORAWAN] OTAA aus: secrets.h fehlt oder enthält Platzhalter."));
-    Serial.println(F("[LORAWAN] secrets.h.example als secrets.h kopieren; OTAA 1.1 benoetigt NwkKey und AppKey als 32-stellige Hex-Strings."));
+    Serial.println(F("[LORAWAN] OTAA aus: kein gueltiges geraetespezifisches Schluesselprofil eingebunden."));
+    Serial.println(F("[LORAWAN] Build mit build.sh <version> <TTN-device-id>; OTAA 1.1 benoetigt NwkKey und AppKey als 32-stellige Hex-Strings."));
     return false;
   }
 
@@ -373,9 +371,7 @@ void sendTelemetryUplink() {
   uint8_t payload[MAX_UPLINK_BYTES];
   size_t payloadLength = PAYLOAD_HEADER_BYTES;
   payload[0] = PAYLOAD_VERSION;
-  payload[1] = FIRMWARE_VERSION_MAJOR;
-  payload[2] = FIRMWARE_VERSION_MINOR;
-  payload[3] = FIRMWARE_VERSION_PATCH;
+  payload[1] = FIRMWARE_VERSION;
   for (const EncodedMeasurement& measurement : measurements) {
     payload[payloadLength++] = measurement.code;
     const uint32_t value = static_cast<uint32_t>(measurement.value);
@@ -385,8 +381,8 @@ void sendTelemetryUplink() {
     payload[payloadLength++] = static_cast<uint8_t>(value);
   }
 
-  Serial.printf("[UPLINK] FPort=%u, payload=%u, firmware=%u.%u.%u, measurements=%u, payload=%u bytes\n",
-      UPLINK_FPORT, payload[0], payload[1], payload[2], payload[3],
+  Serial.printf("[UPLINK] FPort=%u, payload=%u, firmware=v%u, measurements=%u, payload=%u bytes\n",
+      UPLINK_FPORT, payload[0], FIRMWARE_VERSION,
       static_cast<unsigned>(sizeof(measurements) / sizeof(measurements[0])), static_cast<unsigned>(payloadLength));
   Serial.printf("[SHT41] Temperatur=%.1f C, Feuchte=%.1f %%\n",
       temperatureTenths / 10.0f, humidityTenths / 10.0f);
@@ -421,7 +417,7 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(1200);
   Serial.println();
-  Serial.println(F("=== KAMUE RAK3112 / RAK3212 Firmware v2.0.0 ==="));
+  Serial.println(F("=== KAMUE RAK3112 / RAK3212 Firmware v2 ==="));
   Serial.printf("[SYSTEM] ESP32-S3, CPU %u MHz, freier Heap %u Byte\n",
       ESP.getCpuFreqMHz(), ESP.getFreeHeap());
   Serial.printf("[SYSTEM] Flash %u MB, PSRAM %u Byte\n",

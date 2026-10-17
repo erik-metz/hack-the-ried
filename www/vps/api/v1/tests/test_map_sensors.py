@@ -106,7 +106,7 @@ class LatestMapTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.latest())["value"], 10)
 
     async def test_map_keeps_empty_stations_and_old_values_but_hides_private_ones(self):
-        await self.conn.execute("UPDATE sensor_metadata SET firmware_version='2.0.0' WHERE id='a'")
+        await self.conn.execute("UPDATE sensor_metadata SET firmware_version=2 WHERE id='a'")
         await self.insert(self.now - timedelta(days=90), 10)
         await self.insert(self.now, 15, sensor="hidden")
         await self.insert(self.now, 5, metric="waveform", unit="counts")
@@ -121,5 +121,5 @@ class LatestMapTests(unittest.IsolatedAsyncioTestCase):
         sensors = {s["id"]: s for s in response["sensors"]}
         self.assertEqual(set(sensors), {"a", "empty", "group"})
         self.assertEqual(sensors["empty"]["readings"], [])
-        self.assertEqual(sensors["a"]["firmware_version"], "2.0.0")
+        self.assertEqual(sensors["a"]["firmware_version"], 2)
         self.assertEqual({r["metric"] for r in sensors["a"]["readings"]}, {"temperature", "relative_humidity"})

@@ -1,4 +1,4 @@
-# RAK3112 SHT41 firmware v2.0.0
+# RAK3112 SHT41 firmware v2
 
 This version reads an SHT41 attached to a RAK3112 on the RAK3212 breakout:
 
@@ -15,8 +15,8 @@ and skipped.
 
 ## Payload format 4
 
-FPort 10 payloads start with four header bytes: format (`4`), firmware major,
-minor, patch (`2,0,0`). Remaining data repeats five-byte metric records:
+FPort 10 payloads start with two header bytes: format (`4`) and firmware
+version (`2`). Remaining data repeats five-byte metric records:
 one metric code and one signed 32-bit big-endian value. Firmware version is
 decoded as `firmware_version` metadata, never as a sensor measurement.
 The shared formatter also retains support for format 3 from firmware v1.
@@ -25,19 +25,21 @@ The shared formatter also retains support for format 3 from firmware v1.
 
 Create a new TTN end device for this physical RAK in the existing sensor
 application and assign its own OTAA JoinEUI, DevEUI, NwkKey and AppKey. Do not
-reuse the credentials of the earlier RAK. Copy `secrets.h.example` to
-`secrets.h` in this folder and paste the new keys there locally; `secrets.h`
-is ignored by Git.
+reuse credentials from another RAK. Save the credentials in a file named for
+that exact TTN device ID under
+`~/.config/kamue-digital-lora/rak3112/` and restrict it to mode 600. The
+repository template `device-profile.example.h` shows the required format.
+Never place real keys in the repository or application database.
 
 With Arduino CLI and RadioLib installed:
 
 ```sh
-arduino-cli compile --fqbn 'esp32:esp32:esp32s3:USBMode=hwcdc,CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi' hardware/sensor-node/rak3112/v2
-arduino-cli upload -p /dev/cu.usbmodem11101 --fqbn 'esp32:esp32:esp32s3:USBMode=hwcdc,CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi' hardware/sensor-node/rak3112/v2
+./hardware/sensor-node/rak3112/build.sh v2 <ttn-device-id>
+./hardware/sensor-node/rak3112/build.sh v2 <ttn-device-id> --port /dev/cu.usbmodem11101
 arduino-cli monitor -p /dev/cu.usbmodem11101 -c baudrate=115200
 ```
 
-The serial log must report firmware `v2.0.0`, a valid SHT41 sample, and an
+The serial log must report firmware `v2`, a valid SHT41 sample, and an
 OTAA join before checking decoded uplinks in TTN and the VPS. Keep the EU868
 antenna connected during radio operation. The current development gateway
 configuration is single-channel and is only suitable for bring-up.
