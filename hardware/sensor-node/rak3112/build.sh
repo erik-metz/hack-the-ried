@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 vN <ttn-device-id> [--port <serial-port>]" >&2
+  echo "Usage: $0 vN <device-profile-id> [--port <serial-port>]" >&2
   exit 2
 }
 
@@ -16,7 +16,7 @@ if [[ $# -gt 0 ]]; then
   port="$2"
 fi
 [[ "$version" =~ ^v[1-9][0-9]*$ ]] || usage
-[[ "$device_id" =~ ^[a-z0-9]([a-z0-9-]{0,58}[a-z0-9])?$ ]] || usage
+[[ "$device_id" =~ ^[a-z0-9]([a-z0-9_-]{0,58}[a-z0-9])?$ ]] || usage
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source_dir="$script_dir/$version"

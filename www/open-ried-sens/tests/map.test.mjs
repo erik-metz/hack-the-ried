@@ -357,6 +357,8 @@ test("traffic and all soil metrics have dedicated categories", () => {
   assert.deepEqual([...model.categoriesFor(sensor([reading("traffic_cars_hourly", 10, "count")]))], ["traffic"]);
   assert.deepEqual([...model.categoriesFor(sensor([reading("soil_tension_30cm", 10, "kPa")]))], ["soil"]);
   assert.deepEqual([...model.categoriesFor(sensor([reading("ltr390_uv_raw", 696, "raw")]))], ["weather"]);
+  assert.deepEqual([...model.categoriesFor(sensor([reading("bme688_temperature", 22.5, "°C"), reading("pressure", 1013.2, "hPa")]))], ["weather"]);
+  assert.deepEqual([...model.categoriesFor(sensor([reading("bme688_gas_resistance", 12000, "Ω")]))], ["air"]);
 });
 
 test("co-located traffic intersection sensors are offset along their respective directional road arms", () => {
@@ -404,6 +406,10 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(telemetry.metricLabel(reading("uv_index", 7.25, "index")), "UV-Index (LTR390)");
   assert.equal(telemetry.metricLabel(reading("ambient_light", 123.4, "lux")), "Umgebungslicht (LTR390)");
   assert.equal(telemetry.metricLabel(reading("ltr390_als_raw", 6170, "raw")), "LTR390 Umgebungslicht (Rohwert)");
+  assert.equal(telemetry.metricLabel(reading("bme688_temperature", 22.53, "°C")), "Temperatur (BME688)");
+  assert.equal(telemetry.metricLabel(reading("bme688_humidity", 48.15, "%")), "Luftfeuchtigkeit (BME688)");
+  assert.equal(telemetry.metricLabel(reading("pressure", 1013.2, "hPa")), "Luftdruck (BME688)");
+  assert.equal(telemetry.metricLabel(reading("bme688_gas_resistance", 12000, "Ω")), "Gaswiderstand (BME688)");
   assert.equal(telemetry.metricPrecision(reading("ltr390_uv_raw", 696, "raw")), 0);
   assert.equal(telemetry.metricPrecision(reading("sgp41_voc_index", 120, "index")), 0);
   assert.equal(telemetry.unitLabel("count"), "Anzahl");

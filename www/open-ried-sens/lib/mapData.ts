@@ -59,12 +59,15 @@ export function categoriesFor(sensor: ApiMapSensor): Category[] {
   const type = sensor.entity_type ?? sensor.description?.match(/urn:ngsi-ld:([A-Za-z]+):/)?.[1];
   const soil = ["GreenspaceRecord", "SoilMeasurement", "SoilTension"].includes(type ?? "") || /bodentemperatur/i.test(sensor.friendly_name);
   for (const r of sensor.readings ?? []) {
-    if (["temperature", "soil_temperature", "humidity", "relative_humidity", "precipitation"].includes(r.metric))
+    if (["temperature", "soil_temperature", "humidity", "relative_humidity", "precipitation",
+      "bme688_temperature", "bme688_humidity", "pressure"].includes(r.metric))
       categories.add(r.metric === "soil_temperature" || soil ? "soil" : "weather");
     if (["uv_index", "ambient_light", "ltr390_uv_raw", "ltr390_als_raw"].includes(r.metric)) categories.add("weather");
     if (r.metric.startsWith("soil_") || r.metric === "water_surface_distance") categories.add("soil");
     if (["water_level_delta", "water_level"].includes(r.metric) || r.metric.startsWith("groundwater_") || r.metric.startsWith("river_")) categories.add("water");
-    if (["air_quality_index", "sgp41_voc_index", "sgp41_nox_index", "co2", "NO2", "PM10", "PM25", "PM2.5", "pm10", "pm25", "O3"].includes(r.metric)) categories.add("air");
+    if (["air_quality_index", "sgp41_voc_index", "sgp41_nox_index", "bme688_gas_resistance",
+      "bme688_iaq", "bme688_static_iaq", "bme688_co2_equivalent", "bme688_bvoc_equivalent",
+      "co2", "NO2", "PM10", "PM25", "PM2.5", "pm10", "pm25", "O3"].includes(r.metric)) categories.add("air");
     if (r.metric.startsWith("traffic_") || r.metric.startsWith("crossing_") || r.metric === "closure_duration") categories.add("traffic");
     if (r.metric.startsWith("parking_")) categories.add("parking");
     if (r.metric.startsWith("bike_")) categories.add("bikes");

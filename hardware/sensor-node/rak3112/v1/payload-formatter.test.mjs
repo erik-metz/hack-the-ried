@@ -48,6 +48,19 @@ test("decodes LTR390 UV index, lux, and diagnostic counts from firmware v8", () 
   ]);
 });
 
+test("decodes BME68x environmental readings from firmware v9", () => {
+  const result = decode({ fPort: 10, bytes: [4, 9,
+    ...record(18, 2234), ...record(19, 4815), ...record(20, 10132), ...record(21, 12000)],
+  });
+  assert.equal(result.data.firmware_version, 9);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "bme688_temperature", unit: "°C", value: 22.34 },
+    { metric: "bme688_humidity", unit: "%", value: 48.15 },
+    { metric: "pressure", unit: "hPa", value: 1013.2 },
+    { metric: "bme688_gas_resistance", unit: "Ω", value: 12000 },
+  ]);
+});
+
 test("keeps unknown metric codes and raw values visible", () => {
   const result = decode({ bytes: [3, ...record(99, 1234), ...record(1, 180)] });
   assert.deepEqual(JSON.parse(JSON.stringify(result.data.unknown_measurements)), [
