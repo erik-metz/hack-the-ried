@@ -47,5 +47,5 @@ printf 'Building firmware %s for TTN device %s\n' "$version" "$device_id"
 arduino-cli compile --fqbn "$fqbn" --build-path "$compile_dir" "$build_dir"
 if [[ -n "$port" ]]; then
   printf 'Uploading firmware %s for TTN device %s on %s\n' "$version" "$device_id" "$port"
-  arduino-cli upload -p "$port" --fqbn "$fqbn" "$build_dir"
+  arduino-cli upload -p "$port" --fqbn "$fqbn" --input-dir "$compile_dir" "$build_dir"
 fi
