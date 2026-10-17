@@ -26,10 +26,10 @@ The shared formatter also retains support for format 3 from firmware v1.
 Create a new TTN end device for this physical RAK in the existing sensor
 application and assign its own OTAA JoinEUI, DevEUI, NwkKey and AppKey. Do not
 reuse credentials from another RAK. Save the credentials in a file named for
-that exact TTN device ID under
-`~/.config/kamue-digital-lora/rak3112/` and restrict it to mode 600. The
-repository template `device-profile.example.h` shows the required format.
-Never place real keys in the repository or application database.
+that exact TTN device ID in `profiles/<ttn-device-id>.h`, copied from
+`device-profile.example.h`. The `profiles/` directory is ignored by Git, and
+the build helper restricts it to mode 700 and each profile to mode 600. Never
+place real keys in tracked files or the application database.
 
 With Arduino CLI and RadioLib installed:
 

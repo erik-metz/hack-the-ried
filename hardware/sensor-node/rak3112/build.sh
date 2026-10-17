@@ -20,7 +20,7 @@ fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source_dir="$script_dir/$version"
-secrets_dir="${RAK3112_SECRETS_DIR:-$HOME/.config/kamue-digital-lora/rak3112}"
+secrets_dir="${RAK3112_SECRETS_DIR:-$script_dir/profiles}"
 mkdir -p "$secrets_dir"
 chmod 700 "$secrets_dir"
 profile="$secrets_dir/$device_id.h"

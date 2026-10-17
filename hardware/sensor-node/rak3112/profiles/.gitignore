@@ -1,0 +1,3 @@
+# Local per-device OTAA keys. Keep all profiles out of Git history.
+*
+!.gitignore

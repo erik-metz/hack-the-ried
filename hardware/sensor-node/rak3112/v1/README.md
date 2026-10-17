@@ -25,9 +25,10 @@ DIO2; the TCXO is enabled at 1.6 V via DIO3.
 
 ## Enable TTN OTAA
 
-Follow the shared per-device credential instructions in `../README.md` and
-build with `../build.sh v1 <ttn-device-id>`. The helper selects this device's
-local profile and injects it into a temporary copy. Select LoRaWAN
+Copy `../device-profile.example.h` to
+`../profiles/<ttn-device-id>.h`, enter that device's credentials, then build
+with `../build.sh v1 <ttn-device-id>`. The helper selects this device's
+git-ignored local profile and injects it into a temporary copy. Select LoRaWAN
 Specification 1.1.0 in TTN:
 this sketch uses RadioLib's 1.1 OTAA path and needs separate NwkKey and AppKey.
 An all-zero JoinEUI is accepted for a DIY device. For the experimental
