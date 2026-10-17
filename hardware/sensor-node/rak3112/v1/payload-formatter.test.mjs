@@ -65,6 +65,14 @@ test("decodes all registered BOM sensor identifiers", () => {
   ]);
 });
 
+test("decodes SGP41 VOC and NOx raw signals without scaling", () => {
+  const result = decode({ bytes: [4, 4, ...record(27, 23456), ...record(28, 19876)] });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "sgp41_voc_raw", unit: "raw", value: 23456 },
+    { metric: "sgp41_nox_raw", unit: "raw", value: 19876 },
+  ]);
+});
+
 test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [] }).errors);
   assert.ok(decode({ bytes: [2, 0, 171, 1, 247] }).errors);
