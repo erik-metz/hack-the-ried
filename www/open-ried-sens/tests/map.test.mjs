@@ -43,6 +43,14 @@ test("SGP41 indices are air readings and legacy raw signals stay hidden", () => 
   assert.deepEqual([...nodes[0].categories], ["air"]);
   assert.deepEqual(nodes[0].readings.map(({ metric }) => metric), ["sgp41_voc_index", "sgp41_nox_index"]);
 });
+test("SCD41 CO2 readings are air readings", () => {
+  const nodes = model.toMapNodes([sensor([
+    reading("co2", 613, "ppm"),
+    reading("temperature", 22.0, "°C"),
+  ])]);
+  assert.deepEqual([...nodes[0].categories], ["weather", "air"]);
+  assert.equal(nodes[0].readings.some(({ metric }) => metric === "co2"), true);
+});
 test("new RAK devices without readings are categorized as weather", () => {
   const nodes = model.toMapNodes([sensor([], { id: "ttn-rak3112-002" })]);
   assert.deepEqual([...nodes[0].categories], ["weather"]);

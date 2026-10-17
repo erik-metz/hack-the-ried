@@ -7,6 +7,9 @@ const LABELS: Record<string, string> = {
   humidity: "Luftfeuchtigkeit", relative_humidity: "Luftfeuchtigkeit", precipitation: "Niederschlag",
   sgp41_voc_index: "Luftqualität: flüchtige Stoffe (VOC)",
   sgp41_nox_index: "Luftqualität: Stickoxide (NOx)",
+  co2: "Kohlendioxid (CO₂)",
+  scd41_temperature: "Temperatur (SCD41)",
+  scd41_humidity: "Luftfeuchtigkeit (SCD41)",
   soil_temperature: "Bodentemperatur", soil_moisture: "Bodenfeuchte", soil_moisture_nfk: "Bodenfeuchte (Quellenangabe nFK)",
   soil_moisture_30cm: "Bodenfeuchte · 30 cm", soil_moisture_60cm: "Bodenfeuchte · 60 cm",
   soil_tension: "Bodensaugspannung", soil_tension_30cm: "Bodensaugspannung · 30 cm", soil_tension_60cm: "Bodensaugspannung · 60 cm",
@@ -33,6 +36,8 @@ const COUNT_METRICS = new Set([
 export function metricPrecision(reading: { metric: string; unit: string }): number {
   if (reading.metric.startsWith("sgp41_") && reading.unit !== "index") return 0;
   if (reading.metric === "sgp41_voc_index" || reading.metric === "sgp41_nox_index") return 0;
+  if (reading.metric === "co2") return 0;
+  if (reading.metric === "scd41_temperature" || reading.metric === "scd41_humidity") return 2;
   if (COUNT_METRICS.has(reading.metric) || reading.metric.startsWith("traffic_")) return 0;
   if (reading.metric === "crossing_state") return 0;
   if (reading.unit === "€/l") return 3;
