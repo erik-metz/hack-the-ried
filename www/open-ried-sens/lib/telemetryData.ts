@@ -5,6 +5,8 @@ const LABELS: Record<string, string> = {
   fuel_e5: "Super E5", fuel_e10: "Super E10", fuel_diesel: "Diesel",
   pgv: "Peak-Vibration (PGV)", rms: "RMS-Tremor", waveform: "Wellenform", temperature: "Temperatur",
   humidity: "Luftfeuchtigkeit", relative_humidity: "Luftfeuchtigkeit", precipitation: "Niederschlag",
+  sgp41_voc_raw: "SGP41 VOC-Rohsignal", sgp41_nox_raw: "SGP41 NOx-Rohsignal",
+  sgp41_voc_index: "VOC-Index (SGP41)", sgp41_nox_index: "NOx-Index (SGP41)",
   soil_temperature: "Bodentemperatur", soil_moisture: "Bodenfeuchte", soil_moisture_nfk: "Bodenfeuchte (Quellenangabe nFK)",
   soil_moisture_30cm: "Bodenfeuchte · 30 cm", soil_moisture_60cm: "Bodenfeuchte · 60 cm",
   soil_tension: "Bodensaugspannung", soil_tension_30cm: "Bodensaugspannung · 30 cm", soil_tension_60cm: "Bodensaugspannung · 60 cm",
@@ -29,6 +31,8 @@ const COUNT_METRICS = new Set([
 /** Formatting contract for chart axes and current-value cards. Unknown metrics
  * retain unit-based defaults so newly ingested measurements remain readable. */
 export function metricPrecision(reading: { metric: string; unit: string }): number {
+  if (reading.metric.startsWith("sgp41_") && reading.unit !== "index") return 0;
+  if (reading.metric === "sgp41_voc_index" || reading.metric === "sgp41_nox_index") return 0;
   if (COUNT_METRICS.has(reading.metric) || reading.metric.startsWith("traffic_")) return 0;
   if (reading.metric === "crossing_state") return 0;
   if (reading.unit === "€/l") return 3;

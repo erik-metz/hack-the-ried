@@ -73,6 +73,15 @@ test("decodes SGP41 VOC and NOx raw signals without scaling", () => {
   ]);
 });
 
+test("decodes Sensirion SGP41 VOC and NOx indices as whole index values", () => {
+  const result = decode({ bytes: [4, 5, ...record(29, 108), ...record(30, 97)] });
+  assert.equal(result.data.firmware_version, 5);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "sgp41_voc_index", unit: "index", value: 108 },
+    { metric: "sgp41_nox_index", unit: "index", value: 97 },
+  ]);
+});
+
 test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [] }).errors);
   assert.ok(decode({ bytes: [2, 0, 171, 1, 247] }).errors);

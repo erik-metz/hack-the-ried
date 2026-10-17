@@ -370,6 +370,9 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(merged.length, 3);
   assert.equal(merged.find(r => r.metric === "parking_free").value, 4);
   assert.equal(telemetry.metricLabel(reading("traffic_cars_hourly", 2, "count")), "PKW · Stundensumme");
+  assert.equal(telemetry.metricLabel(reading("sgp41_voc_index", 120, "index")), "VOC-Index (SGP41)");
+  assert.equal(telemetry.metricPrecision(reading("sgp41_voc_index", 120, "index")), 0);
+  assert.equal(telemetry.metricPrecision(reading("sgp41_nox_raw", 16000, "raw")), 0);
   assert.equal(telemetry.unitLabel("count"), "Anzahl");
 });
 

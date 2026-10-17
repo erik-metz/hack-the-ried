@@ -40,11 +40,19 @@ mkdir -p "$build_dir"
 mkdir -p "$compile_dir"
 cp "$source_dir/$version.ino" "$build_dir/"
 if [[ -f "$source_dir/board.yaml" ]]; then cp "$source_dir/board.yaml" "$build_dir/"; fi
+for source_file in "$source_dir"/*.c "$source_dir"/*.h; do
+  [[ -f "$source_file" ]] || continue
+  cp "$source_file" "$build_dir/"
+done
 chmod 600 "$profile"
 install -m 600 "$profile" "$build_dir/secrets.h"
 
 printf 'Building firmware %s for TTN device %s\n' "$version" "$device_id"
-arduino-cli compile --fqbn "$fqbn" --build-path "$compile_dir" "$build_dir"
+library_args=()
+if [[ -n "${RAK3112_ARDUINO_LIBRARIES_DIR:-}" ]]; then
+  library_args+=(--libraries "$RAK3112_ARDUINO_LIBRARIES_DIR")
+fi
+arduino-cli compile "${library_args[@]}" --fqbn "$fqbn" --build-path "$compile_dir" "$build_dir"
 if [[ -n "$port" ]]; then
   printf 'Uploading firmware %s for TTN device %s on %s\n' "$version" "$device_id" "$port"
   arduino-cli upload -p "$port" --fqbn "$fqbn" --input-dir "$compile_dir" "$build_dir"
