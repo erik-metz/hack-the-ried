@@ -1,0 +1,15 @@
+board:
+  fqbn: esp32:esp32:esp32s3
+  core_version: 3.3.11
+  options:
+    USBMode: hwcdc
+    CDCOnBoot: cdc
+    FlashSize: 16M
+    PSRAM: opi
+    CPUFreq: 240
+
+programmer: esptool
+
+radio:
+  region: EU868
+  antenna: RAK LoRa antenna connected to the LoRa MHF4 socket

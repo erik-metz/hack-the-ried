@@ -35,10 +35,15 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v7 <ttn-device-id>` to compile, or
+Use `./hardware/sensor-node/rak3112/build.sh v8 <ttn-device-id>` to compile the
+latest firmware, or
 add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board.
 The build helper automatically includes `hardware/libraries` (containing `RadioLib`)
 so builds succeed independently of global Arduino CLI library installations.
 See each version's README for the exact pinout. Firmware v7 reads the SHT41 at
 I²C address `0x44`, SGP41 at `0x59`, and SCD41 at `0x62` on the shared bus, SDA GPIO14 and SCL
 GPIO13. It transmits CO₂, temperature, humidity, and Sensirion VOC/NOx indices.
+Firmware v8 additionally reads the LTR390 at `0x53`, alternates ALS and UV
+sampling, and sends UVI, ambient-light lux and both raw channels to the shared
+TTN decoder and frontend. See `v8/README.md` for its pin, conversion and
+validation details.

@@ -7,6 +7,10 @@ const LABELS: Record<string, string> = {
   humidity: "Luftfeuchtigkeit", relative_humidity: "Luftfeuchtigkeit", precipitation: "Niederschlag",
   sgp41_voc_index: "Luftqualität: flüchtige Stoffe (VOC)",
   sgp41_nox_index: "Luftqualität: Stickoxide (NOx)",
+  ltr390_uv_raw: "LTR390 UV-Signal (Rohwert)",
+  ltr390_als_raw: "LTR390 Umgebungslicht (Rohwert)",
+  uv_index: "UV-Index (LTR390)",
+  ambient_light: "Umgebungslicht (LTR390)",
   co2: "Kohlendioxid (CO₂)",
   scd41_temperature: "Temperatur (SCD41)",
   scd41_humidity: "Luftfeuchtigkeit (SCD41)",
@@ -34,6 +38,8 @@ const COUNT_METRICS = new Set([
 /** Formatting contract for chart axes and current-value cards. Unknown metrics
  * retain unit-based defaults so newly ingested measurements remain readable. */
 export function metricPrecision(reading: { metric: string; unit: string }): number {
+  if (reading.metric === "ltr390_uv_raw" || reading.metric === "ltr390_als_raw" || reading.metric === "ambient_light") return 0;
+  if (reading.metric === "uv_index") return 2;
   if (reading.metric.startsWith("sgp41_") && reading.unit !== "index") return 0;
   if (reading.metric === "sgp41_voc_index" || reading.metric === "sgp41_nox_index") return 0;
   if (reading.metric === "co2") return 0;

@@ -90,9 +90,9 @@ identifiers; the value scale and unit belong to each code:
 | 41 | `sound_event_class` | `class` | `0` = unknown, `1` = speech, `2` = vehicle, `3` = heavy rain |
 
 Codes 5–40 cover optional outputs from the sensor selection in
-`hardware/sensor-node/v2/bom.md`; they are a registry for the future v2 sensor
-build, not a claim that the current RAK3112 v1 sketch has those sensors wired
-or emits those values. The sound metrics require DSP on microphone samples;
+`hardware/sensor-node/v2/bom.md`; firmware versions add support as sensors are
+integrated. RAK3112 firmware v8 emits LTR390 UV index, ambient-light lux, and
+the underlying UV/ALS raw counts. The sound metrics require DSP on microphone samples;
 sound level needs calibration. BME688 IAQ/equivalent-gas fields require a
 supporting algorithm, rain pulses do not become millimetres until calibrated,
 and INA226 current depends on the configured shunt. The payload limit is 41

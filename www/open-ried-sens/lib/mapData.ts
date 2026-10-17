@@ -61,6 +61,7 @@ export function categoriesFor(sensor: ApiMapSensor): Category[] {
   for (const r of sensor.readings ?? []) {
     if (["temperature", "soil_temperature", "humidity", "relative_humidity", "precipitation"].includes(r.metric))
       categories.add(r.metric === "soil_temperature" || soil ? "soil" : "weather");
+    if (["uv_index", "ambient_light", "ltr390_uv_raw", "ltr390_als_raw"].includes(r.metric)) categories.add("weather");
     if (r.metric.startsWith("soil_") || r.metric === "water_surface_distance") categories.add("soil");
     if (["water_level_delta", "water_level"].includes(r.metric) || r.metric.startsWith("groundwater_") || r.metric.startsWith("river_")) categories.add("water");
     if (["air_quality_index", "sgp41_voc_index", "sgp41_nox_index", "co2", "NO2", "PM10", "PM25", "PM2.5", "pm10", "pm25", "O3"].includes(r.metric)) categories.add("air");

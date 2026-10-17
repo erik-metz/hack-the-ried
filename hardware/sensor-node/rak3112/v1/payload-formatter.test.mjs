@@ -35,6 +35,19 @@ test("decodes integer firmware metadata separately from sensor measurements", ()
   assert.equal(result.data.measurements.some(({ metric }) => metric === "firmware_version"), false);
 });
 
+test("decodes LTR390 UV index, lux, and diagnostic counts from firmware v8", () => {
+  const result = decode({ fPort: 10, bytes: [4, 8,
+    ...record(3, 725), ...record(31, 1234), ...record(32, 696), ...record(33, 6170)],
+  });
+  assert.equal(result.data.firmware_version, 8);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "uv_index", unit: "index", value: 7.25 },
+    { metric: "ambient_light", unit: "lux", value: 123.4 },
+    { metric: "ltr390_uv_raw", unit: "raw", value: 696 },
+    { metric: "ltr390_als_raw", unit: "raw", value: 6170 },
+  ]);
+});
+
 test("keeps unknown metric codes and raw values visible", () => {
   const result = decode({ bytes: [3, ...record(99, 1234), ...record(1, 180)] });
   assert.deepEqual(JSON.parse(JSON.stringify(result.data.unknown_measurements)), [
