@@ -76,7 +76,7 @@ identifiers; the value scale and unit belong to each code:
 | 24 | `bme688_co2_equivalent` | `ppm` | whole ppm (algorithm estimate, not NDIR CO₂) |
 | 25 | `bme688_bvoc_equivalent` | `ppm` | hundredths |
 | 26 | `bme688_gas_percentage` | `%` | tenths |
-| 27–28 | `sgp41_voc_raw`, `sgp41_nox_raw` | `raw` | whole sensor signal |
+| 27–28 | retired SGP41 raw-signal codes | — | discarded by the formatter; not forwarded |
 | 29–30 | `sgp41_voc_index`, `sgp41_nox_index` | `index` | whole index |
 | 31 | `ambient_light` | `lux` | tenths |
 | 32–33 | `ltr390_uv_raw`, `ltr390_als_raw` | `raw` | whole ADC signal |
@@ -104,7 +104,8 @@ To add a measurement, assign it a new code and documented scale, append its
 encoded value to the uplink records, and add that code to
 `payload-formatter.js`. Until a code is registered, the formatter still sends
 it downstream as `metric_<code>` with unit `raw`, and also exposes the raw
-code/value pair as `unknown_measurements`. The formatter accepts payload
+code/value pair as `unknown_measurements`. Retired SGP41 codes 27 and 28 are
+explicitly discarded. The formatter accepts payload
 formats 3 and 4. Format 4 exposes the semantic firmware version as
 `firmware_version` metadata, separate from `measurements`. It does not expose
 the removed uptime or uplink-counter diagnostics.

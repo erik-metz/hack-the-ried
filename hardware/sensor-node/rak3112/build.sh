@@ -49,6 +49,10 @@ install -m 600 "$profile" "$build_dir/secrets.h"
 
 printf 'Building firmware %s for TTN device %s\n' "$version" "$device_id"
 library_args=()
+repo_libraries_dir="$(cd -- "$script_dir/../../libraries" && pwd)"
+if [[ -d "$repo_libraries_dir" ]]; then
+  library_args+=(--libraries "$repo_libraries_dir")
+fi
 if [[ -n "${RAK3112_ARDUINO_LIBRARIES_DIR:-}" ]]; then
   library_args+=(--libraries "$RAK3112_ARDUINO_LIBRARIES_DIR")
 fi

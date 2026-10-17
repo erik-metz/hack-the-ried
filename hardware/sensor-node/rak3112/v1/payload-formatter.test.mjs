@@ -46,10 +46,10 @@ test("keeps unknown metric codes and raw values visible", () => {
   ]);
 });
 
-test("decodes all registered BOM sensor identifiers", () => {
+test("decodes registered metrics while omitting reserved SGP41 raw identifiers", () => {
   const result = decode({ bytes: [3, ...Array.from({ length: 41 }, (_, index) => record(index + 1, 100)).flat()] });
   const measurements = JSON.parse(JSON.stringify(result.data.measurements));
-  assert.equal(measurements.length, 41);
+  assert.equal(measurements.length, 39);
   assert.deepEqual(measurements.map(({ metric }) => metric), [
     "temperature", "humidity", "uv_index", "co2", "scd41_temperature",
     "scd41_humidity", "sound_level", "pm1_0", "pm2_5", "pm4_0", "pm10",
@@ -57,20 +57,17 @@ test("decodes all registered BOM sensor identifiers", () => {
     "particle_number_pm4_0", "particle_number_pm10", "particle_size_typical",
     "bme688_temperature", "bme688_humidity", "pressure", "bme688_gas_resistance",
     "bme688_iaq", "bme688_static_iaq", "bme688_co2_equivalent",
-    "bme688_bvoc_equivalent", "bme688_gas_percentage", "sgp41_voc_raw",
-    "sgp41_nox_raw", "sgp41_voc_index", "sgp41_nox_index", "ambient_light",
+    "bme688_bvoc_equivalent", "bme688_gas_percentage", "sgp41_voc_index",
+    "sgp41_nox_index", "ambient_light",
     "ltr390_uv_raw", "ltr390_als_raw", "rain_detected", "rain_pulses",
     "bus_voltage", "shunt_voltage", "current", "power", "sound_dominant_frequency",
     "sound_event_class",
   ]);
 });
 
-test("decodes SGP41 VOC and NOx raw signals without scaling", () => {
+test("drops legacy SGP41 VOC and NOx raw signals", () => {
   const result = decode({ bytes: [4, 4, ...record(27, 23456), ...record(28, 19876)] });
-  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
-    { metric: "sgp41_voc_raw", unit: "raw", value: 23456 },
-    { metric: "sgp41_nox_raw", unit: "raw", value: 19876 },
-  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), []);
 });
 
 test("decodes Sensirion SGP41 VOC and NOx indices as whole index values", () => {

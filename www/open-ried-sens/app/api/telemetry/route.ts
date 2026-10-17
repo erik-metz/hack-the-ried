@@ -1,6 +1,7 @@
 import { env } from "@/env";
 
 type RawReading = { metric: string; unit: string; value: number; timestamp: string };
+const HIDDEN_METRICS = new Set(["sgp41_voc_raw", "sgp41_nox_raw"]);
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const sensorId = params.get("sensor_id");
@@ -38,8 +39,10 @@ export async function GET(request: Request) {
     }
   }
   const buckets = results[1].status === "fulfilled" ? results[1].value : [];
-  return Response.json({ readings: results[0].value,
-    history: snapshots ? buckets.map((r: RawReading) => ({ metric: r.metric, unit: r.unit, bucket: r.timestamp, avg_value: r.value })) : buckets,
+  const readings = Array.isArray(results[0].value) ? results[0].value.filter((r: RawReading) => !HIDDEN_METRICS.has(r.metric)) : results[0].value;
+  const filteredHistory = snapshots ? buckets.map((r: RawReading) => ({ metric: r.metric, unit: r.unit, bucket: r.timestamp, avg_value: r.value })) : buckets;
+  return Response.json({ readings,
+    history: Array.isArray(filteredHistory) ? filteredHistory.filter((r: RawReading) => !HIDDEN_METRICS.has(r.metric)) : filteredHistory,
     historyMode: snapshots ? "snapshots" : "averages", historyUnavailable: results[1].status === "rejected",
     historyTruncated: snapshots && buckets.length >= 5000, start: start.toISOString(), end: end.toISOString(),
   });

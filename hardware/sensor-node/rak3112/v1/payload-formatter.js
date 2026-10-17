@@ -29,6 +29,8 @@ function decodeUplink(input) {
     const code = bytes[offset];
     if (seen[code]) return { errors: ["Duplicate metric code: " + code] };
     seen[code] = true;
+    // Legacy firmware used 27/28 for SGP41 raw signals. Do not forward them.
+    if (code === 27 || code === 28) continue;
     const raw = (bytes[offset+1] << 24) | (bytes[offset+2] << 16) | (bytes[offset+3] << 8) | bytes[offset+4];
     const definition = definitions[code];
     if (definition) measurements.push({metric:definition[0],unit:definition[1],value:Math.round(raw*definition[2]*1000)/1000});

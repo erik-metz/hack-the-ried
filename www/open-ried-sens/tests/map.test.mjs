@@ -33,6 +33,16 @@ test("map nodes carry firmware version as device metadata without adding a readi
   assert.equal(nodes[0].firmwareVersion, 2);
   assert.equal(nodes[0].readings.some(({ metric }) => metric === "firmware_version"), false);
 });
+test("SGP41 indices are air readings and legacy raw signals stay hidden", () => {
+  const nodes = model.toMapNodes([sensor([
+    reading("sgp41_voc_raw", 12345, "raw"),
+    reading("sgp41_nox_raw", 23456, "raw"),
+    reading("sgp41_voc_index", 85, "index"),
+    reading("sgp41_nox_index", 94, "index"),
+  ])]);
+  assert.deepEqual([...nodes[0].categories], ["air"]);
+  assert.deepEqual(nodes[0].readings.map(({ metric }) => metric), ["sgp41_voc_index", "sgp41_nox_index"]);
+});
 test("new RAK devices without readings are categorized as weather", () => {
   const nodes = model.toMapNodes([sensor([], { id: "ttn-rak3112-002" })]);
   assert.deepEqual([...nodes[0].categories], ["weather"]);
@@ -370,9 +380,9 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(merged.length, 3);
   assert.equal(merged.find(r => r.metric === "parking_free").value, 4);
   assert.equal(telemetry.metricLabel(reading("traffic_cars_hourly", 2, "count")), "PKW · Stundensumme");
-  assert.equal(telemetry.metricLabel(reading("sgp41_voc_index", 120, "index")), "VOC-Index (SGP41)");
+  assert.equal(telemetry.metricLabel(reading("sgp41_voc_index", 120, "index")), "Luftqualität: flüchtige Stoffe (VOC)");
+  assert.equal(telemetry.metricLabel(reading("sgp41_nox_index", 120, "index")), "Luftqualität: Stickoxide (NOx)");
   assert.equal(telemetry.metricPrecision(reading("sgp41_voc_index", 120, "index")), 0);
-  assert.equal(telemetry.metricPrecision(reading("sgp41_nox_raw", 16000, "raw")), 0);
   assert.equal(telemetry.unitLabel("count"), "Anzahl");
 });
 

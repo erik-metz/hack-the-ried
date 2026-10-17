@@ -35,9 +35,12 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v5 <ttn-device-id>` to compile, or
+Use `./hardware/sensor-node/rak3112/build.sh v6 <ttn-device-id>` to compile, or
 add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board.
-See each version's README for the exact pinout. Firmware v5 reads the SHT41 at
+The build helper automatically includes `hardware/libraries` (containing `RadioLib`)
+so builds succeed independently of global Arduino CLI library installations.
+See each version's README for the exact pinout. Firmware v6 reads the SHT41 at
 I²C address `0x44` and SGP41 at `0x59` on the shared bus, SDA GPIO14 and SCL
-GPIO13. It sends the SGP41 raw signals and Sensirion VOC/NOx indices; these
-indices are relative signals, not gas concentrations.
+GPIO13. It keeps SGP41 raw signals on the RAK and sends only Sensirion VOC/NOx
+indices with the temperature and humidity readings. The indices are relative
+signals, not gas concentrations.
