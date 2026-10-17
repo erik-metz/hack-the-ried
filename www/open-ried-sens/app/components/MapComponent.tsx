@@ -225,6 +225,7 @@ export default function MapComponent(props: MapProps) {
       marker.bindTooltip(textPopup([node.name, ...(reading ? [valueLabel(reading, node.readings)] : ["Keine Messwerte"])]));
       marker.bindPopup(detailCard(node.name, node.categories.map(id => CATEGORIES[id].label).join(" · "), [
         ...(node.address ? [node.address] : []),
+        ...(node.firmwareVersion ? [`Firmwareversion: ${node.firmwareVersion}`] : []),
         ...node.readings.map(item => `${metricLabel(item)}: ${valueLabel(item, node.readings)} · ${observationLabel(item, freshnessMinute * 60000)}`),
         ...(!node.readings.length ? ["Keine Messwerte verfügbar."] : []),
       ]), { maxHeight: 260, maxWidth: 260, autoPanPadding: L.point(20, 40) });

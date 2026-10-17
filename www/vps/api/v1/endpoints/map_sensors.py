@@ -18,7 +18,7 @@ MAX_MAP_SENSORS = 5000
 MAX_MAP_READINGS = 64
 
 MAP_QUERY = """
-SELECT sm.id, sm.friendly_name, sm.latitude, sm.longitude, sm.description,
+SELECT sm.id, sm.friendly_name, sm.latitude, sm.longitude, sm.description, sm.firmware_version,
        sc.entity_type, sc.entity_id AS source_entity_id,
        COALESCE(readings.items, '[]'::json) AS readings
 FROM sensor_metadata sm

@@ -37,12 +37,12 @@ export type MapMode = "category" | "temperature";
 export type Freshness = "fresh" | "stale" | "unknown" | "state";
 export type ApiMapSensor = {
   id: string; friendly_name: string; latitude: number | null; longitude: number | null;
-  description?: string | null; is_hidden?: boolean; entity_type?: string | null;
+  description?: string | null; firmware_version?: string | null; is_hidden?: boolean; entity_type?: string | null;
   source_entity_id?: string | null; readings?: Reading[];
 };
 export interface StationNode {
   id: string; name: string; locationName: string; address: string; lat: number | null; lng: number | null;
-  categories: Category[]; readings: Reading[];
+  categories: Category[]; readings: Reading[]; firmwareVersion?: string | null;
   isAggregate?: boolean;
 }
 
@@ -139,6 +139,7 @@ export function toStationNodes(sensors: ApiMapSensor[]): StationNode[] {
       result.push({
         id: s.id, name: s.friendly_name, locationName: s.friendly_name, address: s.description ?? "",
         lat: s.latitude, lng: s.longitude, categories,
+        firmwareVersion: s.firmware_version ?? null,
         readings: (s.readings ?? []).filter(r => Number.isFinite(r.value) && Number.isFinite(Date.parse(r.timestamp))),
       });
     }
@@ -1068,8 +1069,8 @@ export interface NatureArea {
   area_hectares?: number | null;
   legal_ordinance_year?: number | null;
   conservation_aims?: string | null;
-  visiting_rules?: Record<string, any> | null;
-  geojson: any;
+  visiting_rules?: Record<string, unknown> | null;
+  geojson: unknown;
   source: string;
 }
 
@@ -1081,7 +1082,7 @@ export interface CropZone {
   year: number;
   area_hectares?: number | null;
   irrigation_demand_class?: string | null;
-  geojson: any;
+  geojson: unknown;
 }
 
 export interface AgriculturalStat {

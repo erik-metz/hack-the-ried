@@ -28,6 +28,11 @@ test("legacy metadata fallback has unknown freshness and usable source categorie
   assert.deepEqual([...nodes[0].categories], ["parking"]);
   assert.equal(model.readingFreshness(undefined, now), "unknown");
 });
+test("map nodes carry firmware version as device metadata without adding a reading", () => {
+  const nodes = model.toMapNodes([sensor([reading("temperature")], { firmware_version: "2.0.0" })]);
+  assert.equal(nodes[0].firmwareVersion, "2.0.0");
+  assert.equal(nodes[0].readings.some(({ metric }) => metric === "firmware_version"), false);
+});
 test("measurement age is independent of fetch time; parking is a state, never online", () => {
   assert.equal(model.readingFreshness(reading("temperature"), now), "fresh");
   assert.equal(model.readingFreshness(reading("temperature", 18, "°C", "2026-01-01T00:00:00Z"), now), "stale");

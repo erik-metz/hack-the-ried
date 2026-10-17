@@ -7,11 +7,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import psycopg
+from endpoints.sensor_integrations import receive_sensor_uplink
 from fastapi import HTTPException
 from fastapi.security import HTTPBasicCredentials
 from psycopg.rows import dict_row
-
-from endpoints.sensor_integrations import receive_sensor_uplink
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
 from db_support import DatabaseCase
@@ -35,6 +34,8 @@ class SensorIntegrationTests(DatabaseCase):
         await super().asyncSetUp()
         migration = Path(__file__).resolve().parents[1] / "migrations/20261016_ttn_ingestion.sql"
         await self.conn.execute(migration.read_text())
+        firmware_migration = Path(__file__).resolve().parents[1] / "migrations/20261017_ttn_firmware_version.sql"
+        await self.conn.execute(firmware_migration.read_text())
 
     def uplink(self):
         return {
@@ -49,11 +50,13 @@ class SensorIntegrationTests(DatabaseCase):
                 "f_cnt": 42,
                 "frm_payload": "AQID",
                 "decoded_payload": {
+                    "firmware_version": "2.0.0",
                     "measurements": [
                         {"metric": "temperature", "value": 18.5, "unit": "°C"},
                         {"metric": "humidity", "value": 62, "unit": "%"},
                     ]
                 },
+                "locations": {"user": {"latitude": 49.6855, "longitude": 8.3863}},
             },
         }
 
@@ -77,6 +80,28 @@ class SensorIntegrationTests(DatabaseCase):
             "SELECT is_hidden FROM sensor_metadata WHERE id='ttn-weather-node-1'"
         )
         self.assertTrue(hidden)
+        firmware = await self.scalar(
+            "SELECT firmware_version FROM sensor_metadata WHERE id='ttn-weather-node-1'"
+        )
+        self.assertEqual(firmware, "2.0.0")
+        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data WHERE metric='firmware_version'"), 0)
+        coordinates = await (await self.conn.execute(
+            "SELECT latitude,longitude,is_hidden FROM sensor_metadata WHERE id='ttn-weather-node-1'"
+        )).fetchone()
+        self.assertEqual((coordinates["latitude"], coordinates["longitude"]), (49.6855, 8.3863))
+        self.assertTrue(coordinates["is_hidden"])
+
+    async def test_invalid_firmware_metadata_is_rejected(self):
+        credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")
+        body = self.uplink()
+        body["uplink_message"]["decoded_payload"]["firmware_version"] = "v2"
+        with patch.dict(os.environ, {
+            "TTN_APPLICATION_ID": "ried-sensors",
+            "TTN_WEBHOOK_USERNAME": "ttn-user",
+            "TTN_WEBHOOK_PASSWORD": "ttn-secret",
+        }), self.assertRaises(HTTPException) as error:
+            await receive_sensor_uplink(body, credentials, self.pool())
+        self.assertEqual(error.exception.status_code, 422)
 
     async def test_changed_payload_cannot_reuse_ttn_correlation_identity(self):
         credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")
@@ -115,10 +140,9 @@ class SensorIntegrationTests(DatabaseCase):
             "TTN_APPLICATION_ID": "ried-sensors",
             "TTN_WEBHOOK_USERNAME": "ttn-user",
             "TTN_WEBHOOK_PASSWORD": "ttn-secret",
-        }):
-            with self.assertRaises(HTTPException) as error:
-                await receive_sensor_uplink(self.uplink(), HTTPBasicCredentials(
-                    username="wrong", password="wrong"
-                ), self.pool())
+        }), self.assertRaises(HTTPException) as error:
+            await receive_sensor_uplink(self.uplink(), HTTPBasicCredentials(
+                username="wrong", password="wrong"
+            ), self.pool())
         self.assertEqual(error.exception.status_code, 401)
         self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 0)

@@ -42,12 +42,14 @@ datasheet also describes its optional built-in modem stack as 1.0.2, but this
 sketch runs RadioLib directly on the ESP32-S3 and SX1262.
 
 After OTAA succeeds, the sketch sends an unconfirmed uplink on FPort 10
-immediately and then every five minutes. The current payload v3 is a version
-byte followed by one five-byte record for each measurement:
+immediately and then every five minutes. Firmware v1 sends payload format v3:
+a format byte followed by one five-byte record for each measurement. The
+shared TTN formatter in this directory also accepts format v4 from firmware
+v2; v4 adds three semantic firmware version bytes after the format byte.
 
 | Record byte(s) | Meaning | Encoding |
 | --- | --- | --- |
-| 0 | Payload version (`3`) | unsigned byte |
+| 0 | Payload format version (`3`) | unsigned byte |
 | 1 | Metric code | unsigned byte |
 | 2–5 | Metric value | signed 32-bit, big-endian |
 
@@ -94,7 +96,7 @@ or emits those values. The sound metrics require DSP on microphone samples;
 sound level needs calibration. BME688 IAQ/equivalent-gas fields require a
 supporting algorithm, rain pulses do not become millimetres until calibrated,
 and INA226 current depends on the configured shunt. The payload limit is 41
-records (206 bytes including the version byte). Keep each uplink within the
+records (206 bytes including the v3 format byte; v4 uses a four-byte header). Keep each uplink within the
 active LoRaWAN data-rate payload allowance; split readings over multiple
 uplinks if the selected data rate cannot carry them.
 
@@ -102,9 +104,10 @@ To add a measurement, assign it a new code and documented scale, append its
 encoded value to the uplink records, and add that code to
 `payload-formatter.js`. Until a code is registered, the formatter still sends
 it downstream as `metric_<code>` with unit `raw`, and also exposes the raw
-code/value pair as `unknown_measurements`. The formatter accepts version 3
-payloads only. It does not expose the removed uptime or uplink-counter
-diagnostics.
+code/value pair as `unknown_measurements`. The formatter accepts payload
+formats 3 and 4. Format 4 exposes the semantic firmware version as
+`firmware_version` metadata, separate from `measurements`. It does not expose
+the removed uptime or uplink-counter diagnostics.
 
 Install `payload-formatter.js` as the TTN uplink payload formatter for FPort 10.
 Its local protocol tests can be run with:

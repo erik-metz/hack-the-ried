@@ -10,18 +10,22 @@ function decodeUplink(input) {
   }
 
   const version = bytes[0];
-  if (version !== 3) return { errors: [`Unsupported payload version: ${version}`] };
-  if (bytes.length < 6 || (bytes.length - 1) % 5 !== 0) {
-    return { errors: ["Version 3 payload must contain complete 5-byte measurement records"] };
+  if (version !== 3 && version !== 4) return { errors: [`Unsupported payload version: ${version}`] };
+  const headerBytes = version === 3 ? 1 : 4;
+  if (version === 4 && bytes.length < headerBytes) {
+    return { errors: ["Version 4 payload is missing its firmware version header"] };
   }
-  if ((bytes.length - 1) / 5 > 41) {
-    return { errors: ["Version 3 payload contains more than 41 measurements"] };
+  if (bytes.length < headerBytes + 5 || (bytes.length - headerBytes) % 5 !== 0) {
+    return { errors: [`Version ${version} payload must contain complete 5-byte measurement records`] };
+  }
+  if ((bytes.length - headerBytes) / 5 > 41) {
+    return { errors: [`Version ${version} payload contains more than 41 measurements`] };
   }
 
   const measurements = [];
   const unknownMeasurements = [];
   const seenCodes = new Set();
-  for (let offset = 1; offset < bytes.length; offset += 5) {
+  for (let offset = headerBytes; offset < bytes.length; offset += 5) {
     const code = bytes[offset];
     if (seenCodes.has(code)) {
       return { errors: [`Duplicate metric code: ${code}`] };
@@ -40,6 +44,9 @@ function decodeUplink(input) {
     }
   }
   const data = { version, measurements };
+  if (version === 4) {
+    data.firmware_version = `${bytes[1]}.${bytes[2]}.${bytes[3]}`;
+  }
   if (unknownMeasurements.length) data.unknown_measurements = unknownMeasurements;
   return { data };
 }

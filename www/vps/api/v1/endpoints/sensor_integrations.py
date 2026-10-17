@@ -19,6 +19,7 @@ basic_auth = HTTPBasic(auto_error=False)
 DEVICE_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$")
 METRIC_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 UNIT_PATTERN = re.compile(r"^[^\s\x00-\x1f]{1,32}$")
+FIRMWARE_VERSION_PATTERN = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}$")
 MAX_MEASUREMENTS = 41
 
 
@@ -78,6 +79,27 @@ def _measurements(decoded: Any) -> list[dict[str, Any]]:
     return result
 
 
+def _ttn_coordinates(uplink: dict[str, Any]) -> tuple[float, float] | None:
+    locations = uplink.get("locations")
+    if not isinstance(locations, dict):
+        return None
+    # Prefer a manually configured registry location over less authoritative sources.
+    candidates = [locations.get("user"), *(
+        value for key, value in locations.items() if key != "user"
+    )]
+    for location in candidates:
+        if not isinstance(location, dict):
+            continue
+        latitude, longitude = location.get("latitude"), location.get("longitude")
+        if (isinstance(latitude, bool) or not isinstance(latitude, (int, float))
+                or isinstance(longitude, bool) or not isinstance(longitude, (int, float))
+                or not math.isfinite(latitude) or not math.isfinite(longitude)
+                or not -90 <= latitude <= 90 or not -180 <= longitude <= 180):
+            continue
+        return float(latitude), float(longitude)
+    return None
+
+
 def _event_identity(application_id: str, device_id: str, uplink: dict[str, Any],
                     received_at: datetime, correlations: Any) -> tuple[str, str, list[str]]:
     if (not isinstance(correlations, list)
@@ -130,6 +152,14 @@ async def receive_sensor_uplink(
     if not isinstance(uplink, dict):
         raise HTTPException(422, "uplink_message is required")
     decoded_measurements = _measurements(uplink.get("decoded_payload"))
+    decoded_payload = uplink.get("decoded_payload")
+    firmware_version = decoded_payload.get("firmware_version") if isinstance(decoded_payload, dict) else None
+    if firmware_version is not None and (
+        not isinstance(firmware_version, str)
+        or not FIRMWARE_VERSION_PATTERN.fullmatch(firmware_version)
+    ):
+        raise HTTPException(422, "decoded_payload.firmware_version must be semantic major.minor.patch")
+    coordinates = _ttn_coordinates(uplink)
     observed_at = _event_time(uplink, body)
     event_id, payload_hash, correlations = _event_identity(
         application_id, device_id, uplink, observed_at, body.get("correlation_ids", [])
@@ -162,9 +192,17 @@ async def receive_sensor_uplink(
             return {"status": "duplicate", "event_id": event_id, "inserted_count": 0}
 
         # New devices remain hidden until an administrator verifies their identity and metadata.
-        await conn.execute("""INSERT INTO sensor_metadata (id,friendly_name,is_hidden,description)
-            VALUES (%s,%s,TRUE,%s) ON CONFLICT (id) DO NOTHING""",
-            (sensor_id, device_id, f"The Things Stack device {device_id}"))
+        latitude, longitude = coordinates if coordinates is not None else (None, None)
+        await conn.execute("""INSERT INTO sensor_metadata
+            (id,friendly_name,is_hidden,description,firmware_version,latitude,longitude)
+            VALUES (%s,%s,TRUE,%s,%s,%s,%s)
+            ON CONFLICT (id) DO UPDATE SET firmware_version=COALESCE(EXCLUDED.firmware_version, sensor_metadata.firmware_version),
+                latitude=COALESCE(EXCLUDED.latitude,sensor_metadata.latitude),
+                longitude=COALESCE(EXCLUDED.longitude,sensor_metadata.longitude),
+                updated_at=CASE WHEN EXCLUDED.firmware_version IS NOT NULL OR EXCLUDED.latitude IS NOT NULL
+                    THEN NOW() ELSE sensor_metadata.updated_at END""",
+            (sensor_id, device_id, f"The Things Stack device {device_id}", firmware_version,
+             latitude, longitude))
         async with conn.cursor() as cur:
             await cur.executemany("""INSERT INTO sensor_data(timestamp,sensor_id,value,unit,metric)
                 VALUES (%s,%s,%s,%s,%s)""",
