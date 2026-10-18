@@ -314,7 +314,7 @@ void updateDisplay() {
   display.print(F("Battery: "));
   display.print(batteryVolts, 1); display.print(F("V "));
   display.print(getBatteryPercentage(batteryVolts)); display.print('%');
-  display.setCursor(0, 10);
+  display.setCursor(0, 8);
   display.print(F("WiFi "));
   if (WiFi.status() == WL_CONNECTED) {
     display.print(String(wifiSsids[activeWifiIndex]).substring(0, 16));
@@ -322,18 +322,19 @@ void updateDisplay() {
     display.print(F("offline"));
   }
   const TrafficSummary traffic = getTrafficLastHour();
-  display.setCursor(0, 20);
-  display.print(F("RX 1h: ")); display.print(traffic.received);
-  display.setCursor(0, 30);
+  display.setCursor(0, 16);
   const bool ttnConnected = lastTtnPullAck != 0 && millis() - lastTtnPullAck < 15000;
-  display.print(ttnConnected ? F("TTN:UP ") : F("TTN:DOWN "));
-  display.print(F("U:")); display.print(traffic.uplinkAcks);
+  display.print(ttnConnected ? F("TTN: connected") : F("TTN: disconnected"));
+  display.setCursor(0, 24);
+  display.print(F("LoRa packets/1h: ")); display.print(traffic.received);
+  display.setCursor(0, 32);
+  display.print(F("Uplink ACK/1h: ")); display.print(traffic.uplinkAcks);
   display.setCursor(0, 40);
-  display.print(F("R:")); display.print(lastRssi);
-  display.print(F(" S:")); display.print(lastSnr, 1);
-  display.print(F(" D:")); display.print(traffic.downlinks);
-  display.setCursor(0, 52);
-  display.print(statusLine);
+  display.print(F("Downlinks/1h: ")); display.print(traffic.downlinks);
+  display.setCursor(0, 48);
+  display.print(F("RSSI: ")); display.print(lastRssi); display.print(F(" dBm"));
+  display.setCursor(0, 56);
+  display.print(F("SNR: ")); display.print(lastSnr, 1); display.print(F(" dB"));
   display.display();
 }
 
