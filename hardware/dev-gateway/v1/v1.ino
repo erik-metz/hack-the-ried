@@ -86,6 +86,12 @@ int16_t lastRssi = 0;
 float lastSnr = 0;
 String statusLine = "Booting";
 bool displayReady = false;
+uint8_t activeWifiIndex = 0;
+uint32_t lastWifiAttempt = 0;
+
+const char* const wifiSsids[] = { WIFI_SSID_1, WIFI_SSID_2 };
+const char* const wifiPasswords[] = { WIFI_PASSWORD_1, WIFI_PASSWORD_2 };
+const uint8_t WIFI_NETWORK_COUNT = sizeof(wifiSsids) / sizeof(wifiSsids[0]);
 
 void setFlag() {
   packetRxTimestamp = micros();
@@ -93,6 +99,39 @@ void setFlag() {
 }
 void setRxMode() { digitalWrite(FEM_CTX, LOW); }
 void setTxMode() { digitalWrite(FEM_CTX, HIGH); }
+
+bool connectWifi(uint32_t timeoutMs) {
+  WiFi.mode(WIFI_STA);
+  for (uint8_t offset = 0; offset < WIFI_NETWORK_COUNT; ++offset) {
+    const uint8_t index = (activeWifiIndex + offset) % WIFI_NETWORK_COUNT;
+    if (wifiSsids[index][0] == '\0') continue;
+    Serial.printf("[WiFi] Trying network %u: %s\n", index + 1, wifiSsids[index]);
+    WiFi.disconnect();
+    WiFi.begin(wifiSsids[index], wifiPasswords[index]);
+    const uint32_t started = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - started < timeoutMs) {
+      processGps();
+      delay(250);
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      activeWifiIndex = index;
+      Serial.printf("[WiFi] Connected to network %u, IP: %s\n", index + 1,
+          WiFi.localIP().toString().c_str());
+      statusLine = String("WiFi network ") + (index + 1);
+      return true;
+    }
+    Serial.printf("[WiFi] Network %u unavailable.\n", index + 1);
+  }
+  lastWifiAttempt = millis();
+  return false;
+}
+
+void maintainWifi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  if (millis() - lastWifiAttempt < 10000) return;
+  statusLine = "WiFi reconnecting";
+  connectWifi(8000);
+}
 
 void generateGatewayEui() {
   if (strlen(GATEWAY_EUI) == 16) {
@@ -561,16 +600,7 @@ void setup() {
   Serial.println(F("\n=== Heltec V4.3 single-channel TTN development gateway ==="));
   initFEM(); initDisplay(); initGNSS();
   statusLine = "Connecting WiFi"; updateDisplay();
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  for (int retries = 0; WiFi.status() != WL_CONNECTED && retries < 40; ++retries) {
-    // Keep the GPS UART drained while WiFi connects.
-    processGps();
-    delay(500);
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    statusLine = "WiFi failed; reboot"; updateDisplay(); delay(3000); ESP.restart();
-  }
+  connectWifi(10000);
   generateGatewayEui();
   udp.begin(1700);
   SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
@@ -594,6 +624,7 @@ void setup() {
 void loop() {
   static uint32_t lastPull = 0, lastStatus = 0, lastDisplay = 0;
   processGps();
+  maintainWifi();
   processUdp();
   if (packetReceived) {
     packetReceived = false;
