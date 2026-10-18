@@ -72,9 +72,6 @@ uint16_t pullResponsePort = 0;
 volatile bool packetReceived = false;
 volatile uint32_t packetRxTimestamp = 0;
 uint32_t rxCount = 0;
-uint32_t ttnPullAckCount = 0;
-uint32_t ttnPushAckCount = 0;
-uint32_t downlinkTxCount = 0;
 uint32_t lastTtnPullAck = 0;
 uint32_t gpsBytes = 0;
 uint32_t gpsSentences = 0;
@@ -100,6 +97,49 @@ const char* const wifiPasswords[] = {
   WIFI_PASSWORD_1, WIFI_PASSWORD_2, WIFI_PASSWORD_3, WIFI_PASSWORD_4
 };
 const uint8_t WIFI_NETWORK_COUNT = sizeof(wifiSsids) / sizeof(wifiSsids[0]);
+
+enum TrafficKind : uint8_t { TRAFFIC_RX, TRAFFIC_UPLINK_ACK, TRAFFIC_DOWNLINK };
+struct TrafficBucket {
+  uint32_t minute;
+  uint32_t received;
+  uint32_t uplinkAcks;
+  uint32_t downlinks;
+  bool valid;
+};
+struct TrafficSummary {
+  uint32_t received;
+  uint32_t uplinkAcks;
+  uint32_t downlinks;
+};
+const uint8_t TRAFFIC_BUCKET_COUNT = 60;
+TrafficBucket trafficBuckets[TRAFFIC_BUCKET_COUNT] = {};
+
+void recordTraffic(TrafficKind kind) {
+  const uint32_t minute = millis() / 60000UL;
+  TrafficBucket& bucket = trafficBuckets[minute % TRAFFIC_BUCKET_COUNT];
+  if (!bucket.valid || bucket.minute != minute) {
+    bucket.minute = minute;
+    bucket.received = 0;
+    bucket.uplinkAcks = 0;
+    bucket.downlinks = 0;
+    bucket.valid = true;
+  }
+  if (kind == TRAFFIC_RX) ++bucket.received;
+  else if (kind == TRAFFIC_UPLINK_ACK) ++bucket.uplinkAcks;
+  else if (kind == TRAFFIC_DOWNLINK) ++bucket.downlinks;
+}
+
+TrafficSummary getTrafficLastHour() {
+  TrafficSummary summary = {};
+  const uint32_t currentMinute = millis() / 60000UL;
+  for (const TrafficBucket& bucket : trafficBuckets) {
+    if (!bucket.valid || currentMinute - bucket.minute >= TRAFFIC_BUCKET_COUNT) continue;
+    summary.received += bucket.received;
+    summary.uplinkAcks += bucket.uplinkAcks;
+    summary.downlinks += bucket.downlinks;
+  }
+  return summary;
+}
 
 void setFlag() {
   packetRxTimestamp = micros();
@@ -275,23 +315,23 @@ void updateDisplay() {
   display.print(batteryVolts, 1); display.print(F("V "));
   display.print(getBatteryPercentage(batteryVolts)); display.print('%');
   display.setCursor(0, 10);
-  display.print(F("WiFi: "));
+  display.print(F("WiFi "));
   if (WiFi.status() == WL_CONNECTED) {
-    display.print(String(wifiSsids[activeWifiIndex]).substring(0, 5));
+    display.print(String(wifiSsids[activeWifiIndex]).substring(0, 16));
   } else {
     display.print(F("offline"));
   }
+  const TrafficSummary traffic = getTrafficLastHour();
   display.setCursor(0, 20);
-  display.print(F("RX:")); display.print(rxCount);
-  display.print(F(" R:")); display.print(lastRssi);
-  display.print(F(" S:")); display.print(lastSnr, 1);
+  display.print(F("RX 1h: ")); display.print(traffic.received);
   display.setCursor(0, 30);
   const bool ttnConnected = lastTtnPullAck != 0 && millis() - lastTtnPullAck < 15000;
   display.print(ttnConnected ? F("TTN:UP ") : F("TTN:DOWN "));
-  display.print(F("P:")); display.print(ttnPullAckCount);
+  display.print(F("U:")); display.print(traffic.uplinkAcks);
   display.setCursor(0, 40);
-  display.print(F("UACK:")); display.print(ttnPushAckCount);
-  display.print(F(" DL:")); display.print(downlinkTxCount);
+  display.print(F("R:")); display.print(lastRssi);
+  display.print(F(" S:")); display.print(lastSnr, 1);
+  display.print(F(" D:")); display.print(traffic.downlinks);
   display.setCursor(0, 52);
   display.print(statusLine);
   display.display();
@@ -510,7 +550,7 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   }
   setTxMode();
   const int state = radio.transmit(payload, decoded);
-  if (state == RADIOLIB_ERR_NONE) ++downlinkTxCount;
+  if (state == RADIOLIB_ERR_NONE) recordTraffic(TRAFFIC_DOWNLINK);
   const char* txAckError = state == RADIOLIB_ERR_NONE ? "NONE" : "TX_POWER";
   const bool ackSent = sendTxAck(responseToken, txAckError);
   Serial.printf("[DOWNLINK] TX result=%d payload=%u bytes; ipol=%s ncrc=%s; ACK datagram=%s.\n",
@@ -587,7 +627,6 @@ void processUdp() {
       buffer[3], length, sourceAddress.toString().c_str(), sourcePort,
       static_cast<unsigned>(responseToken));
   if (buffer[3] == PULL_ACK) {
-    ++ttnPullAckCount;
     lastTtnPullAck = millis();
     statusLine = "TTN connected";
     static bool loggedPullAck = false;
@@ -597,7 +636,7 @@ void processUdp() {
     }
   }
   else if (buffer[3] == PUSH_ACK) {
-    ++ttnPushAckCount;
+    recordTraffic(TRAFFIC_UPLINK_ACK);
     statusLine = "TTN uplink ACK";
   }
   else if (buffer[3] == PULL_RESP) {
@@ -647,6 +686,7 @@ void loop() {
     const int readState = length <= sizeof(payload) ? radio.readData(payload, length) : RADIOLIB_ERR_PACKET_TOO_LONG;
     if (readState == RADIOLIB_ERR_NONE) {
       lastRssi = radio.getRSSI(); lastSnr = radio.getSNR(); ++rxCount;
+      recordTraffic(TRAFFIC_RX);
       sendPushData(payload, length, lastRssi, lastSnr, packetRxTimestamp);
     } else {
       statusLine = "Bad uplink packet";
