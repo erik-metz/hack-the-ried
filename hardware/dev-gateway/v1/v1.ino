@@ -72,6 +72,10 @@ uint16_t pullResponsePort = 0;
 volatile bool packetReceived = false;
 volatile uint32_t packetRxTimestamp = 0;
 uint32_t rxCount = 0;
+uint32_t ttnPullAckCount = 0;
+uint32_t ttnPushAckCount = 0;
+uint32_t downlinkTxCount = 0;
+uint32_t lastTtnPullAck = 0;
 uint32_t gpsBytes = 0;
 uint32_t gpsSentences = 0;
 uint32_t lastGpsSentence = 0;
@@ -271,24 +275,24 @@ void updateDisplay() {
   display.print(batteryVolts, 1); display.print(F("V "));
   display.print(getBatteryPercentage(batteryVolts)); display.print('%');
   display.setCursor(0, 10);
-  display.print(F("IP: ")); display.print(WiFi.localIP());
+  display.print(F("WiFi: "));
+  if (WiFi.status() == WL_CONNECTED) {
+    display.print(String(wifiSsids[activeWifiIndex]).substring(0, 5));
+  } else {
+    display.print(F("offline"));
+  }
   display.setCursor(0, 20);
   display.print(F("RX:")); display.print(rxCount);
   display.print(F(" R:")); display.print(lastRssi);
   display.print(F(" S:")); display.print(lastSnr, 1);
   display.setCursor(0, 30);
-  if (gps.location.isValid() && gps.location.age() < 5000) {
-    display.print(gps.location.lat(), 4); display.print(',');
-    display.print(gps.location.lng(), 4);
-  } else if (gpsSentences == 0 || millis() - lastGpsSentence >= GPS_DATA_TIMEOUT_MS) {
-    display.print(F("GPS: no data"));
-  } else {
-    display.print(F("GPS: searching "));
-    display.print(gps.satellites.isValid() && gps.satellites.age() < 5000
-        ? gps.satellites.value() : 0);
-    display.print(F(" sat"));
-  }
-  display.setCursor(0, 42);
+  const bool ttnConnected = lastTtnPullAck != 0 && millis() - lastTtnPullAck < 15000;
+  display.print(ttnConnected ? F("TTN:UP ") : F("TTN:DOWN "));
+  display.print(F("P:")); display.print(ttnPullAckCount);
+  display.setCursor(0, 40);
+  display.print(F("UACK:")); display.print(ttnPushAckCount);
+  display.print(F(" DL:")); display.print(downlinkTxCount);
+  display.setCursor(0, 52);
   display.print(statusLine);
   display.display();
 }
@@ -506,6 +510,7 @@ void handlePullResponse(uint16_t responseToken, const uint8_t* buffer, size_t le
   }
   setTxMode();
   const int state = radio.transmit(payload, decoded);
+  if (state == RADIOLIB_ERR_NONE) ++downlinkTxCount;
   const char* txAckError = state == RADIOLIB_ERR_NONE ? "NONE" : "TX_POWER";
   const bool ackSent = sendTxAck(responseToken, txAckError);
   Serial.printf("[DOWNLINK] TX result=%d payload=%u bytes; ipol=%s ncrc=%s; ACK datagram=%s.\n",
@@ -582,6 +587,8 @@ void processUdp() {
       buffer[3], length, sourceAddress.toString().c_str(), sourcePort,
       static_cast<unsigned>(responseToken));
   if (buffer[3] == PULL_ACK) {
+    ++ttnPullAckCount;
+    lastTtnPullAck = millis();
     statusLine = "TTN connected";
     static bool loggedPullAck = false;
     if (!loggedPullAck) {
@@ -589,7 +596,10 @@ void processUdp() {
       loggedPullAck = true;
     }
   }
-  else if (buffer[3] == PUSH_ACK) statusLine = "TTN uplink ACK";
+  else if (buffer[3] == PUSH_ACK) {
+    ++ttnPushAckCount;
+    statusLine = "TTN uplink ACK";
+  }
   else if (buffer[3] == PULL_RESP) {
     pullResponseAddress = udp.remoteIP();
     pullResponsePort = udp.remotePort();
