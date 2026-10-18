@@ -89,8 +89,12 @@ bool displayReady = false;
 uint8_t activeWifiIndex = 0;
 uint32_t lastWifiAttempt = 0;
 
-const char* const wifiSsids[] = { WIFI_SSID_1, WIFI_SSID_2 };
-const char* const wifiPasswords[] = { WIFI_PASSWORD_1, WIFI_PASSWORD_2 };
+const char* const wifiSsids[] = {
+  WIFI_SSID_1, WIFI_SSID_2, WIFI_SSID_3, WIFI_SSID_4
+};
+const char* const wifiPasswords[] = {
+  WIFI_PASSWORD_1, WIFI_PASSWORD_2, WIFI_PASSWORD_3, WIFI_PASSWORD_4
+};
 const uint8_t WIFI_NETWORK_COUNT = sizeof(wifiSsids) / sizeof(wifiSsids[0]);
 
 void setFlag() {
