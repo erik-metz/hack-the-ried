@@ -61,4 +61,6 @@ including model evaluation and a broad multi-label taxonomy, is tracked in
 An experimental host-side YAMNet runner now exists at
 `tools/yamnet_baseline.py` with its pinned environment in
 `tools/audio-baseline-requirements.txt`; it reads approved 16-kHz mono WAVs
-locally and is not part of firmware or the uplink contract.
+locally. `tools/evaluate_sonyc_yamnet.py` evaluates verified SONYC-UST test
+clips from local dataset archives. Both are research tools, not part of
+firmware or the uplink contract.

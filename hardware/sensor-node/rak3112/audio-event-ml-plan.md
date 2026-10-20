@@ -99,6 +99,8 @@ python3 -m venv /tmp/open-ried-audio-venv
 
 Der Lauf lädt das vortrainierte Modell von TensorFlow Hub; nur Modellartefakte werden abgerufen, der WAV-Inhalt wird nicht hochgeladen. Für belastbare Auswertungen sollen Modell-URL, Paketversionen, Clip-ID/Hash statt personenbezogener Dateipfade und Testsplit protokolliert werden. Dieser PC-Prototyp ist noch kein RAK-Echtzeitbenchmark.
 
+Für einen echten, aber absichtlich kleinen Vergleich gibt es [`tools/evaluate_sonyc_yamnet.py`](tools/evaluate_sonyc_yamnet.py). Der Lauf nutzt nur `annotator_id=0` aus dem offiziellen Testsplit, wertet WAV-Dateien aus einem oder mehreren lokalen Tar-Archiven direkt aus dem Arbeitsspeicher aus und gibt ausschließlich aggregierte ROC-AUC-Werte aus. Die eingebauten Quellklassen-zu-YAMNet-Zuordnungen sind grob und ausdrücklich noch nicht als finale Taxonomie bestätigt.
+
 ### Vorgeschlagene Architektur
 
 1. YAMNet zuerst auf dem Entwicklungs-PC als **Teacher/Baseline** auf freigegebenen Testclips ausführen. Das hilft, die Taxonomie an reale Vorhersagen und Verwechslungen anzupassen, ohne Audio über TTN zu senden.
@@ -164,6 +166,14 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
   Das ist ein technischer Smoke-Test, kein akustischer
   Genauigkeitsnachweis; es zeigt konkret, warum Scores nicht direkt als
   Stadtklassen gespeichert werden dürfen. Der WAV-Testton wurde danach gelöscht.
+- Ein lokaler Stichprobentest gegen 21 fachlich verifizierte Testclips aus
+  SONYC-UST `audio-18.tar.gz` (Archiv-MD5 `c6b2ef4d0d5b7269d465c469cdbbdc4b`)
+  ergab ROC-AUC 0,53 für Motoren (12 positiv/9 negativ), 0,62 für
+  Nichtmaschinen-Impulse (8/13) und 0,97 für Sprache (11/10). Die übrigen
+  abgebildeten Klassen hatten jeweils nur ein bis vier positive Clips; deren
+  AUC-Werte sind nicht belastbar. Das ist ein einzelner Shard und eine
+  vorläufige grobe Zuordnung, kein repräsentativer Modellvergleich. Archiv und
+  Annotationen wurden danach gelöscht.
 - Noch offen: SONYC-UST-Mapping und Lizenz-/Datenprüfung, Taxonomie-IDs
   einfrieren, YAMNet gegen annotierte Urban-Clips evaluieren, Modellkandidaten
   auf Zielhardware benchmarken und Format 6 implementieren. Es wurden keine
