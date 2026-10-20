@@ -110,7 +110,7 @@ class SensorIntegrationTests(DatabaseCase):
         sound = await (await self.conn.execute(
             "SELECT value,unit FROM sensor_data WHERE sensor_id='ttn-weather-node-1' AND metric='sound_level'"
         )).fetchone()
-        self.assertEqual((sound["value"], sound["unit"]), (-32.4, "dBFS"))
+        self.assertEqual((sound[0], sound[1]), (-32.4, "dBFS"))
         self.assertEqual(await self.scalar("SELECT count(*) FROM ttn_uplink_events"), 1)
         hidden = await self.scalar(
             "SELECT is_hidden FROM sensor_metadata WHERE id='ttn-weather-node-1'"
@@ -124,8 +124,8 @@ class SensorIntegrationTests(DatabaseCase):
         coordinates = await (await self.conn.execute(
             "SELECT latitude,longitude,is_hidden FROM sensor_metadata WHERE id='ttn-weather-node-1'"
         )).fetchone()
-        self.assertEqual((coordinates["latitude"], coordinates["longitude"]), (49.6855, 8.3863))
-        self.assertTrue(coordinates["is_hidden"])
+        self.assertEqual((coordinates[0], coordinates[1]), (49.6855, 8.3863))
+        self.assertTrue(coordinates[2])
 
     async def test_invalid_firmware_metadata_is_rejected(self):
         credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")
@@ -198,11 +198,11 @@ class SensorIntegrationTests(DatabaseCase):
         self.assertEqual(accepted["status"], "accepted")
         window = await (await self.conn.execute("""SELECT window_start,window_end,window_seconds
             FROM sensor_measurement_windows WHERE sensor_id='ttn-weather-node-1'""")).fetchone()
-        self.assertEqual(window["window_seconds"], 300)
-        self.assertEqual((window["window_end"] - window["window_start"]).total_seconds(), 300)
+        self.assertEqual(window[2], 300)
+        self.assertEqual((window[1] - window[0]).total_seconds(), 300)
         sound = await (await self.conn.execute("""SELECT minimum,mean,maximum,sample_count
             FROM sensor_window_metrics WHERE sensor_id='ttn-weather-node-1' AND metric='sound_level'""")).fetchone()
-        self.assertEqual((sound["minimum"], sound["mean"], sound["maximum"], sound["sample_count"]),
+        self.assertEqual((sound[0], sound[1], sound[2], sound[3]),
                          (-60, -32.4, -18.1, 18750))
         stored_mean = await self.scalar("SELECT value FROM sensor_data WHERE metric='sound_level'")
         self.assertEqual(stored_mean, -32.4)

@@ -1294,7 +1294,7 @@ void setup() {
   windowStartedUs = esp_timer_get_time();
   if (i2sMicReady) {
     const BaseType_t taskCreated = xTaskCreatePinnedToCore(
-        microphoneTask, "rak-mic-window", 4096, nullptr, 1, &i2sMicTaskHandle, 0);
+        microphoneTask, "rak-mic-window", 8192, nullptr, 1, &i2sMicTaskHandle, 0);
     if (taskCreated != pdPASS) {
       i2sMicReady = false;
       Serial.println(F("[I2S-MIC][FEHLER] Kontinuierliche Audio-Task konnte nicht gestartet werden."));
@@ -1352,7 +1352,7 @@ void loop() {
 
   // Initial uplink condition
   if (joined && initialUplinkPending) {
-    bool sgpReadyCondition = !sgp41Ready || (haveSgp41Sample && latestSgp41VocIndex > 0 && latestSgp41NoxIndex > 0);
+    bool sgpReadyCondition = !sgp41Ready || haveSgp41Sample;
     bool scdReadyCondition = !scd41Ready || haveScd41Sample;
     bool ltrReadyCondition = !ltr390Ready || (haveLtr390UvSample && haveLtr390AlsSample);
     bool bmeReadyCondition = !bme68xReady || haveBme68xSample;
@@ -1377,7 +1377,7 @@ void loop() {
     if (joined) {
       joinRetryCount = 0;
       lastUplinkMs = millis();
-      bool sgpReadyCondition = !sgp41Ready || (haveSgp41Sample && latestSgp41VocIndex > 0 && latestSgp41NoxIndex > 0);
+      bool sgpReadyCondition = !sgp41Ready || haveSgp41Sample;
       bool scdReadyCondition = !scd41Ready || haveScd41Sample;
       bool ltrReadyCondition = !ltr390Ready || (haveLtr390UvSample && haveLtr390AlsSample);
       bool bmeReadyCondition = !bme68xReady || haveBme68xSample;
