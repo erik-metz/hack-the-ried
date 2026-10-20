@@ -341,18 +341,46 @@ async def get_latest_sensor_window(
     pool: psycopg_pool.AsyncConnectionPool = Depends(get_db_pool),
 ):
     async with pool.connection() as conn:
+        cur = await conn.execute("""SELECT MIN(r.period_start) AS window_start,
+                r.period_end AS window_end,
+                EXTRACT(EPOCH FROM (r.period_end-MIN(r.period_start)))::integer AS window_seconds
+            FROM readings r
+            JOIN measurement_definitions d ON d.id=r.measurement_id
+            JOIN entities e ON e.id=d.entity_id
+            WHERE d.entity_id='sensor:'||%s AND d.source_id LIKE 'ttn:%%'
+                AND r.period_end IS NOT NULL AND e.is_hidden=FALSE
+            GROUP BY r.period_end ORDER BY r.period_end DESC LIMIT 1""", (sensor_id,))
+        canonical_window = await cur.fetchone()
+        canonical_metrics = None
+        if canonical_window is not None:
+            cur = await conn.execute("""SELECT d.metric,d.unit,
+                    MAX(r.value) FILTER (WHERE d.dimensions->>'statistic'='min') AS min_value,
+                    MAX(r.value) FILTER (WHERE d.dimensions->>'statistic'='mean') AS mean_value,
+                    MAX(r.value) FILTER (WHERE d.dimensions->>'statistic'='max') AS max_value,
+                    MAX((r.provenance->>'sample_count')::integer) AS sample_count
+                FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
+                WHERE d.entity_id='sensor:'||%s AND d.source_id LIKE 'ttn:%%'
+                    AND r.period_end=%s
+                GROUP BY d.metric,d.unit ORDER BY d.metric""",
+                (sensor_id, canonical_window["window_end"]))
+            canonical_metrics = await cur.fetchall()
+
+        # Read historical windows written before TTN switched to canonical readings.
         cur = await conn.execute("""SELECT w.window_start,w.window_end,w.window_seconds
             FROM sensor_measurement_windows w
             JOIN sensor_metadata sm ON sm.id=w.sensor_id
             WHERE w.sensor_id=%s AND sm.is_hidden=FALSE
             ORDER BY w.window_end DESC LIMIT 1""", (sensor_id,))
         window = await cur.fetchone()
-        if window is None:
+        if window is not None:
+            cur = await conn.execute("""SELECT metric,unit,minimum AS min_value,mean AS mean_value,
+                    maximum AS max_value,sample_count
+                FROM sensor_window_metrics
+                WHERE sensor_id=%s AND window_end=%s
+                ORDER BY metric""", (sensor_id, window["window_end"]))
+            metrics = await cur.fetchall()
+            if canonical_window is None or window["window_end"] > canonical_window["window_end"]:
+                return {**dict(window), "metrics": [dict(row) for row in metrics]}
+        if canonical_window is None:
             raise HTTPException(status_code=404, detail="No aggregated sensor window found")
-        cur = await conn.execute("""SELECT metric,unit,minimum AS min_value,mean AS mean_value,
-                maximum AS max_value,sample_count
-            FROM sensor_window_metrics
-            WHERE sensor_id=%s AND window_end=%s
-            ORDER BY metric""", (sensor_id, window["window_end"]))
-        metrics = await cur.fetchall()
-    return {**dict(window), "metrics": [dict(row) for row in metrics]}
+        return {**dict(canonical_window), "metrics": [dict(row) for row in canonical_metrics]}

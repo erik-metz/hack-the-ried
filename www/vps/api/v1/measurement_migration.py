@@ -13,6 +13,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import psycopg
+from endpoints.sensor_integrations import _write_canonical_readings
 from psycopg import sql
 from psycopg.types.json import Jsonb
 from weather_measurements import replay_weather_receipt
@@ -38,6 +39,7 @@ async def install(conn, shadow=False):
         await conn.execute((MIGRATIONS / "20261005_aircraft.sql").read_text())
         await conn.execute((MIGRATIONS / "20261006_ogn.sql").read_text())
         await conn.execute((MIGRATIONS / "20261006_environment_contract.sql").read_text())
+        await conn.execute((MIGRATIONS / "20261021_ttn_interval_statistics.sql").read_text())
         if shadow:
             paused = await (await conn.execute("""SELECT state->>'requires_reconciliation'
                 FROM measurement_migration_state WHERE name='shadow_writes'""")).fetchone()
@@ -175,7 +177,7 @@ async def backfill(conn, family, batch_size=1000, max_batches=1):
     the batch for review; identical duplicates collapse to a single reading.
     Backfill never replaces a reading already written by the live path.
     """
-    if family not in {"metadata", "sensors", "movements", "statistics", "chargers", "gauges", "weather", "coordinates"}:
+    if family not in {"metadata", "sensors", "movements", "statistics", "chargers", "gauges", "weather", "coordinates", "ttn"}:
         raise ValueError("Unsupported backfill family")
     if not 1 <= batch_size <= 10000 or not 1 <= max_batches <= 10000:
         raise ValueError("Batch limits must be between 1 and 10000")
@@ -187,7 +189,7 @@ async def backfill(conn, family, batch_size=1000, max_batches=1):
             await conn.execute("SET LOCAL lock_timeout = '10s'")
             enabled = await (await conn.execute("""SELECT state->>'enabled'
                 FROM measurement_migration_state WHERE name='shadow_writes'""")).fetchone()
-            if enabled != ("true",):
+            if family != "ttn" and enabled != ("true",):
                 raise RuntimeError("Enable shadow writes before backfilling")
             name = "backfill:" + family
             await conn.execute("""INSERT INTO measurement_migration_state(name) VALUES (%s)
@@ -196,7 +198,69 @@ async def backfill(conn, family, batch_size=1000, max_batches=1):
                 "SELECT state FROM measurement_migration_state WHERE name=%s FOR UPDATE", (name,)
             )).fetchone())[0]
             key = state.get("cursor")
-            if family == "gauges":
+            if family == "ttn":
+                phase = state.get("phase", "windows")
+                if phase == "windows":
+                    condition = sql.SQL("WHERE w.sensor_id LIKE 'ttn-%%'") if key is None else sql.SQL(
+                        "WHERE (w.window_end,w.sensor_id,m.metric) > (%s,%s,%s) AND w.sensor_id LIKE 'ttn-%%'")
+                    params = () if key is None else (datetime.fromisoformat(key[0]), *key[1:])
+                    cursor = await conn.execute(sql.SQL("""SELECT w.window_end,w.sensor_id,
+                            w.window_start,w.window_seconds,w.event_id,m.metric,m.unit,
+                            m.minimum,m.mean,m.maximum,m.sample_count,
+                            COALESCE(e.application_id,'unknown')
+                        FROM sensor_measurement_windows w JOIN sensor_window_metrics m
+                            USING(sensor_id,window_end)
+                        LEFT JOIN LATERAL (SELECT application_id FROM ttn_uplink_events e
+                            WHERE e.event_id=w.event_id AND e.device_id=substring(w.sensor_id FROM 5)
+                            ORDER BY abs(EXTRACT(EPOCH FROM (e.received_at-w.window_end))) LIMIT 1) e ON TRUE
+                        {} ORDER BY w.window_end,w.sensor_id,m.metric LIMIT %s""").format(condition),
+                        (*params, batch_size))
+                    rows = await cursor.fetchall()
+                    exhausted = len(rows) < batch_size
+                    for row in rows:
+                        end, sensor, start, seconds, event_id, metric, unit, minimum, mean, maximum, count, app_id = row
+                        stats = {"metric": metric, "unit": unit, "min_value": minimum,
+                                 "mean_value": mean, "max_value": maximum, "sample_count": count}
+                        await _write_canonical_readings(conn, sensor_id=sensor,
+                            device_id=sensor.removeprefix("ttn-"), application_id=app_id,
+                            event_id=event_id, observed_at=end, collected_at=end,
+                            measurements=[{"metric": metric, "unit": unit, "value": mean}],
+                            window=(seconds, [stats]), backfill=True, window_start=start)
+                    if rows:
+                        key = [rows[-1][0].isoformat(), rows[-1][1], rows[-1][5]]
+                    if exhausted:
+                        key = None
+                        state.update(phase="points", cursor=None)
+                else:
+                    condition = sql.SQL("WHERE s.sensor_id LIKE 'ttn-%%'") if key is None else sql.SQL(
+                        "WHERE (s.timestamp,s.sensor_id,s.metric,s.unit) > (%s,%s,%s,%s) AND s.sensor_id LIKE 'ttn-%%'")
+                    params = () if key is None else (datetime.fromisoformat(key[0]), *key[1:])
+                    cursor = await conn.execute(sql.SQL("""SELECT s.timestamp,s.sensor_id,
+                            s.metric,s.unit,MIN(legacy_numeric(s.value)),COUNT(DISTINCT s.value)
+                        FROM sensor_data s {}
+                        AND NOT EXISTS (SELECT 1 FROM sensor_measurement_windows w
+                            WHERE w.sensor_id=s.sensor_id AND w.window_end=s.timestamp)
+                        GROUP BY s.timestamp,s.sensor_id,s.metric,s.unit
+                        ORDER BY s.timestamp,s.sensor_id,s.metric,s.unit LIMIT %s""").format(condition),
+                        (*params, batch_size))
+                    rows = await cursor.fetchall()
+                    exhausted = len(rows) < batch_size
+                    for stamp, sensor, metric, unit, value, variants in rows:
+                        if variants != 1:
+                            raise ValueError(f"Conflicting TTN legacy values for {sensor}/{metric} at {stamp}")
+                        await _write_canonical_readings(conn, sensor_id=sensor,
+                            device_id=sensor.removeprefix("ttn-"), application_id="legacy",
+                            event_id="legacy-unlinked", observed_at=stamp, collected_at=stamp,
+                            measurements=[{"metric": metric, "unit": unit, "value": value}],
+                            window=None, backfill=True)
+                    if rows:
+                        key = [rows[-1][0].isoformat(), *rows[-1][1:4]]
+                total += len(rows)
+                state.update(cursor=key, processed=state.get("processed", 0) + len(rows),
+                             caught_up=phase == "points" and exhausted)
+                await conn.execute("""UPDATE measurement_migration_state SET state=%s,updated_at=NOW()
+                    WHERE name=%s""", (Jsonb(state), name))
+            elif family == "gauges":
                 cursor = await conn.execute("""SELECT dataset FROM collected_datasets
                     WHERE dataset IN ('environment/flood/gauges','map/layers/floods')
                     AND (%s::text IS NULL OR dataset > %s) ORDER BY dataset LIMIT %s FOR UPDATE""", (key,key,batch_size))
@@ -298,12 +362,13 @@ async def backfill(conn, family, batch_size=1000, max_batches=1):
                 await conn.execute("SELECT backfill_movement_samples(%s)", (Jsonb(keys),))
                 if rows:
                     key = [rows[-1][0].isoformat(), *rows[-1][1:]]
-            total += len(rows)
-            state.update(cursor=key, processed=state.get("processed", 0) + len(rows),
-                         caught_up=exhausted)
-            await conn.execute("""UPDATE measurement_migration_state SET state=%s,updated_at=NOW()
-                WHERE name=%s""", (Jsonb(state), name))
-        if exhausted:
+            if family != "ttn":
+                total += len(rows)
+                state.update(cursor=key, processed=state.get("processed", 0) + len(rows),
+                             caught_up=exhausted)
+                await conn.execute("""UPDATE measurement_migration_state SET state=%s,updated_at=NOW()
+                    WHERE name=%s""", (Jsonb(state), name))
+        if exhausted and (family != "ttn" or state.get("caught_up")):
             break
     return {"batch_processed": total, **state}
 
@@ -357,7 +422,7 @@ if __name__ == "__main__":
     audit_parser.add_argument("--start", required=True)
     audit_parser.add_argument("--end", required=True)
     backfill_parser = sub.add_parser("backfill")
-    backfill_parser.add_argument("family", choices=["metadata", "sensors", "movements", "statistics", "chargers", "gauges", "weather", "coordinates"])
+    backfill_parser.add_argument("family", choices=["metadata", "sensors", "movements", "statistics", "chargers", "gauges", "weather", "coordinates", "ttn"])
     backfill_parser.add_argument("--batch-size", type=int, default=1000)
     backfill_parser.add_argument("--max-batches", type=int, default=1)
     backfill_parser.add_argument("--available-disk-gib", type=Decimal, required=True,

@@ -1,14 +1,22 @@
 """TTN webhook authentication, validation and durable idempotent ingestion."""
 
+import json
 import os
 import sys
+import unittest
 from contextlib import asynccontextmanager
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 import psycopg
-from endpoints.sensor_integrations import _window_statistics, receive_sensor_uplink
+from endpoints.sensor_integrations import (
+    _window_statistics,
+    _write_canonical_readings,
+    receive_sensor_uplink,
+)
 from fastapi import HTTPException
 from fastapi.security import HTTPBasicCredentials
 from psycopg.rows import dict_row
@@ -45,6 +53,31 @@ class WindowStatisticsValidationTests(TestCase):
             _window_statistics(decoded)
 
 
+class CanonicalWriterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_window_statistics_become_three_canonical_readings(self):
+        class Connection:
+            def __init__(self):
+                self.calls = []
+
+            async def execute(self, query, params):
+                self.calls.append((query, params))
+
+        conn = Connection()
+        end = datetime.fromisoformat("2026-10-20T10:05:00+00:00")
+        stats = [{"metric": "sound_level", "unit": "dBFS", "min_value": -60,
+                  "mean_value": -32.4, "max_value": -18.1, "sample_count": 18750}]
+        await _write_canonical_readings(conn, sensor_id="ttn-rak", device_id="rak",
+            application_id="ried-sensors", event_id="event-1", observed_at=end,
+            collected_at=end, measurements=[{"metric": "sound_level", "unit": "dBFS",
+                                             "value": -32.4}], window=(300, stats))
+        writes = [params for query, params in conn.calls if "write_measurement" in query]
+        self.assertEqual(len(writes), 3)
+        self.assertEqual({json.loads(row[4])["statistic"] for row in writes},
+                         {"min", "mean", "max"})
+        self.assertTrue(all(row[3] == "ttn:ried-sensors" for row in writes))
+        self.assertTrue(all(row[9] == end.replace(minute=0) for row in writes))
+
+
 class SensorIntegrationTests(DatabaseCase):
     def pool(self):
         db = self.db
@@ -61,6 +94,9 @@ class SensorIntegrationTests(DatabaseCase):
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
+        core_schema = Path(__file__).resolve().parents[1] / "migrations/20260930_measurements.sql"
+        await self.conn.execute(core_schema.read_text())
+        await self.conn.execute((Path(__file__).resolve().parents[1] / "migrations/20261021_ttn_interval_statistics.sql").read_text())
         migration = Path(__file__).resolve().parents[1] / "migrations/20261016_ttn_ingestion.sql"
         await self.conn.execute(migration.read_text())
         firmware_migration = Path(__file__).resolve().parents[1] / "migrations/20261017_ttn_firmware_version.sql"
@@ -107,6 +143,9 @@ class SensorIntegrationTests(DatabaseCase):
         self.assertEqual(accepted["inserted_count"], 3)
         self.assertEqual(duplicate["status"], "duplicate")
         self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 3)
+        self.assertEqual(await self.scalar("""SELECT count(*) FROM readings r
+            JOIN measurement_definitions d ON d.id=r.measurement_id
+            WHERE d.entity_id='sensor:ttn-weather-node-1' AND d.source_id='ttn:ried-sensors'"""), 3)
         sound = await (await self.conn.execute(
             "SELECT value,unit FROM sensor_data WHERE sensor_id='ttn-weather-node-1' AND metric='sound_level'"
         )).fetchone()
@@ -196,16 +235,24 @@ class SensorIntegrationTests(DatabaseCase):
             accepted = await receive_sensor_uplink(body, credentials, self.pool())
 
         self.assertEqual(accepted["status"], "accepted")
-        window = await (await self.conn.execute("""SELECT window_start,window_end,window_seconds
-            FROM sensor_measurement_windows WHERE sensor_id='ttn-weather-node-1'""")).fetchone()
-        self.assertEqual(window[2], 300)
-        self.assertEqual((window[1] - window[0]).total_seconds(), 300)
-        sound = await (await self.conn.execute("""SELECT minimum,mean,maximum,sample_count
-            FROM sensor_window_metrics WHERE sensor_id='ttn-weather-node-1' AND metric='sound_level'""")).fetchone()
-        self.assertEqual((sound[0], sound[1], sound[2], sound[3]),
-                         (-60, -32.4, -18.1, 18750))
+        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_measurement_windows"), 0)
         stored_mean = await self.scalar("SELECT value FROM sensor_data WHERE metric='sound_level'")
         self.assertEqual(stored_mean, -32.4)
+        canonical = await (await self.conn.execute("""SELECT d.dimensions->>'statistic',r.value,
+                r.period_start,r.period_end,r.provenance->>'sample_count'
+            FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
+            WHERE d.entity_id='sensor:ttn-weather-node-1' AND d.source_id='ttn:ried-sensors'
+                AND d.metric='sound_level' ORDER BY d.dimensions->>'statistic'""")).fetchall()
+        self.assertEqual([(row[0], row[1], row[4]) for row in canonical], [
+            ("max", Decimal("-18.1"), "18750"),
+            ("mean", Decimal("-32.4"), "18750"),
+            ("min", Decimal(-60), "18750"),
+        ])
+        self.assertTrue(all((row[2], row[3]) == (canonical[0][2], canonical[0][3])
+                            for row in canonical))
+        self.assertEqual(await self.scalar("""SELECT count(*) FROM readings r
+            JOIN measurement_definitions d ON d.id=r.measurement_id
+            WHERE d.entity_id='sensor:ttn-weather-node-1'"""), 9)
 
     async def test_rejects_inconsistent_or_incomplete_window_statistics(self):
         credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")

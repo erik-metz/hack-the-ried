@@ -7,6 +7,7 @@ import os
 import re
 import secrets
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import psycopg_pool
@@ -180,6 +181,52 @@ def _event_identity(application_id: str, device_id: str, uplink: dict[str, Any],
     return event_correlation or digest, digest, correlations
 
 
+async def _write_canonical_readings(conn, *, sensor_id: str, device_id: str,
+                                    application_id: str, event_id: str,
+                                    observed_at: datetime, collected_at: datetime,
+                                    measurements: list[dict[str, Any]],
+                                    window: tuple[int, list[dict[str, Any]]] | None,
+                                    backfill: bool = False,
+                                    window_start: datetime | None = None) -> None:
+    """Write TTN observations to the authoritative entities/definitions/readings model."""
+    entity_id = f"sensor:{sensor_id}"
+    await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata,is_hidden)
+        VALUES (%s,%s,'sensor',%s::jsonb,TRUE)
+        ON CONFLICT (id) DO UPDATE SET
+            metadata=entities.metadata || EXCLUDED.metadata, updated_at=NOW()""",
+        (entity_id, device_id, json.dumps({"ttn_application_id": application_id,
+                                          "ttn_device_id": device_id,
+                                          "legacy_sensor_id": sensor_id})))
+    stats = {item["metric"]: item for item in window[1]} if window else {}
+    window_start = (window_start or observed_at - timedelta(seconds=window[0])) if window else None
+    for measurement in measurements:
+        metric, unit = measurement["metric"], measurement["unit"]
+        statistic = stats.get(metric)
+        records = []
+        if statistic is None:
+            records.append(({}, measurement["value"], None, None, "instantaneous", None))
+        else:
+            for name, field in (("min", "min_value"), ("mean", "mean_value"), ("max", "max_value")):
+                value = statistic[field]
+                if value is not None:
+                    records.append(({"statistic": name}, value, window_start, observed_at,
+                                    "interval_statistic", statistic["sample_count"]))
+        for dimensions, value, period_start, period_end, semantics, sample_count in records:
+            provenance = {"protocol": "ttn", "application_id": application_id,
+                          "device_id": device_id, "event_id": event_id,
+                          "statistic": dimensions.get("statistic", "instantaneous")}
+            if sample_count is not None:
+                provenance["sample_count"] = sample_count
+            if window:
+                provenance["window_seconds"] = window[0]
+            await conn.execute("""SELECT write_measurement(
+                %s,%s,%s,%s,'observed',%s::jsonb,%s,%s,%s,%s::jsonb,
+                'valid',%s,%s,%s,%s)""",
+                (entity_id, metric, unit, f"ttn:{application_id}",
+                 json.dumps(dimensions), observed_at, Decimal(str(value)), collected_at,
+                 json.dumps(provenance), period_start, period_end, semantics, backfill))
+
+
 @router.post("/uplink", status_code=status.HTTP_200_OK,
              summary="Receive an authenticated The Things Stack sensor uplink")
 async def receive_sensor_uplink(
@@ -257,20 +304,13 @@ async def receive_sensor_uplink(
                     THEN NOW() ELSE sensor_metadata.updated_at END""",
             (sensor_id, device_id, f"The Things Stack device {device_id}",
              firmware_version, latitude, longitude))
-        if window is not None:
-            window_seconds, statistics = window
-            window_start = observed_at - timedelta(seconds=window_seconds)
-            await conn.execute("""INSERT INTO sensor_measurement_windows
-                (sensor_id,window_end,window_start,window_seconds,event_id)
-                VALUES (%s,%s,%s,%s,%s)""",
-                (sensor_id, observed_at, window_start, window_seconds, event_id))
-            async with conn.cursor() as cur:
-                await cur.executemany("""INSERT INTO sensor_window_metrics
-                    (sensor_id,window_end,metric,unit,minimum,mean,maximum,sample_count)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    [(sensor_id, observed_at, item["metric"], item["unit"],
-                      item["min_value"], item["mean_value"], item["max_value"],
-                      item["sample_count"]) for item in statistics])
+        # Canonical readings are authoritative. Legacy writes below remain temporarily
+        # for existing consumers until their read paths complete the cutover.
+        await _write_canonical_readings(
+            conn, sensor_id=sensor_id, device_id=device_id,
+            application_id=application_id, event_id=event_id,
+            observed_at=observed_at, collected_at=datetime.now(UTC),
+            measurements=decoded_measurements, window=window)
         async with conn.cursor() as cur:
             await cur.executemany("""INSERT INTO sensor_data(timestamp,sensor_id,value,unit,metric)
                 VALUES (%s,%s,%s,%s,%s)""",

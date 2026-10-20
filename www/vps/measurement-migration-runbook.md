@@ -110,6 +110,36 @@ This stops additional writes and keeps both histories. With the default read mod
 
 ## Remaining before full cutover
 
+### TTN interval readings
+
+The TTN uplink writer stores each accepted observation in the canonical
+`entities` / `measurement_definitions` / `readings` model. Window min, mean and
+max are separate readings under one metric definition family, distinguished by
+`dimensions.statistic`; `period_start` and `period_end` carry the source window.
+TTN event ID and sample count are provenance. `ttn_uplink_events` remains the
+idempotency ledger. During transition, `sensor_data` still receives the mean
+for old readers, but new interval windows are not written to the legacy window
+tables. `/telemetry/latest/window` prefers canonical readings and falls back to
+the legacy window tables for historical windows.
+
+Before deploying this writer, install the canonical measurement schema and the
+`20261021_ttn_interval_statistics.sql` extension through the explicit
+measurement migration command. The webhook transaction fails as a whole if
+the canonical schema is unavailable; this prevents silently accepting future
+TTN data only into the legacy store. The bounded `backfill ttn` family copies
+legacy TTN windows first, then unwindowed TTN samples, preserving event/window
+provenance where available. Conflicting legacy values stop the batch. Use the
+normal fresh-disk capacity gate and audit the resulting interval before
+retiring either legacy window table.
+
+Example bounded invocation (repeat with a fresh free-space reading until the
+result reports `caught_up: true`):
+
+```bash
+docker compose exec -T backend-api python measurement_migration.py backfill ttn \
+  --batch-size 250 --max-batches 4 --available-disk-gib AVAILABLE_GIB
+```
+
 ### Local rehearsal checkpoint, 2026-10-01
 
 The restored production copy now has exact JSON parity for both gauge publications
