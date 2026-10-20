@@ -87,13 +87,16 @@ identifiers; the value scale and unit belong to each code:
 | 38 | `current` | `mA` | whole mA |
 | 39 | `power` | `mW` | whole mW |
 | 40 | `sound_dominant_frequency` | `Hz` | whole Hz |
-| 41 | `sound_event_class` | `class` | `0` = unknown, `1` = speech, `2` = vehicle, `3` = heavy rain |
+| 41 | `sound_event_class` | `class` | Reserved in the decoder; no current firmware emits it and no class-ID mapping is active |
 
 Codes 5–40 cover optional outputs from the sensor selection in
 `hardware/sensor-node/v2/bom.md`; firmware versions add support as sensors are
 integrated. RAK3112 firmware v8 emits LTR390 UV index, ambient-light lux, and
-the underlying UV/ALS raw counts. The sound metrics require DSP on microphone samples;
-sound level needs calibration. BME688 IAQ/equivalent-gas fields require a
+the underlying UV/ALS raw counts. The sound metrics require DSP/ML on microphone
+samples; `sound_level` is uncalibrated dBFS, not dB SPL or dB(A). Code 41's
+earlier example mapping is retired; see [`../audio-event-ml-plan.md`](../audio-event-ml-plan.md)
+for the proposed versioned multi-label taxonomy and next payload contract.
+BME688 IAQ/equivalent-gas fields require a
 supporting algorithm, rain pulses do not become millimetres until calibrated,
 and INA226 current depends on the configured shunt. Formats 3/4 contain at
 most 41 five-byte records; format 5 uses four-byte tagged 24-bit records and is

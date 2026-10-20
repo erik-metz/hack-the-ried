@@ -73,13 +73,28 @@ the firmware's 222-byte format limit. The shared decoder in
 `../v1/payload-formatter.js` accepts old formats 3/4 and format 5. Install its
 updated contents as the TTN FPort-10 uplink formatter before activating v11.
 
-The webhook stores each window's mean in the existing `sensor_data` series so
-existing public charts continue to work. It also stores each interval's
-minimum, mean, maximum, sample count and inferred start/end in
-`sensor_measurement_windows` and `sensor_window_metrics`. The inferred end is
-TTN's `received_at`; the start is `received_at - window_seconds`. The public
-`/api/v1/telemetry/latest/window` endpoint returns the latest summary for the
-frontend. Other data providers keep their source-defined sampling cadence.
+The TTN webhook writes sensor identity and metric definitions to the canonical
+`entities` and `measurement_definitions` tables, and observations/statistics to
+`readings` through `write_measurement`. Each windowed metric is represented by
+separate `min`, `mean` and `max` readings, with `period_start`, `period_end`,
+`interval_statistic` semantics, sample count and TTN provenance. The inferred
+end is TTN's `received_at`; the start is `received_at - window_seconds`.
+
+For compatibility with older chart readers, the webhook also mirrors each
+decoded mean to `sensor_data`. This is a compatibility write, not the
+authoritative store. `sensor_measurement_windows` and `sensor_window_metrics`
+are read only as a fallback for historical windows; new TTN windows are
+authoritative in `readings`. The public
+`/api/v1/telemetry/latest/window?sensor_id=<sensor-id>` endpoint prefers the
+latest canonical window and falls back to those historical tables. Other data
+providers keep their source-defined sampling cadence. See
+[`www/vps/ttn-sensor-ingestion.md`](../../../www/vps/ttn-sensor-ingestion.md)
+for the webhook contract.
+
+Firmware v11 does not classify audio events. The broad, draft multi-label
+taxonomy and model evaluation plan for a future firmware version are in
+[`audio-event-ml-plan.md`](../audio-event-ml-plan.md); provisional class IDs are
+listed in [`audio-event-taxonomy-v1.json`](../audio-event-taxonomy-v1.json).
 
 ## Build and flash
 

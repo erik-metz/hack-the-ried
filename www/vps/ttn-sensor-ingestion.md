@@ -12,7 +12,10 @@ In the TTN Console, create a custom webhook using JSON, set the URL above, confi
 
 ## Payload formatter contract
 
-The device or application uplink formatter must return a `decoded_payload.measurements` array. Each item has a stable metric name, finite numeric value, and explicit unit:
+The FPort-10 application formatter supports RAK payload formats 3, 4 and 5.
+For formats 3/4 it returns `decoded_payload.measurements`. Format 5 also returns
+`firmware_version`, `window_seconds` and a `window_statistics` array. Each
+measurement has a stable metric name, finite numeric value, and explicit unit:
 
 ```json
 {
@@ -23,14 +26,34 @@ The device or application uplink formatter must return a `decoded_payload.measur
 }
 ```
 
-At most 32 measurements are accepted per uplink. Metric names use lowercase letters, digits and underscores, starting with a lowercase letter. Device IDs must be lowercase TTN slugs and are mapped to `ttn-<device_id>`. Units and metric semantics must remain stable for a sensor; change the metric or perform an explicit migration if its meaning or unit changes.
+At most 41 measurements and 41 window statistics are accepted per uplink.
+Names use lowercase letters, digits and underscores, starting with a lowercase
+letter. Device IDs must be lowercase TTN slugs and are mapped to
+`ttn-<device_id>`. Units and metric semantics must remain stable; use a new
+metric name or an explicit migration if meaning or unit changes. For format 5,
+each statistic has `min_value`, `mean_value`, `max_value` and `sample_count`;
+the mean must match that metric's entry in `measurements`.
 
 New sensor metadata is inserted as hidden. An administrator should verify the device, add its public name and coordinates, then make it visible through the existing sensor administration flow. Existing sensor metadata is preserved.
 
 ## Storage and delivery behavior
 
-The endpoint stores an event receipt and all measurements in one database transaction, then returns `200`. TTN correlation IDs deduplicate redeliveries; the accepted payload hash prevents a correlation ID from being reused for different content. The receipt retains the application/device IDs, timestamp, frame port/counter, correlation IDs, and payload hash. Measurement rows use the established telemetry tables and existing shadow-write behavior, preserving compatibility with current public telemetry reads.
+The endpoint stores an event receipt and measurements in one database
+transaction, then returns `200`. TTN correlation IDs deduplicate redeliveries;
+the accepted payload hash prevents an event identity from being reused for
+different content. The receipt retains application/device IDs, timestamp,
+frame port/counter, correlation IDs and payload hash. The authoritative
+measurement model is `entities`, `measurement_definitions` and `readings`;
+interval statistics carry their statistic dimension, period bounds, sample
+count and TTN provenance. For compatibility, decoded means are also mirrored
+to `sensor_data`. New windows are not written to the legacy
+`sensor_measurement_windows` / `sensor_window_metrics` tables; window reads
+prefer canonical `readings` and use those legacy tables only as a fallback for
+older stored windows.
 
 The endpoint does not persist decoded arbitrary JSON or gateway/session secrets. If a device decoder fails or supplies no valid measurements, the request is rejected with `422`. Verify delivery in TTN Live Data and inspect `as.webhook.fail` events if TTN reports an unsuccessful request. TTN retries require the relevant Cloud Plus feature; without retries a failed webhook attempt may be lost.
 
-Before production, configure the webhook credentials and application ID on the VPS, create a test device, send a sample uplink, confirm exactly one row per measurement in the database, and verify the sensor remains hidden until reviewed.
+Before production, configure webhook credentials and application ID on the VPS,
+create a test device, send a sample uplink, confirm the receipt and canonical
+readings, verify the compatibility mean if a legacy chart consumes it, and
+confirm the sensor stays hidden until reviewed.
