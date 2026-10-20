@@ -35,7 +35,7 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v11 <device-profile-id>` to compile the
+Use `./hardware/sensor-node/rak3112/build.sh v12 <device-profile-id>` to compile the
 latest firmware, or
 add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board. Firmware v10 adds
 the ICS-43434 I2S microphone; see `v10/README.md` for wiring and serial diagnostics.
@@ -55,9 +55,11 @@ Firmware v10 adds the ICS-43434 digital microphone and reports an uncalibrated R
 see `v10/README.md` for wiring and validation details. Firmware v11 adds local
 five-minute min/mean/max aggregation and continuous microphone block processing
 using payload format 5; see `v11/README.md` for the format, sampling intervals,
-database flow and limits. The proposed microphone event-classification work,
-including model evaluation and a broad multi-label taxonomy, is tracked in
-`audio-event-ml-plan.md`; v11 does not yet classify sound events.
+database flow and limits. Firmware v12 adds an experimental on-device,
+single-label ESC-50 classifier; it prints diagnostic scores to USB serial and
+keeps the existing format-5 uplink unchanged. See `v12/README.md` for measured
+resources and model limits. The broader multi-label taxonomy, evaluation plan
+and future format-6/database work remain in `audio-event-ml-plan.md`.
 An experimental host-side YAMNet runner now exists at
 `tools/yamnet_baseline.py` with its pinned environment in
 `tools/audio-baseline-requirements.txt`; it reads approved 16-kHz mono WAVs

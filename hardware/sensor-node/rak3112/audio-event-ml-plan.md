@@ -6,12 +6,13 @@ Die RAK-Sensoren sollen wiederkehrende Geräuschereignisse des öffentlichen Au�
 
 Im Regelbetrieb werden keine Roh-Audios, Sprachinhalte, Stimmenmerkmale, Personen- oder Fahrzeugidentitäten übertragen oder dauerhaft gespeichert. „Sprache“ bedeutet ausschließlich erkannte Sprachaktivität. Eine Aussage wie „Postauto“ ist aus dem Geräusch allein meist nicht belegbar; klassifiziert werden darf höchstens ein akustisch erkennbarer Fahrzeugtyp bzw. ein Fahrgeräusch. Privatgrundstücke, Nachbarbereiche und mögliche Rückschlüsse auf Einzelpersonen sind bei Geräteplatzierung, Testaufnahmen und Veröffentlichung besonders zu berücksichtigen. Vor dem Sammeln gelabelter Rohaufnahmen und vor einem breiten Rollout sind Zweck, Einwilligung/Information, Zugriff, Aufbewahrung und lokale rechtliche Anforderungen gesondert zu prüfen.
 
-## Derzeitiger technischer Vertrag (Firmware v11)
+## Derzeitiger technischer Vertrag (Firmware v11/v12-Prototyp)
 
-- ICS-43434: kontinuierliches I²S, 16 kHz; der aktive Mikrofonkanal wird aus zwei Slots ausgewählt. Inferenz ist noch nicht implementiert.
+- ICS-43434: Firmware v11 verarbeitet kontinuierliches I²S mit 16 kHz und wählt den aktiven Mikrofonkanal aus zwei Slots; dort gibt es noch keine Inferenz. Der v12-Prototyp ergänzt die lokale Klassifikation (siehe unten).
 - Erfasste Audioverarbeitung: 256 Frames (16 ms) pro Block; fünfminütige Fenster und Format-5-LoRaWAN-Uplink auf FPort 10.
 - Gesendet wird `sound_level` in unkalibriertem dBFS mit Min/Mean/Max und Sample Count. Es ist weder dB SPL noch dB(A).
 - Protokollcodes 40 (`sound_dominant_frequency`) und 41 (`sound_event_class`) sind im gemeinsamen Decoder reserviert, aber v11 emittiert sie nicht. Die bisherige Beschreibung der Werte 0–3 für Code 41 ist nur ein veralteter Vorschlag und kein aktiver ML-Vertrag.
+- Firmware v12 führt einen experimentellen lokalen ESC-50-Klassifikator aus und gibt Top-3-Diagnosewerte ausschließlich über USB-Serial aus. Das TTN-Uplink bleibt Format 5 ohne Klassifikation; es gibt daher noch keine ML-Schreibvorgänge in `entities`, `measurement_definitions` oder `readings`.
 - Der TTN-Webhook schreibt kanonisch nach `entities`, `measurement_definitions` und `readings` via `write_measurement`; er spiegelt Messwert-Mittel zusätzlich nach `sensor_data` für alte Leser. Neue Fenster liegen autoritativ in `readings`; die alten Fenster-Tabellen sind nur Lesefallback für historische Datensätze.
 
 ## Ereignistaxonomie (Entwurf, versioniert)
@@ -129,9 +130,9 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
 
 1. **Vertrag/Doku:** aktuellen v11-/API-Stand angleichen (mit diesem Dokumentationsschritt); alte Code-41-Bedeutung als nicht implementiert markieren.
 2. **Board-Baseline:** Firmware-/Chip-/PSRAM-/Heap-/I²S-Zustand per USB lesen; keine Session- oder LoRaWAN-Nonce-Daten löschen. Audiopegel und Capture-Kontinuität mit bestehender v11-Firmware prüfen.
-3. **Taxonomie v1:** Slugs/IDs, Definitionen und Prioritäten aus dem Entwurf in [`audio-event-taxonomy-v1.json`](audio-event-taxonomy-v1.json) finalisieren; YAMNet-Klassen auf lokale Open-Ried-Sens-Fragen abbilden. Die dortigen IDs und Modell-Labels sind ausdrücklich noch Entwurf und müssen gegen die tatsächlich verwendete YAMNet-Klassenliste geprüft werden.
+3. **Taxonomie v1:** Slugs/IDs, Definitionen und Prioritäten aus dem Entwurf in [`audio-event-taxonomy-v1.json`](audio-event-taxonomy-v1.json) finalisieren; die dortigen IDs bleiben Entwurf. Der aktuelle ESC-50-Klassenindex ist ein separater Benchmark-Ausgaberaum und darf nicht als Open-Ried-Sens-ID behandelt werden.
 4. **Offline-Auswertung:** YAMNet-Modellversion und Lizenz dokumentieren, Datenfreigabe/-löschung festlegen, lokale Testaufnahmen kontrolliert auswerten. Standort- und Zeitgruppen als Testsplit verwenden.
-5. **Kandidatbenchmark:** YAMNet und SONYC-UST als Referenz sowie mindestens einen quantisierten Student/Edge-Impulse- oder TFLite-Micro-Prototyp auf dem angeschlossenen RAK messen. Flash/Reset erst nach Sicherung von Geräteidentität, aktueller Firmware und Wiederherstellungsweg.
+5. **Kandidatbenchmark:** Ein quantisiertes TFLite-Micro-Modell ist als v12-Prototyp auf dem RAK ausgeführt und gemessen (Ergebnisse unten). YAMNet bleibt PC-Teacher/Referenz; der RAK-Prototyp ist wegen der erzwungenen Single-Label-Ausgabe und beobachteter Fehlklassifikationen noch kein produktionsreifes Modell.
 6. **Format 6 und End-to-End:** Protokollbeschreibung, JS-Decoder/Testvektoren, Webhook-Validierung, idempotente Speicherung, Tests für die drei Kerntabellen, API-Fensterantwort und Frontend-/Exportsemantik gemeinsam spezifizieren und implementieren.
 7. **Gestufter Betrieb:** erst Testgerät verborgen, dann kontrollierte Testphase; Modell-/Taxonomie-Version, Gerätegesundheit, Datenabdeckung, Fehlklassifikationen und Payloadverluste messen, ehe weitere Sensoren ausgerollt werden.
 
@@ -176,8 +177,45 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
   Annotationen wurden danach gelöscht.
 - Noch offen: SONYC-UST-Mapping und Lizenz-/Datenprüfung, Taxonomie-IDs
   einfrieren, YAMNet gegen annotierte Urban-Clips evaluieren, Modellkandidaten
-  auf Zielhardware benchmarken und Format 6 implementieren. Es wurden keine
+  weiter evaluieren und Format 6 implementieren. Es wurden keine
   Umgebungsaufnahmen erstellt.
+
+### Firmware v12: erster RAK-Audioklassifikator (20.10.2026)
+
+- Die getrennte Firmware `v12/` verwendet ACDNet20 ESC-50 Fold 4, INT8
+  (50 Klassen), TFLite Micro und die im ESP32 Arduino Core enthaltene
+  Espressif-Implementierung. Die verwendete TFLite-Datei ist 156.288 Byte;
+  ihre SHA-256-Prüfsumme und Modellherkunft stehen in [`v12/README.md`](v12/README.md).
+- Der RAK3112 mit `rak3112_002` läuft mit v12. Boot meldete ESP32-S3 bei
+  240 MHz, 16 MB Flash und 8 MB OPI-PSRAM. Die vorhandene LoRaWAN-Sitzung
+  wurde wiederhergestellt (`joined=yes`); ein gewöhnlicher Format-5-Uplink
+  wurde danach beobachtet.
+- Build: 678.138 Byte Programmcode von maximal 1.310.720 Byte App-Partition
+  (51 %), 28.788 Byte statische globale Variablen. Tensor-Arena: 373.276 Byte
+  tatsächlich genutzt, aus einer 768-KiB-PSRAM-Reservierung. Freier interner
+  Heap sank von 336.468 Byte beim Start auf rund 293.308 Byte im Betrieb;
+  freier PSRAM nach Setup/Inferenz lag bei rund 7.483.316 Byte.
+- Für nicht überlappende Audiofenster von 1,51 s maß das Board 20–21 ms
+  Vorverarbeitung und 264–266 ms TFLite-Inferenz. Die I²S-Task lieferte
+  weiterhin etwa 63 Blöcke/s; in ungefähr 70 Sekunden Beobachtung wurden
+  keine Samples verworfen. Der Inferenz-Task hatte noch 13.692 Byte Stack-
+  High-Water-Mark bei einem 16-KiB-Stack.
+- Vorverarbeitung plus Inferenz beanspruchten in dieser Messung etwa 19 % der
+  Fensterzeit eines Prozessorkerns. Es wurde kein Strommessgerät verwendet;
+  elektrische Leistungsaufnahme und Joule pro Klassifikation sind offen.
+- Im ruhigen Raum klassifizierte das Modell wiederholt `mouse_click` und
+  `fireworks`, obwohl keine solchen Ereignisse beabsichtigt erzeugt wurden.
+  Das zeigt die Schwäche des ESC-50-Modells für den aktuellen Standort und
+  das Fehlen einer `unknown`-/Stille-Klasse. Diese Werte sind nur
+  Diagnostikwerte: weder uploaden noch als bestätigte Ereignisse speichern.
+- ESC-50 ist CC BY-NC 3.0; ACDNet-Code ist MIT. Die Modellverwendung ist für
+  den nicht-kommerziellen Prototyp dokumentiert. Vor einem kommerziellen
+  Einsatz oder einer weitergehenden Modellweitergabe sind Rechte zu klären.
+- Es findet kein Online-Lernen auf dem Gerät statt. Für „on the go lernen“
+  sammeln wir künftig nur separat freigegebene Labels/Fehlklassifikationen
+  oder kontrollierte Trainingsclips, trainieren/validieren neue Versionen
+  außerhalb des Sensors und verteilen ein versioniertes Modell. Roh-Audio
+  wird im aktuellen v12 nur in flüchtigen PSRAM-Puffern gehalten.
 
 ### Abnahme für die erste produktive Audio-ML-Version
 
