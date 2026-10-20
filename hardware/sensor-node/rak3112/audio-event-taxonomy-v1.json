@@ -2,7 +2,7 @@
   "taxonomy_version": "open-ried-sens-audio-1-draft",
   "status": "draft",
   "reference_models": {"yamnet": {"class_count": 521, "class_map_url": "https://github.com/tensorflow/models/blob/master/research/audioset/yamnet/yamnet_class_map.csv", "mapping_status": "candidate_aliases_only"}},
-  "external_datasets": [{"name": "SONYC-UST", "version": "2.3", "recordings": 18515, "class_count": 23, "verified_subset_recordings": 1385, "url": "https://zenodo.org/records/3966543", "mapping_status": "not_mapped"}],
+  "external_datasets": [{"name": "SONYC-UST", "version": "2.3", "recordings": 18515, "class_count": 23, "verified_subset_recordings": 1380, "url": "https://zenodo.org/records/3966543", "mapping_status": "coarse_mapping_pending"}],
   "notes": [
     "IDs and labels are provisional until evaluated on local, consented test material.",
     "This is a multi-label event vocabulary, not a claim that any model can distinguish every leaf.",
