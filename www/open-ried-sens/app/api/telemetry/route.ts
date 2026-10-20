@@ -26,11 +26,13 @@ export async function GET(request: Request) {
   const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
   const latest = new URL("/api/v1/telemetry/latest/metrics", env.BACKEND_API_URL);
   latest.searchParams.set("sensor_id", sensorId);
+  const latestWindow = new URL("/api/v1/telemetry/latest/window", env.BACKEND_API_URL);
+  latestWindow.searchParams.set("sensor_id", sensorId);
   const history = new URL(snapshots ? "/api/v1/telemetry/raw" : "/api/v1/telemetry/aggregates", env.BACKEND_API_URL);
   history.search = new URLSearchParams({ sensor_id: sensorId, start_time: start.toISOString(), end_time: end.toISOString(),
     ...(snapshots ? { limit: "5000" } : { interval: "5 minutes" }),
   }).toString();
-  const results = await Promise.allSettled([latest, history].map(async url => {
+  const results = await Promise.allSettled([latest, history, latestWindow].map(async url => {
     const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error("Backend unavailable");
     return response.json();
@@ -41,9 +43,11 @@ export async function GET(request: Request) {
     }
   }
   const buckets = results[1].status === "fulfilled" ? results[1].value : [];
+  const window = results[2].status === "fulfilled" ? results[2].value : null;
   const readings = Array.isArray(results[0].value) ? results[0].value.filter((r: RawReading) => !HIDDEN_METRICS.has(r.metric)) : results[0].value;
   const filteredHistory = snapshots ? buckets.map((r: RawReading) => ({ metric: r.metric, unit: r.unit, bucket: r.timestamp, avg_value: r.value })) : buckets;
   return Response.json({ readings,
+    window,
     history: Array.isArray(filteredHistory) ? filteredHistory.filter((r: RawReading) => !HIDDEN_METRICS.has(r.metric)) : filteredHistory,
     historyMode: snapshots ? "snapshots" : "averages", historyUnavailable: results[1].status === "rejected",
     historyTruncated: snapshots && buckets.length >= 5000, start: start.toISOString(), end: end.toISOString(),

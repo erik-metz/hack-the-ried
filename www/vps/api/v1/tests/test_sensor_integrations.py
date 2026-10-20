@@ -4,16 +4,45 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from unittest import TestCase
 from unittest.mock import patch
 
 import psycopg
-from endpoints.sensor_integrations import receive_sensor_uplink
+from endpoints.sensor_integrations import _window_statistics, receive_sensor_uplink
 from fastapi import HTTPException
 from fastapi.security import HTTPBasicCredentials
 from psycopg.rows import dict_row
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
 from db_support import DatabaseCase
+
+
+class WindowStatisticsValidationTests(TestCase):
+    def test_valid_window_statistics_match_compatibility_measurements(self):
+        decoded = {
+            "window_seconds": 300,
+            "measurements": [{"metric": "co2", "value": 500, "unit": "ppm"}],
+            "window_statistics": [{"metric": "co2", "unit": "ppm", "min_value": 450,
+                                   "mean_value": 500, "max_value": 620, "sample_count": 60}],
+        }
+        self.assertEqual(_window_statistics(decoded), (300, [{
+            "metric": "co2", "unit": "ppm", "min_value": 450.0,
+            "mean_value": 500.0, "max_value": 620.0, "sample_count": 60,
+        }]))
+
+    def test_invalid_range_and_measurement_mismatch_are_rejected(self):
+        decoded = {
+            "window_seconds": 300,
+            "measurements": [{"metric": "co2", "value": 500, "unit": "ppm"}],
+            "window_statistics": [{"metric": "co2", "unit": "ppm", "min_value": 501,
+                                   "mean_value": 500, "max_value": 620, "sample_count": 60}],
+        }
+        with self.assertRaises(HTTPException):
+            _window_statistics(decoded)
+        decoded["window_statistics"][0]["min_value"] = 450
+        decoded["window_statistics"][0]["mean_value"] = 510
+        with self.assertRaises(HTTPException):
+            _window_statistics(decoded)
 
 
 class SensorIntegrationTests(DatabaseCase):
@@ -37,6 +66,7 @@ class SensorIntegrationTests(DatabaseCase):
         firmware_migration = Path(__file__).resolve().parents[1] / "migrations/20261017_ttn_firmware_version.sql"
         await self.conn.execute(firmware_migration.read_text())
         await self.conn.execute((Path(__file__).resolve().parents[1] / "migrations/20261018_firmware_version_number.sql").read_text())
+        await self.conn.execute((Path(__file__).resolve().parents[1] / "migrations/20261020_sensor_window_statistics.sql").read_text())
 
     def uplink(self):
         return {
@@ -140,6 +170,58 @@ class SensorIntegrationTests(DatabaseCase):
             accepted = await receive_sensor_uplink(body, credentials, self.pool())
         self.assertEqual(accepted["inserted_count"], 41)
         self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 41)
+
+    async def test_window_uplink_stores_means_and_interval_statistics(self):
+        credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")
+        body = self.uplink()
+        decoded = body["uplink_message"]["decoded_payload"]
+        decoded.update({
+            "version": 5,
+            "firmware_version": 11,
+            "window_seconds": 300,
+            "window_statistics": [
+                {"metric": "temperature", "unit": "°C", "min_value": 17.8,
+                 "mean_value": 18.5, "max_value": 19.2, "sample_count": 300},
+                {"metric": "humidity", "unit": "%", "min_value": 61.2,
+                 "mean_value": 62, "max_value": 62.8, "sample_count": 300},
+                {"metric": "sound_level", "unit": "dBFS", "min_value": -60,
+                 "mean_value": -32.4, "max_value": -18.1, "sample_count": 18750},
+            ],
+        })
+        with patch.dict(os.environ, {
+            "TTN_APPLICATION_ID": "ried-sensors",
+            "TTN_WEBHOOK_USERNAME": "ttn-user",
+            "TTN_WEBHOOK_PASSWORD": "ttn-secret",
+        }):
+            accepted = await receive_sensor_uplink(body, credentials, self.pool())
+
+        self.assertEqual(accepted["status"], "accepted")
+        window = await (await self.conn.execute("""SELECT window_start,window_end,window_seconds
+            FROM sensor_measurement_windows WHERE sensor_id='ttn-weather-node-1'""")).fetchone()
+        self.assertEqual(window["window_seconds"], 300)
+        self.assertEqual((window["window_end"] - window["window_start"]).total_seconds(), 300)
+        sound = await (await self.conn.execute("""SELECT minimum,mean,maximum,sample_count
+            FROM sensor_window_metrics WHERE sensor_id='ttn-weather-node-1' AND metric='sound_level'""")).fetchone()
+        self.assertEqual((sound["minimum"], sound["mean"], sound["maximum"], sound["sample_count"]),
+                         (-60, -32.4, -18.1, 18750))
+        stored_mean = await self.scalar("SELECT value FROM sensor_data WHERE metric='sound_level'")
+        self.assertEqual(stored_mean, -32.4)
+
+    async def test_rejects_inconsistent_or_incomplete_window_statistics(self):
+        credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")
+        body = self.uplink()
+        body["uplink_message"]["decoded_payload"].update({
+            "window_seconds": 300,
+            "window_statistics": [{"metric": "temperature", "unit": "°C",
+                "min_value": 20, "mean_value": 18.5, "max_value": 21, "sample_count": 3}],
+        })
+        with patch.dict(os.environ, {
+            "TTN_APPLICATION_ID": "ried-sensors",
+            "TTN_WEBHOOK_USERNAME": "ttn-user",
+            "TTN_WEBHOOK_PASSWORD": "ttn-secret",
+        }), self.assertRaises(HTTPException) as error:
+            await receive_sensor_uplink(body, credentials, self.pool())
+        self.assertEqual(error.exception.status_code, 422)
 
     async def test_invalid_credentials_and_unconfigured_application_are_rejected(self):
         with patch.dict(os.environ, {

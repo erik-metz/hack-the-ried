@@ -9,8 +9,9 @@ integer in each uplink. Keep the LoRaWAN payload-format number separate.
 
 `v1/payload-formatter.js` is the shared TTN application decoder. It supports
 payload formats still used by deployed firmware, so TTN can keep one formatter
-for multiple RAK devices. Metric IDs and their scales are documented in
-`v1/README.md`. Assign new metric IDs there before emitting new measurements.
+for multiple RAK devices. Metric IDs, scales and current transmission behavior
+are documented in `v1/README.md` and the active firmware's README. Assign new
+metric IDs there before emitting new measurements.
 
 ## Device credentials and identity
 
@@ -51,4 +52,7 @@ address `0x76` or `0x77`. It emits calibrated temperature, humidity, pressure,
 and validated gas resistance while preserving the v8 LTR390 and other sensors.
 See `v9/README.md` for settings, metric scales and BSEC limitations.
 Firmware v10 adds the ICS-43434 digital microphone and reports an uncalibrated RMS sound level in dBFS;
-see `v10/README.md` for wiring and validation details.
+see `v10/README.md` for wiring and validation details. Firmware v11 adds local
+five-minute min/mean/max aggregation and continuous microphone block processing
+using payload format 5; see `v11/README.md` for the format, sampling intervals,
+database flow and limits.

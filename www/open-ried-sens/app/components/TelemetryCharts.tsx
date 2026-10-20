@@ -8,7 +8,9 @@ import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, 
 
 type Reading = { metric: string; unit: string; value: number; timestamp: string };
 type Bucket = { metric: string; unit: string; bucket: string; avg_value: number | null };
-type Telemetry = { readings: Reading[]; history: Bucket[]; start: string; end: string; historyMode?: string; historyUnavailable?: boolean; historyTruncated?: boolean };
+type WindowMetric = { metric: string; unit: string; min_value: number | null; mean_value: number; max_value: number | null; sample_count: number };
+type SensorWindow = { window_start: string; window_end: string; window_seconds: number; metrics: WindowMetric[] };
+type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyUnavailable?: boolean; historyTruncated?: boolean };
 const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
 const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
@@ -71,6 +73,7 @@ export default function TelemetryCharts({
     y: 180 - ((bucket.avg_value! - lower) / (upper - lower)) * 155,
     bucket,
   }));
+  const windowMetric = (reading: Reading) => data?.window?.metrics.find(item => item.metric === reading.metric && item.unit === reading.unit);
   const path = points.map((point, index) => {
     const previous = points[index - 1];
     const interrupted = (fuelEntity && previous && Date.parse(point.bucket.bucket)-Date.parse(previous.bucket.bucket)>20*60*1000) || (barrierEntity && previous && (data?.history ?? []).some(b => b.avg_value === null && Date.parse(b.bucket)>Date.parse(previous.bucket.bucket) && Date.parse(b.bucket)<Date.parse(point.bucket.bucket)));
@@ -175,6 +178,14 @@ export default function TelemetryCharts({
               )}
             </span>
             <span className="block mt-2 text-xs text-slate-500">Stand: {time(reading.timestamp)}</span>
+            {(() => {
+              const summary = windowMetric(reading);
+              if (!summary) return null;
+              const range = summary.min_value !== null && summary.max_value !== null
+                ? `Min ${number(summary.min_value, reading)} · Max ${number(summary.max_value, reading)}`
+                : "Fenstermittel";
+              return <span className="block mt-1 text-xs text-slate-400">{Math.round(data!.window!.window_seconds / 60)}-Minuten-Fenster · {range} · n={summary.sample_count}</span>;
+            })()}
           </button>)}
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">

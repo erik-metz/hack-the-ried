@@ -95,20 +95,23 @@ integrated. RAK3112 firmware v8 emits LTR390 UV index, ambient-light lux, and
 the underlying UV/ALS raw counts. The sound metrics require DSP on microphone samples;
 sound level needs calibration. BME688 IAQ/equivalent-gas fields require a
 supporting algorithm, rain pulses do not become millimetres until calibrated,
-and INA226 current depends on the configured shunt. The payload limit is 41
-records (206 bytes including the v3 format byte; v4 uses a four-byte header). Keep each uplink within the
-active LoRaWAN data-rate payload allowance; split readings over multiple
-uplinks if the selected data rate cannot carry them.
+and INA226 current depends on the configured shunt. Formats 3/4 contain at
+most 41 five-byte records; format 5 uses four-byte tagged 24-bit records and is
+limited to 222 bytes by the current firmware. Keep each uplink within the
+active LoRaWAN data-rate payload allowance.
 
 To add a measurement, assign it a new code and documented scale, append its
 encoded value to the uplink records, and add that code to
 `payload-formatter.js`. Until a code is registered, the formatter still sends
 it downstream as `metric_<code>` with unit `raw`, and also exposes the raw
 code/value pair as `unknown_measurements`. Retired SGP41 codes 27 and 28 are
-explicitly discarded. The formatter accepts payload
-formats 3 and 4. Format 4 exposes the semantic firmware version as
-`firmware_version` metadata, separate from `measurements`. It does not expose
-the removed uptime or uplink-counter diagnostics.
+explicitly discarded. The formatter accepts payload formats 3, 4 and 5.
+Format 4 exposes the semantic firmware version as `firmware_version` metadata,
+separate from `measurements`. Format 5 adds a window duration and structured
+minimum/mean/maximum/sample-count statistics; its `measurements` array still
+contains one mean per metric for compatible database and chart ingestion. The
+RAK3112 v11 sampling and format-5 contract are documented in `../v11/README.md`.
+The formatter does not expose the removed uptime or uplink-counter diagnostics.
 
 Install `payload-formatter.js` as the TTN uplink payload formatter for FPort 10.
 Its local protocol tests can be run with:

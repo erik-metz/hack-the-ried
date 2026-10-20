@@ -329,3 +329,30 @@ async def get_latest_sensor_metrics(
         cur = await conn.execute(read_sql(query), (sensor_id,))
         rows = await cur.fetchall()
     return [dict(row) for row in rows]
+
+
+@router.get(
+    "/telemetry/latest/window",
+    summary="Get the latest locally aggregated sensor window",
+    tags=["Telemetry Public"],
+)
+async def get_latest_sensor_window(
+    sensor_id: str = Query(..., description="The ID of the sensor"),
+    pool: psycopg_pool.AsyncConnectionPool = Depends(get_db_pool),
+):
+    async with pool.connection() as conn:
+        cur = await conn.execute("""SELECT w.window_start,w.window_end,w.window_seconds
+            FROM sensor_measurement_windows w
+            JOIN sensor_metadata sm ON sm.id=w.sensor_id
+            WHERE w.sensor_id=%s AND sm.is_hidden=FALSE
+            ORDER BY w.window_end DESC LIMIT 1""", (sensor_id,))
+        window = await cur.fetchone()
+        if window is None:
+            raise HTTPException(status_code=404, detail="No aggregated sensor window found")
+        cur = await conn.execute("""SELECT metric,unit,minimum AS min_value,mean AS mean_value,
+                maximum AS max_value,sample_count
+            FROM sensor_window_metrics
+            WHERE sensor_id=%s AND window_end=%s
+            ORDER BY metric""", (sensor_id, window["window_end"]))
+        metrics = await cur.fetchall()
+    return {**dict(window), "metrics": [dict(row) for row in metrics]}

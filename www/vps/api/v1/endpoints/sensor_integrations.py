@@ -6,7 +6,7 @@ import math
 import os
 import re
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg_pool
@@ -77,6 +77,58 @@ def _measurements(decoded: Any) -> list[dict[str, Any]]:
         result.append({"metric": metric, "value": float(value), "unit": unit})
         seen.add(metric)
     return result
+
+
+def _window_statistics(decoded: Any) -> tuple[int, list[dict[str, Any]]] | None:
+    if not isinstance(decoded, dict) or "window_statistics" not in decoded:
+        return None
+    seconds = decoded.get("window_seconds")
+    if isinstance(seconds, bool) or not isinstance(seconds, int) or not 1 <= seconds <= 16777215:
+        raise HTTPException(422, "decoded_payload.window_seconds must be an unsigned 24-bit duration")
+    values = decoded.get("window_statistics")
+    if not isinstance(values, list) or not values or len(values) > MAX_MEASUREMENTS:
+        raise HTTPException(422, "decoded_payload.window_statistics must contain 1 to 41 entries")
+    result = []
+    seen = set()
+    for item in values:
+        if not isinstance(item, dict):
+            raise HTTPException(422, "Each window statistic must be an object")
+        metric, unit = item.get("metric"), item.get("unit")
+        if not isinstance(metric, str) or not METRIC_PATTERN.fullmatch(metric):
+            raise HTTPException(422, "Window statistic metric has an invalid name")
+        if metric in seen:
+            raise HTTPException(422, f"Duplicate window statistic metric: {metric}")
+        if not isinstance(unit, str) or not UNIT_PATTERN.fullmatch(unit):
+            raise HTTPException(422, f"Window statistic {metric} must include a valid unit")
+        row = {"metric": metric, "unit": unit}
+        for field in ("min_value", "mean_value", "max_value"):
+            value = item.get(field)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+            ):
+                raise HTTPException(422, f"Window statistic {metric}.{field} must be finite or null")
+            row[field] = float(value) if value is not None else None
+        if row["mean_value"] is None:
+            raise HTTPException(422, f"Window statistic {metric} must include a mean")
+        if (row["min_value"] is not None and row["min_value"] > row["mean_value"]
+                or row["max_value"] is not None and row["max_value"] < row["mean_value"]):
+            raise HTTPException(422, f"Window statistic {metric} has an inconsistent range")
+        count = item.get("sample_count")
+        if isinstance(count, bool) or not isinstance(count, int) or not 0 <= count <= 16777215:
+            raise HTTPException(422, f"Window statistic {metric}.sample_count must be an unsigned 24-bit integer")
+        row["sample_count"] = count
+        result.append(row)
+        seen.add(metric)
+    measurement_means = {item["metric"]: (item["value"], item["unit"])
+                         for item in _measurements(decoded)}
+    if set(measurement_means) != seen:
+        raise HTTPException(422, "Window statistics must match decoded measurements")
+    for row in result:
+        mean, unit = measurement_means[row["metric"]]
+        if unit != row["unit"] or not math.isclose(mean, row["mean_value"], rel_tol=1e-9, abs_tol=1e-9):
+            raise HTTPException(422, f"Window mean for {row['metric']} must match its measurement")
+    return seconds, result
 
 
 def _ttn_coordinates(uplink: dict[str, Any]) -> tuple[float, float] | None:
@@ -153,6 +205,7 @@ async def receive_sensor_uplink(
         raise HTTPException(422, "uplink_message is required")
     decoded_measurements = _measurements(uplink.get("decoded_payload"))
     decoded_payload = uplink.get("decoded_payload")
+    window = _window_statistics(decoded_payload)
     firmware_version = decoded_payload.get("firmware_version") if isinstance(decoded_payload, dict) else None
     if firmware_version is not None and (
         isinstance(firmware_version, bool)
@@ -204,6 +257,20 @@ async def receive_sensor_uplink(
                     THEN NOW() ELSE sensor_metadata.updated_at END""",
             (sensor_id, device_id, f"The Things Stack device {device_id}",
              firmware_version, latitude, longitude))
+        if window is not None:
+            window_seconds, statistics = window
+            window_start = observed_at - timedelta(seconds=window_seconds)
+            await conn.execute("""INSERT INTO sensor_measurement_windows
+                (sensor_id,window_end,window_start,window_seconds,event_id)
+                VALUES (%s,%s,%s,%s,%s)""",
+                (sensor_id, observed_at, window_start, window_seconds, event_id))
+            async with conn.cursor() as cur:
+                await cur.executemany("""INSERT INTO sensor_window_metrics
+                    (sensor_id,window_end,metric,unit,minimum,mean,maximum,sample_count)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    [(sensor_id, observed_at, item["metric"], item["unit"],
+                      item["min_value"], item["mean_value"], item["max_value"],
+                      item["sample_count"]) for item in statistics])
         async with conn.cursor() as cur:
             await cur.executemany("""INSERT INTO sensor_data(timestamp,sensor_id,value,unit,metric)
                 VALUES (%s,%s,%s,%s,%s)""",

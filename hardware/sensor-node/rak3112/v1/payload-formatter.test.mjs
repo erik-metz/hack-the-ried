@@ -12,6 +12,10 @@ const record = (code, value) => {
   const bytes = [(value >>> 24) & 255, (value >>> 16) & 255, (value >>> 8) & 255, value & 255];
   return [code, ...bytes];
 };
+const windowRecord = (code, statistic, value) => {
+  const raw = value < 0 ? value + 0x1000000 : value;
+  return [((statistic << 6) | code) & 255, (raw >>> 16) & 255, (raw >>> 8) & 255, raw & 255];
+};
 
 test("decodes every known metric in a version 3 TLV payload", () => {
   const result = decode({ fPort: 10, bytes: [3,
@@ -105,6 +109,36 @@ test("decodes Sensirion SGP41 VOC and NOx indices as whole index values", () => 
   ]);
 });
 
+test("decodes format 5 window summaries, signed levels and grouped sample counts", () => {
+  const result = decode({ fPort: 10, bytes: [5, 11, 0, 1, 44,
+    ...windowRecord(1, 0, 120), ...windowRecord(1, 1, 125), ...windowRecord(1, 2, 130),
+    ...windowRecord(7, 0, -500), ...windowRecord(7, 1, -220), ...windowRecord(7, 2, -100),
+    ...windowRecord(50, 3, 300), ...windowRecord(57, 3, 18750),
+  ] });
+  assert.equal(result.data.version, 5);
+  assert.equal(result.data.firmware_version, 11);
+  assert.equal(result.data.window_seconds, 300);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "temperature", unit: "°C", value: 12.5 },
+    { metric: "sound_level", unit: "dBFS", value: -22 },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.window_statistics)), [
+    { metric: "temperature", unit: "°C", min_value: 12, mean_value: 12.5, max_value: 13, sample_count: 300 },
+    { metric: "sound_level", unit: "dBFS", min_value: -50, mean_value: -22, max_value: -10, sample_count: 18750 },
+  ]);
+});
+
+test("decodes unsigned 24-bit BME68x resistance and mean-only raw diagnostics", () => {
+  const result = decode({ bytes: [5, 11, 0, 0, 10,
+    ...windowRecord(21, 0, 10000000), ...windowRecord(21, 1, 12000000), ...windowRecord(21, 2, 15000000),
+    ...windowRecord(32, 1, 12345), ...windowRecord(56, 3, 2), ...windowRecord(53, 3, 2),
+  ] });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.window_statistics)), [
+    { metric: "bme688_gas_resistance", unit: "Ω", min_value: 10000000, mean_value: 12000000, max_value: 15000000, sample_count: 2 },
+    { metric: "ltr390_uv_raw", unit: "raw", min_value: null, mean_value: 12345, max_value: null, sample_count: 2 },
+  ]);
+});
+
 test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [] }).errors);
   assert.ok(decode({ bytes: [2, 0, 171, 1, 247] }).errors);
@@ -114,4 +148,7 @@ test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [3, ...Array(42 * 5).fill(0)] }).errors);
   assert.ok(decode({ bytes: [4, 2, 1, 0] }).errors);
   assert.ok(decode({ bytes: [4, 2, ...Array(42 * 5).fill(0)] }).errors);
+  assert.ok(decode({ bytes: [5, 11, 0, 0, 0, ...windowRecord(1, 1, 20)] }).errors);
+  assert.ok(decode({ bytes: [5, 11, 0, 0, 1, ...windowRecord(1, 1, 20), ...windowRecord(1, 1, 21)] }).errors);
+  assert.ok(decode({ bytes: [5, 11, 0, 0, 1, ...windowRecord(1, 0, 20)] }).errors);
 });
