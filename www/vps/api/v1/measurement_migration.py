@@ -40,6 +40,7 @@ async def install(conn, shadow=False):
         await conn.execute((MIGRATIONS / "20261006_ogn.sql").read_text())
         await conn.execute((MIGRATIONS / "20261006_environment_contract.sql").read_text())
         await conn.execute((MIGRATIONS / "20261021_ttn_interval_statistics.sql").read_text())
+        await conn.execute((MIGRATIONS / "20261022_ttn_conflict_quarantine.sql").read_text())
         if shadow:
             paused = await (await conn.execute("""SELECT state->>'requires_reconciliation'
                 FROM measurement_migration_state WHERE name='shadow_writes'""")).fetchone()
@@ -253,18 +254,31 @@ async def backfill(conn, family, batch_size=1000, max_batches=1):
                         "WHERE (s.timestamp,s.sensor_id,s.metric,s.unit) > (%s,%s,%s,%s) AND s.sensor_id LIKE 'ttn-%%'")
                     params = () if key is None else (datetime.fromisoformat(key[0]), *key[1:])
                     cursor = await conn.execute(sql.SQL("""SELECT s.timestamp,s.sensor_id,
-                            s.metric,s.unit,MIN(legacy_numeric(s.value)),COUNT(DISTINCT s.value)
-                        FROM sensor_data s {}
-                        AND NOT EXISTS (SELECT 1 FROM sensor_measurement_windows w
-                            WHERE w.sensor_id=s.sensor_id AND w.window_end=s.timestamp)
+                            s.metric,s.unit,MIN(legacy_numeric(s.value)),SUM(s.value_rows),
+                            COUNT(*),jsonb_agg(jsonb_build_object('value',s.value::text,
+                                'rows',s.value_rows) ORDER BY s.value)
+                        FROM (SELECT s.timestamp,s.sensor_id,s.metric,s.unit,s.value,COUNT(*) AS value_rows
+                            FROM sensor_data s {} AND NOT EXISTS (
+                                SELECT 1 FROM sensor_measurement_windows w
+                                WHERE w.sensor_id=s.sensor_id AND w.window_end=s.timestamp)
+                            GROUP BY s.timestamp,s.sensor_id,s.metric,s.unit,s.value) s
                         GROUP BY s.timestamp,s.sensor_id,s.metric,s.unit
                         ORDER BY s.timestamp,s.sensor_id,s.metric,s.unit LIMIT %s""").format(condition),
                         (*params, batch_size))
                     rows = await cursor.fetchall()
                     exhausted = len(rows) < batch_size
-                    for stamp, sensor, metric, unit, value, variants in rows:
+                    quarantined = 0
+                    for stamp, sensor, metric, unit, value, source_rows, variants, values in rows:
                         if variants != 1:
-                            raise ValueError(f"Conflicting TTN legacy values for {sensor}/{metric} at {stamp}")
+                            await conn.execute("""INSERT INTO measurement_backfill_conflicts
+                                (family,sensor_id,metric,unit,observed_at,source_rows,variants)
+                                VALUES ('ttn',%s,%s,%s,%s,%s,%s)
+                                ON CONFLICT (family,sensor_id,metric,unit,observed_at)
+                                DO UPDATE SET source_rows=EXCLUDED.source_rows,
+                                    variants=EXCLUDED.variants,detected_at=NOW()""",
+                                (sensor, metric, unit, stamp, source_rows, Jsonb(values)))
+                            quarantined += 1
+                            continue
                         await _write_canonical_readings(conn, sensor_id=sensor,
                             device_id=sensor.removeprefix("ttn-"), application_id="legacy",
                             event_id="legacy-unlinked", observed_at=stamp, collected_at=stamp,
@@ -274,6 +288,8 @@ async def backfill(conn, family, batch_size=1000, max_batches=1):
                         key = [rows[-1][0].isoformat(), *rows[-1][1:4]]
                 total += len(rows)
                 state.update(cursor=key, processed=state.get("processed", 0) + len(rows),
+                             quarantined_conflicts=state.get("quarantined_conflicts", 0) + quarantined
+                             if phase == "points" else state.get("quarantined_conflicts", 0),
                              caught_up=phase == "points" and exhausted)
                 await conn.execute("""UPDATE measurement_migration_state SET state=%s,updated_at=NOW()
                     WHERE name=%s""", (Jsonb(state), name))

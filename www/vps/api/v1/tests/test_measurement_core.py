@@ -129,6 +129,30 @@ class MeasurementCoreTests(DatabaseCase):
         self.assertEqual(report['source_bytes'], expected)
         self.assertTrue(report['passes_preliminary_gate'])
 
+    async def test_ttn_backfill_quarantines_conflicts_and_continues(self):
+        migrations = Path(__file__).resolve().parents[1] / "migrations"
+        await self.conn.execute((migrations / "20261016_ttn_ingestion.sql").read_text())
+        await self.conn.execute((migrations / "20261020_sensor_window_statistics.sql").read_text())
+        await self.conn.execute("""INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
+            VALUES ('ttn-gateway-test','online_status','state',%s,0),
+                   ('ttn-gateway-test','online_status','state',%s,0),
+                   ('ttn-gateway-test','online_status','state',%s,1),
+                   ('ttn-gateway-test','temperature','°C',%s,18.5)""",
+            (self.now, self.now, self.now, self.now))
+
+        result = await backfill(self.conn, "ttn", batch_size=100)
+
+        self.assertTrue(result["caught_up"])
+        self.assertEqual(result["processed"], 2)
+        self.assertEqual(result["quarantined_conflicts"], 1)
+        self.assertEqual(await self.scalar("SELECT COUNT(*) FROM measurement_backfill_conflicts"), 1)
+        self.assertEqual(await self.scalar("""SELECT source_rows FROM measurement_backfill_conflicts
+            WHERE metric='online_status'"""), 3)
+        self.assertEqual(await self.scalar("""SELECT jsonb_array_length(variants)
+            FROM measurement_backfill_conflicts WHERE metric='online_status'"""), 2)
+        self.assertEqual(await self.scalar("SELECT COUNT(*) FROM sensor_data"), 4)
+        self.assertEqual(await self.scalar("SELECT COUNT(*) FROM readings"), 1)
+
     async def test_decimal_precision_retries_and_corrections(self):
         value = Decimal("12345678901234567890.12")
         identity = await self.write("revenue", value)

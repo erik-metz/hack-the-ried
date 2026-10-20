@@ -128,9 +128,18 @@ measurement migration command. The webhook transaction fails as a whole if
 the canonical schema is unavailable; this prevents silently accepting future
 TTN data only into the legacy store. The bounded `backfill ttn` family copies
 legacy TTN windows first, then unwindowed TTN samples, preserving event/window
-provenance where available. Conflicting legacy values stop the batch. Use the
-normal fresh-disk capacity gate and audit the resulting interval before
-retiring either legacy window table.
+provenance where available. Conflicting TTN point values are written to the
+quarantine table and skipped without selecting a winner. Use the normal
+fresh-disk capacity gate and audit the resulting interval before retiring
+either legacy window table.
+
+For TTN point history, conflicting `(sensor, metric, unit, timestamp)` groups
+are recorded in `measurement_backfill_conflicts` with each distinct value and
+its source-row count. Those ambiguous keys are skipped in canonical readings,
+while the source rows remain in `sensor_data`; the checkpoint continues and
+reports `quarantined_conflicts`. A caught-up checkpoint therefore means the
+source scan completed, not that quarantined keys have been reconciled. Resolve
+those keys from source evidence before claiming full parity.
 
 Example bounded invocation (repeat with a fresh free-space reading until the
 result reports `caught_up: true`):
