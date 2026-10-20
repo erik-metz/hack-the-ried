@@ -80,11 +80,17 @@ Für ein Taxonomie-Release werden stabile Slugs/IDs vergeben, Elternbeziehungen,
 - **TFLite Micro `micro_speech`** ist kein passendes fertiges Modell: das Espressif-Beispiel erkennt nur zwei Sprachbefehle plus `unknown`/`silence`.
 - **Edge Impulse Audio Classification** exportiert einen vollständigen DSP-und-Modell-C++-Pfad für eingebettete Ziele und ist für einen selbst gelabelten, quantisierten RAK-Prototyp geeignet. Es bringt aber kein fertiges Modell mit dieser gewünschten lokalen Stadtgeräusch-Taxonomie mit; dafür brauchen wir eigene passende Trainings- und Testdaten.
 
+### Urbane Referenzdaten
+
+- **SONYC-UST v2.3** ist der passendste erste externe Vergleichsdatensatz: 18.515 mehrlabelige Aufnahmen aus einem urbanen Sensornetz, 23 Klassen und ein fachlich verifiziertes Teilset von 1.385 Aufnahmen. Er eignet sich für einen Urban-Sound-Baseline-Lauf, deckt aber nur einen Teil unserer feineren Taxonomie ab. Die Aufnahmen stammen aus New York und ersetzen keine Ried-/Außenstandort-Validierung. Vor einem Trainingslauf werden Nutzungsbedingungen und konkrete Audio-Datei-Lizenzen geprüft; zunächst reichen Taxonomie-/Annotationsexport und ein kleiner, gezielter Testsatz. [NYU SONYC-Ressourcen](https://wp.nyu.edu/sonyc/resources/), [Datensatz auf Zenodo](https://zenodo.org/records/3966543).
+- **YAMNet** bleibt davon getrennt die allgemeine AudioSet-Referenz mit 521 Ausgabeklassen. Seine Scores und Labels sind Vorschläge für Taxonomie-Zuordnungen, keine lokalen Ground-Truth-Labels.
+- Erste Evaluation: SONYC-verifizierte Clips für passende Klassen (z. B. Verkehr, Bau, Maschinen, Alarm, Menschen) verwenden; dazu eine explizite Zuordnung SONYC → Open-Ried-Sens → YAMNet. Nicht abgedeckte Klassen bleiben `unmapped`, statt aus verwandten Labels künstlich abgeleitet zu werden. Splits müssen Aufnahmeort/-zeit gruppieren, damit dieselbe Szene nicht in Training und Test landet.
+
 ### Vorgeschlagene Architektur
 
 1. YAMNet zuerst auf dem Entwicklungs-PC als **Teacher/Baseline** auf freigegebenen Testclips ausführen. Das hilft, die Taxonomie an reale Vorhersagen und Verwechslungen anzupassen, ohne Audio über TTN zu senden.
 2. Aufnahmen standort- und zeitlich getrennt labeln und testen; zufällige Clip-Aufteilung allein würde ähnliche Aufnahmen in Train und Test mischen.
-3. Auf dem RAK einen quantisierten, kleinen **Studenten** mit eigenem Open-Ried-Sens-Datensatz evaluieren. Edge Impulse/C++-Export und TFLite Micro/ESP-NN sind Kandidaten; Auswahl nach Messung von Modellgröße, RAM, Laufzeit, Energie, Genauigkeit und Lizenz-/Datenverarbeitungsanforderungen.
+3. Auf dem RAK einen quantisierten, kleinen **Studenten** mit SONYC-UST als öffentlicher Startbasis und anschließend eigenem Open-Ried-Sens-Datensatz evaluieren. Edge Impulse/C++-Export und TFLite Micro/ESP-NN sind Kandidaten; Auswahl nach Messung von Modellgröße, RAM, Laufzeit, Energie, Genauigkeit und Lizenz-/Datenverarbeitungsanforderungen.
 4. Optional YAMNet direkt auf dem RAK benchmarken, bevor es ausgeschlossen wird: RAK3112 ist für den Build mit ESP32-S3 und OPI-PSRAM konfiguriert. Die nominelle RAM-/Flash-Möglichkeit allein belegt jedoch weder Echtzeitfähigkeit noch tragbare Leistungsaufnahme. 0,96-s-Inferenz mit 69,2 MMAC muss auf dem konkreten Board gemessen werden.
 5. Produktionsgerät bleibt offline/inferenzfähig. Cloud- oder VPS-Inferenz von Roh-Audio ist kein Standardpfad. Falls für spätere Forschung Rohdaten erhoben werden, nur in einem expliziten, begrenzten und kontrollierten Aufnahmemodus mit separater Freigabe und Löschfrist.
 
@@ -110,7 +116,7 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
 2. **Board-Baseline:** Firmware-/Chip-/PSRAM-/Heap-/I²S-Zustand per USB lesen; keine Session- oder LoRaWAN-Nonce-Daten löschen. Audiopegel und Capture-Kontinuität mit bestehender v11-Firmware prüfen.
 3. **Taxonomie v1:** Slugs/IDs, Definitionen und Prioritäten aus dem Entwurf in [`audio-event-taxonomy-v1.json`](audio-event-taxonomy-v1.json) finalisieren; YAMNet-Klassen auf lokale Open-Ried-Sens-Fragen abbilden. Die dortigen IDs und Modell-Labels sind ausdrücklich noch Entwurf und müssen gegen die tatsächlich verwendete YAMNet-Klassenliste geprüft werden.
 4. **Offline-Auswertung:** YAMNet-Modellversion und Lizenz dokumentieren, Datenfreigabe/-löschung festlegen, lokale Testaufnahmen kontrolliert auswerten. Standort- und Zeitgruppen als Testsplit verwenden.
-5. **Kandidatbenchmark:** YAMNet als Referenz sowie mindestens einen quantisierten Student/Edge-Impulse- oder TFLite-Micro-Prototyp auf dem angeschlossenen RAK messen. Flash/Reset erst nach Sicherung von Geräteidentität, aktueller Firmware und Wiederherstellungsweg.
+5. **Kandidatbenchmark:** YAMNet und SONYC-UST als Referenz sowie mindestens einen quantisierten Student/Edge-Impulse- oder TFLite-Micro-Prototyp auf dem angeschlossenen RAK messen. Flash/Reset erst nach Sicherung von Geräteidentität, aktueller Firmware und Wiederherstellungsweg.
 6. **Format 6 und End-to-End:** Protokollbeschreibung, JS-Decoder/Testvektoren, Webhook-Validierung, idempotente Speicherung, Tests für die drei Kerntabellen, API-Fensterantwort und Frontend-/Exportsemantik gemeinsam spezifizieren und implementieren.
 7. **Gestufter Betrieb:** erst Testgerät verborgen, dann kontrollierte Testphase; Modell-/Taxonomie-Version, Gerätegesundheit, Datenabdeckung, Fehlklassifikationen und Payloadverluste messen, ehe weitere Sensoren ausgerollt werden.
 
@@ -131,9 +137,17 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
   kann an der Slotnummerierung des Treibers liegen; vor Trainingsdatenaufnahme
   muss ein gezielter Stille-/Klatsch-/Testtonvergleich beider Slots die
   Kanalwahl bestätigen.
-- Noch offen: YAMNet-Labelliste gegen die Entwurfszuordnung prüfen,
-  Taxonomie-IDs einfrieren, Modellkandidaten auf Zielhardware benchmarken und
-  Format 6 implementieren. Es wurden keine Audioaufnahmen erstellt.
+- YAMNet-Klassennamen wurden gegen die offizielle CSV (521 Klassen) geprüft;
+  nicht existente Aliase wurden aus den Taxonomieentwürfen entfernt.
+  Vorhandene Aliasnamen bleiben Kandidaten-Mappings und müssen mit annotierten
+  Clips evaluiert werden. Diese Prüfung lässt sich reproduzieren:
+  `python3 hardware/sensor-node/rak3112/tools/validate_audio_taxonomy.py /pfad/zu/yamnet_class_map.csv`.
+- Der kurze Live-Pegelcheck bestätigte ca. 63 I²S-Blöcke/s und Slot `L`, aber
+  keinen eindeutig zuordenbaren Klatschimpuls (beobachtet etwa −46 bis −35
+  dBFS). Die Slotwahl ist daher noch nicht durch einen gezielten Test belegt.
+- Noch offen: SONYC-UST-Mapping und Lizenz-/Datenprüfung, Taxonomie-IDs
+  einfrieren, Modellkandidaten auf Zielhardware benchmarken und Format 6
+  implementieren. Es wurden keine Audioaufnahmen erstellt.
 
 ### Abnahme für die erste produktive Audio-ML-Version
 
@@ -148,6 +162,8 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
 ## Technische Referenzen
 
 - [Google AudioSet event ontology](https://research.google.com/audioset/ontology/)
+- [SONYC-UST v2.3 urban audio dataset](https://wp.nyu.edu/sonyc/resources/)
+- [SONYC-UST v2.3 Zenodo record](https://zenodo.org/records/3966543)
 - [TensorFlow YAMNet model and class map](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet)
 - [TensorFlow Lite Micro `micro_speech` example](https://github.com/tensorflow/tflite-micro/tree/main/tensorflow/lite/micro/examples/micro_speech)
 - [Edge Impulse audio classification and embedded deployment](https://docs.edgeimpulse.com/docs/tutorials/end-to-end-tutorials/audio/audio-classification)

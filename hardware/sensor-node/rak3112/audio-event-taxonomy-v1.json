@@ -1,6 +1,8 @@
 {
   "taxonomy_version": "open-ried-sens-audio-1-draft",
   "status": "draft",
+  "reference_models": {"yamnet": {"class_count": 521, "class_map_url": "https://github.com/tensorflow/models/blob/master/research/audioset/yamnet/yamnet_class_map.csv", "mapping_status": "candidate_aliases_only"}},
+  "external_datasets": [{"name": "SONYC-UST", "version": "2.3", "recordings": 18515, "class_count": 23, "verified_subset_recordings": 1385, "url": "https://zenodo.org/records/3966543", "mapping_status": "not_mapped"}],
   "notes": [
     "IDs and labels are provisional until evaluated on local, consented test material.",
     "This is a multi-label event vocabulary, not a claim that any model can distinguish every leaf.",
@@ -17,7 +19,7 @@
     {"id": 7, "slug": "sensor_quality_context", "label": "Hintergrund und Sensorqualität"}
   ],
   "classes": [
-    {"id": 10, "slug": "distant_traffic_wash", "label": "Entfernter Verkehrsteppich", "parent_id": 1, "definition": "Breitbandiges, anhaltendes Verkehrsrauschen ohne sicher zuordenbares Einzelfahrzeug", "yamnet_labels": ["Traffic noise"]},
+    {"id": 10, "slug": "distant_traffic_wash", "label": "Entfernter Verkehrsteppich", "parent_id": 1, "definition": "Breitbandiges, anhaltendes Verkehrsrauschen ohne sicher zuordenbares Einzelfahrzeug", "yamnet_labels": []},
     {"id": 11, "slug": "road_vehicle_unspecified", "label": "Straßenfahrzeug, nicht näher bestimmt", "parent_id": 1, "definition": "Straßenfahrzeuggeräusch, wenn keine Unterklasse belastbar ist", "yamnet_labels": ["Vehicle"]},
     {"id": 12, "slug": "passenger_car", "label": "Pkw", "parent_id": 1, "definition": "Akustisch als Pkw erkennbares Fahrzeug", "yamnet_labels": ["Vehicle", "Car"]},
     {"id": 13, "slug": "van_delivery_vehicle", "label": "Transporter oder Lieferwagen", "parent_id": 1, "definition": "Fahrzeugklasse; keine Aussage über Post-/Paketdienst, Marke oder Halter", "yamnet_labels": ["Vehicle"]},
@@ -30,7 +32,7 @@
     {"id": 20, "slug": "engine_idling", "label": "Motor im Leerlauf", "parent_id": 1, "definition": "Stationäres oder sehr langsames Motorgeräusch", "yamnet_labels": ["Idling"]},
     {"id": 21, "slug": "vehicle_acceleration", "label": "Beschleunigendes Fahrzeug", "parent_id": 1, "definition": "Anfahr- oder Beschleunigungsgeräusch eines Fahrzeugs", "yamnet_labels": ["Accelerating, revving, vroom"]},
     {"id": 22, "slug": "vehicle_passby", "label": "Vorbeifahrt", "parent_id": 1, "definition": "Zeitlich erkennbares Näherungs-/Vorbeifahrt-/Entfernungsmuster", "yamnet_labels": ["Vehicle"]},
-    {"id": 23, "slug": "tire_road_noise", "label": "Reifen- und Fahrbahnrauschen", "parent_id": 1, "definition": "Roll-/Reifenrauschen, soweit vom Motor unterscheidbar", "yamnet_labels": ["Roadway noise"]},
+    {"id": 23, "slug": "tire_road_noise", "label": "Reifen- und Fahrbahnrauschen", "parent_id": 1, "definition": "Roll-/Reifenrauschen, soweit vom Motor unterscheidbar", "yamnet_labels": []},
     {"id": 24, "slug": "vehicle_braking", "label": "Fahrzeugbremsen", "parent_id": 1, "definition": "Bremsgeräusch eines Fahrzeugs", "yamnet_labels": ["Vehicle"]},
     {"id": 25, "slug": "vehicle_horn", "label": "Fahrzeughupe", "parent_id": 1, "definition": "Hupe oder vergleichbares Fahrzeugwarnsignal", "yamnet_labels": ["Vehicle horn, car horn, honking"]},
     {"id": 26, "slug": "reverse_alarm", "label": "Rückfahrwarner", "parent_id": 1, "definition": "Periodischer Rückfahrwarnton", "yamnet_labels": ["Vehicle"]},
@@ -75,7 +77,7 @@
     {"id": 80, "slug": "rain", "label": "Regen", "parent_id": 4, "definition": "Regen ohne sichere Intensitätsunterklasse", "yamnet_labels": ["Rain"]},
     {"id": 81, "slug": "drizzle", "label": "Nieselregen", "parent_id": 4, "definition": "Leichter Regen, nur bei ausreichend validierter Intensitätstrennung", "yamnet_labels": ["Rain"]},
     {"id": 82, "slug": "heavy_rain", "label": "Starkregen", "parent_id": 4, "definition": "Intensiver Regen, nicht als Niederschlagsmessung zu interpretieren", "yamnet_labels": ["Rain"]},
-    {"id": 83, "slug": "hail", "label": "Hagel", "parent_id": 4, "definition": "Hagel-/Eiskorngeräusche", "yamnet_labels": ["Hail"]},
+    {"id": 83, "slug": "hail", "label": "Hagel", "parent_id": 4, "definition": "Hagel-/Eiskorngeräusche", "yamnet_labels": []},
     {"id": 84, "slug": "thunder", "label": "Donner", "parent_id": 4, "definition": "Donnergeräusch", "yamnet_labels": ["Thunder"]},
     {"id": 85, "slug": "wind", "label": "Wind", "parent_id": 4, "definition": "Windgeräusch in Umgebung", "yamnet_labels": ["Wind"]},
     {"id": 86, "slug": "wind_on_microphone", "label": "Wind am Mikrofon", "parent_id": 7, "definition": "Tieffrequente Übersteuerung/Strömung am Mikrofon; Qualitätsindikator statt Umgebungsereignis", "yamnet_labels": ["Wind noise (microphone)"]},
@@ -91,9 +93,9 @@
     {"id": 105, "slug": "leaf_blower", "label": "Laubbläser", "parent_id": 5, "definition": "Laubbläsergeräusch", "yamnet_labels": ["Lawn mower"]},
     {"id": 106, "slug": "ventilation_hvac", "label": "Lüftung oder Klimaanlage", "parent_id": 5, "definition": "Anhaltendes Lüftungs-/Klimageräusch", "yamnet_labels": ["Mechanical fan", "Air conditioning"]},
     {"id": 107, "slug": "generator", "label": "Generator", "parent_id": 5, "definition": "Generatorgeräusch, sofern von Verkehrsmotoren trennbar", "yamnet_labels": ["Engine"]},
-    {"id": 108, "slug": "machinery", "label": "Maschine", "parent_id": 5, "definition": "Maschinenlauf ohne spezifische Quelle", "yamnet_labels": ["Machine"]},
+    {"id": 108, "slug": "machinery", "label": "Maschine", "parent_id": 5, "definition": "Maschinenlauf ohne spezifische Quelle", "yamnet_labels": []},
     {"id": 109, "slug": "door_gate", "label": "Tür oder Tor", "parent_id": 5, "definition": "Tür-/Torbewegung", "yamnet_labels": ["Door", "Sliding door"]},
-    {"id": 110, "slug": "garbage_container", "label": "Mülltonne oder Container", "parent_id": 5, "definition": "Behälterrollen, Deckel oder Entleerungsimpulse", "yamnet_labels": ["Trash can"]},
+    {"id": 110, "slug": "garbage_container", "label": "Mülltonne oder Container", "parent_id": 5, "definition": "Behälterrollen, Deckel oder Entleerungsimpulse", "yamnet_labels": []},
 
     {"id": 120, "slug": "alarm", "label": "Alarm", "parent_id": 6, "definition": "Elektronischer Alarm ohne sichere Unterklasse", "yamnet_labels": ["Alarm"]},
     {"id": 121, "slug": "bell_chime", "label": "Glocke oder Klingel", "parent_id": 6, "definition": "Glocken-/Klingelton", "yamnet_labels": ["Bell"]},
@@ -103,6 +105,6 @@
     {"id": 125, "slug": "microphone_handling", "label": "Mikrofon-/Gehäusekontakt", "parent_id": 7, "definition": "Berührung, Montagevibration oder Gehäusekontakt", "yamnet_labels": []},
     {"id": 126, "slug": "audio_clipping", "label": "Audio-Clipping", "parent_id": 7, "definition": "Übersteuerung als Qualitätsindikator, nicht als Ereignisklasse", "yamnet_labels": []},
     {"id": 127, "slug": "quiet_ambient", "label": "Ruhige Umgebung", "parent_id": 7, "definition": "Kein relevantes Ereignis oberhalb validierter Schwellen", "yamnet_labels": ["Silence"]},
-    {"id": 128, "slug": "unknown_ambiguous", "label": "Unbekannt oder mehrdeutig", "parent_id": 7, "definition": "Modell ist unsicher oder das Geräusch liegt außerhalb des bekannten Vokabulars", "yamnet_labels": ["Unknown"]}
+    {"id": 128, "slug": "unknown_ambiguous", "label": "Unbekannt oder mehrdeutig", "parent_id": 7, "definition": "Modell ist unsicher oder das Geräusch liegt außerhalb des bekannten Vokabulars", "yamnet_labels": []}
   ]
 }
