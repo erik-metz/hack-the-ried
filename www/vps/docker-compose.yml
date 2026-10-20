@@ -500,7 +500,7 @@ services:
     image: nginx:alpine
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz | grep -q '^ok$'"]
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8081/healthz | grep -q '^ok$'"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -510,6 +510,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./healthcheck-nginx.conf:/etc/nginx/conf.d/healthcheck.conf:ro
       - certbot_www:/var/www/certbot
       - certbot_etc:/etc/letsencrypt
     depends_on:

@@ -1,0 +1,47 @@
+services:
+  satellite-collector:
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/satellite-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<60 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 1m
+      retries: 3
+
+  emf-collector:
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/emf-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 1m
+      retries: 3
+
+  registry-sync-worker:
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/registry-sync-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 2m
+      retries: 3
+
+  nginx:
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8081/healthz | grep -q '^ok$'"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    volumes:
+      - ./healthcheck-nginx.conf:/etc/nginx/conf.d/healthcheck.conf:ro
+
+  certbot:
+    profiles: ["certbot"]
+
+  watchtower:
+    healthcheck:
+      test: ["CMD", "/watchtower", "--health-check"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    environment:
+      - WATCHTOWER_MONITOR_ONLY=true

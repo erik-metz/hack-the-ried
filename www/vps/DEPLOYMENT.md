@@ -371,7 +371,8 @@ Observe several poll cycles (at least ten minutes with default intervals). Keep 
 Keep Watchtower running in monitor-only mode after verification. This provides an update signal without replacing containers outside the ordered schema/Compose deployment:
 
 ```bash
-docker compose start watchtower
+docker compose up -d --no-deps watchtower
+docker inspect watchtower --format '{{.State.Health.Status}}'
 ```
 
 `WATCHTOWER_MONITOR_ONLY=true` must remain set. Do not remove it as part of
@@ -387,8 +388,13 @@ Install the repository's `systemd/open-ried-certbot-renew.service` and
 `systemd/open-ried-certbot-renew.timer` under `/etc/systemd/system/`, then run
 `systemctl daemon-reload && systemctl enable --now open-ried-certbot-renew.timer`.
 Certbot is a one-shot renewal job and should not be kept running as a daemon. The
-timer uses the existing Compose files and certificate volumes, then reloads
-Nginx after a successful renewal.
+timer uses the existing Compose files and certificate volumes with the Webroot
+challenge, then reloads Nginx after a successful renewal. Install
+`healthcheck-nginx.conf` beside the active Compose file before recreating Nginx;
+it exposes port 8081 only inside the Compose network for Docker's liveness check.
+For an existing server whose Compose files include local overrides, install
+`docker-compose.healthcheck.override.yml` as `/root/docker-compose.healthcheck.yml`
+and pass it after the existing `-f` files when recreating the affected services.
 
 For future schema changes, pause it again before publishing. Digest/version-pinned application releases and a controlled migration step are preferable to relying on `latest` for coordinated upgrades.
 

@@ -6,6 +6,6 @@ After=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/root
-ExecStart=/usr/bin/docker compose -f /root/docker-compose.yml -f /root/docker-compose.override.yml -f /root/docker-compose.invekos.yml -f /root/docker-compose.xweather.yml run --rm --no-deps certbot renew --quiet
+ExecStart=/usr/bin/docker compose -f /root/docker-compose.yml -f /root/docker-compose.override.yml -f /root/docker-compose.invekos.yml -f /root/docker-compose.xweather.yml -f /root/docker-compose.healthcheck.yml run --rm --no-deps certbot renew --quiet --authenticator webroot --webroot-path /var/www/certbot
 ExecStartPost=/usr/bin/docker exec root-nginx-1 nginx -s reload
 TimeoutStartSec=30min
