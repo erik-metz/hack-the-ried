@@ -58,3 +58,7 @@ using payload format 5; see `v11/README.md` for the format, sampling intervals,
 database flow and limits. The proposed microphone event-classification work,
 including model evaluation and a broad multi-label taxonomy, is tracked in
 `audio-event-ml-plan.md`; v11 does not yet classify sound events.
+An experimental host-side YAMNet runner now exists at
+`tools/yamnet_baseline.py` with its pinned environment in
+`tools/audio-baseline-requirements.txt`; it reads approved 16-kHz mono WAVs
+locally and is not part of firmware or the uplink contract.

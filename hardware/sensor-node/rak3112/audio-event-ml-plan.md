@@ -76,7 +76,7 @@ Für ein Taxonomie-Release werden stabile Slugs/IDs vergeben, Elternbeziehungen,
 
 ### Vortrainierte Modelle geprüft
 
-- **YAMNet** ist ein sinnvoller akustischer Lehrer und Offline-Baseline: das offizielle Modell klassifiziert 521 AudioSet-Klassen, nimmt 16-kHz-Mono an, verwendet 0,96-s-Fenster, hat 3,7 Mio. Gewichte und benötigt ca. 69,2 Mio. Multiplikationen pro Fenster. Damit deckt es viele Alltagsgeräusche ab, liefert aber keine Garantie für lokale Ried-Geräusche und wurde auf AudioSet-/YouTube-Material trainiert.
+- **YAMNet** ist ein sinnvoller akustischer Lehrer und Offline-Baseline: das offizielle Modell klassifiziert 521 AudioSet-Klassen, nimmt 16-kHz-Mono an, verwendet 0,96-s-Fenster, hat 3,7 Mio. Gewichte und benötigt ca. 69,2 Mio. Multiplikationen pro Fenster. Damit deckt es viele Alltagsgeräusche ab, liefert aber keine Garantie für lokale Ried-Geräusche und wurde auf AudioSet-/YouTube-Material trainiert. Der TensorFlow-Modellcode ist Apache-2.0-lizenziert; vor einer Weitergabe oder Firmware-Einbettung müssen die Bedingungen des konkreten vortrainierten Checkpoints separat im Modellangebot geprüft werden.
 - **TFLite Micro `micro_speech`** ist kein passendes fertiges Modell: das Espressif-Beispiel erkennt nur zwei Sprachbefehle plus `unknown`/`silence`.
 - **Edge Impulse Audio Classification** exportiert einen vollständigen DSP-und-Modell-C++-Pfad für eingebettete Ziele und ist für einen selbst gelabelten, quantisierten RAK-Prototyp geeignet. Es bringt aber kein fertiges Modell mit dieser gewünschten lokalen Stadtgeräusch-Taxonomie mit; dafür brauchen wir eigene passende Trainings- und Testdaten.
 
@@ -85,6 +85,18 @@ Für ein Taxonomie-Release werden stabile Slugs/IDs vergeben, Elternbeziehungen,
 - **SONYC-UST v2.3** ist der passendste erste externe Vergleichsdatensatz: die versionsgebundene Zenodo-Beschreibung nennt 18.515 mehrlabelige 10-Sekunden-Aufnahmen aus einem urbanen Sensornetz, 23 Klassen und 1.380 fachlich verifizierte Aufnahmen. Die NYU-Übersichtsseite nennt abweichend 1.385; für reproduzierbare Arbeit gilt die konkrete Datenversion samt Manifest. Das Dataset eignet sich für einen Urban-Sound-Baseline-Lauf, deckt aber nur einen Teil unserer feineren Taxonomie ab. Die Aufnahmen stammen aus New York und ersetzen keine Ried-/Außenstandort-Validierung. Vor einem Trainingslauf werden Nutzungsbedingungen und konkrete Audio-Datei-Lizenzen geprüft; zunächst reichen Annotationen und ein kleiner, gezielter Testsatz. [NYU SONYC-Ressourcen](https://wp.nyu.edu/sonyc/resources/), [SONYC-UST v2.3 auf Zenodo](https://zenodo.org/records/3966543).
 - **YAMNet** bleibt davon getrennt die allgemeine AudioSet-Referenz mit 521 Ausgabeklassen. Seine Scores und Labels sind Vorschläge für Taxonomie-Zuordnungen, keine lokalen Ground-Truth-Labels.
 - Erste Evaluation: SONYC-verifizierte Clips für passende Klassen (z. B. Motoren, Maschinen- und Nichtmaschinen-Impulse, Sägen, Warnsignale, Musik, menschliche Stimme und Hunde) verwenden; dazu eine explizite Zuordnung SONYC → Open-Ried-Sens → YAMNet. Mehrdeutige Quellelabels bleiben auf einer gröberen Ebene oder `unmapped`, statt als feinere Klasse ausgegeben zu werden. Die offiziellen train/validation-Splits sind sensorgetrennt; der Testsplit ist zeitlich nachgelagert, kann aber dieselben Sensoren enthalten. Sie sind deshalb eine brauchbare Benchmark-Aufteilung, jedoch kein Beleg für Generalisierung auf deutsche Standorte. Für eigene Daten sind Aufnahmeort und -zeit strikt zu gruppieren.
+
+### Lokale YAMNet-Baseline (PC-Prototyp)
+
+Ein erster Offline-Auswerter liegt in [`tools/yamnet_baseline.py`](tools/yamnet_baseline.py). Er akzeptiert nur mono 16-kHz-WAV, liest Audio in den Arbeitsspeicher, meldet die über Modellframes gemittelten YAMNet-Scores und speichert keine Audiodaten oder Ergebnisdatei. Die Scores sind unkalibriert und werden nicht automatisch in Open-Ried-Sens-Klassen umetikettiert. Nutzung in einer isolierten Umgebung:
+
+```sh
+python3 -m venv /tmp/open-ried-audio-venv
+/tmp/open-ried-audio-venv/bin/pip install -r hardware/sensor-node/rak3112/tools/audio-baseline-requirements.txt
+/tmp/open-ried-audio-venv/bin/python hardware/sensor-node/rak3112/tools/yamnet_baseline.py --top-k 20 /pfad/zu/freigegebenem-testclip.wav
+```
+
+Der Lauf lädt das vortrainierte Modell von TensorFlow Hub; nur Modellartefakte werden abgerufen, der WAV-Inhalt wird nicht hochgeladen. Für belastbare Auswertungen sollen Modell-URL, Paketversionen, Clip-ID/Hash statt personenbezogener Dateipfade und Testsplit protokolliert werden. Dieser PC-Prototyp ist noch kein RAK-Echtzeitbenchmark.
 
 ### Vorgeschlagene Architektur
 
@@ -145,9 +157,16 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
 - Der kurze Live-Pegelcheck bestätigte ca. 63 I²S-Blöcke/s und Slot `L`, aber
   keinen eindeutig zuordenbaren Klatschimpuls (beobachtet etwa −46 bis −35
   dBFS). Die Slotwahl ist daher noch nicht durch einen gezielten Test belegt.
+- Der lokale YAMNet-Prototyp läuft mit TensorFlow 2.21 auf einem synthetischen
+  440-Hz-Ton. YAMNet stufte diesen Ton vor allem als `Telephone`, `Busy signal`
+  und `Alarm` ein; der Modellaufruf dauerte auf diesem Entwicklungs-PC 128 ms.
+  Das ist ein technischer Smoke-Test, kein akustischer
+  Genauigkeitsnachweis; es zeigt konkret, warum Scores nicht direkt als
+  Stadtklassen gespeichert werden dürfen. Der WAV-Testton wurde danach gelöscht.
 - Noch offen: SONYC-UST-Mapping und Lizenz-/Datenprüfung, Taxonomie-IDs
-  einfrieren, Modellkandidaten auf Zielhardware benchmarken und Format 6
-  implementieren. Es wurden keine Audioaufnahmen erstellt.
+  einfrieren, YAMNet gegen annotierte Urban-Clips evaluieren, Modellkandidaten
+  auf Zielhardware benchmarken und Format 6 implementieren. Es wurden keine
+  Umgebungsaufnahmen erstellt.
 
 ### Abnahme für die erste produktive Audio-ML-Version
 
