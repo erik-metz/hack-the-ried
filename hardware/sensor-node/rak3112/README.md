@@ -34,9 +34,10 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v9 <device-profile-id>` to compile the
+Use `./hardware/sensor-node/rak3112/build.sh v10 <device-profile-id>` to compile the
 latest firmware, or
-add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board.
+add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board. Firmware v10 adds
+the ICS-43434 I2S microphone; see `v10/README.md` for wiring and serial diagnostics.
 The build helper automatically includes `hardware/libraries` (containing `RadioLib`)
 so builds succeed independently of global Arduino CLI library installations.
 See each version's README for the exact pinout. Firmware v7 reads the SHT41 at
