@@ -133,6 +133,8 @@ class MeasurementCoreTests(DatabaseCase):
         migrations = Path(__file__).resolve().parents[1] / "migrations"
         await self.conn.execute((migrations / "20261016_ttn_ingestion.sql").read_text())
         await self.conn.execute((migrations / "20261020_sensor_window_statistics.sql").read_text())
+        await self.conn.execute("""INSERT INTO sensor_metadata(id,friendly_name)
+            VALUES ('ttn-gateway-test','TTN test sensor')""")
         await self.conn.execute("""INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
             VALUES ('ttn-gateway-test','online_status','state',%s,0),
                    ('ttn-gateway-test','online_status','state',%s,0),
