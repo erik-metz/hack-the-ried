@@ -275,6 +275,13 @@ async def webcam_maintenance_loop(settings, stop):
         await sleep_until_stop(stop, 3600)
 
 
+async def health_heartbeat_loop(stop):
+    path = Path("/tmp/registry-sync-heartbeat")
+    while not stop.is_set():
+        path.touch()
+        await sleep_until_stop(stop, 30)
+
+
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--all", action="store_true")
@@ -318,6 +325,7 @@ async def main():
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
     await asyncio.gather(
+        health_heartbeat_loop(stop),
         prediction_loop(settings, stop),
         webcam_maintenance_loop(settings, stop),
         *(source_loop(s, settings, stop,

@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew Open Ried Sens TLS certificate and reload nginx
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root
+ExecStart=/usr/bin/docker compose -f /root/docker-compose.yml -f /root/docker-compose.override.yml -f /root/docker-compose.invekos.yml -f /root/docker-compose.xweather.yml run --rm --no-deps certbot renew --quiet
+ExecStartPost=/usr/bin/docker exec root-nginx-1 nginx -s reload
+TimeoutStartSec=30min

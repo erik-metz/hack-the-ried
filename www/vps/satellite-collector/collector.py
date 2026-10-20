@@ -202,6 +202,7 @@ async def run(args):
                 compiled = load_elements(conn)
                 loaded_at = now
             inside = store_positions(conn, now, compiled)
+            Path("/tmp/satellite-heartbeat").touch()
             LOG.info("Regional sample: %s satellites inside Ried, %s orbits loaded", inside, len(compiled))
             await asyncio.sleep(10)
 

@@ -364,15 +364,31 @@ docker compose --profile archives exec -T archive-worker node -e \
 
 Cleanup failures leave old remote keys in `archive_cleanup` for later retry. Do not remove pending keys manually just to clear the queue.
 
-## 12. Observe and decide when to resume automatic updates
+## 12. Observe the controlled update monitor
 
 Observe several poll cycles (at least ten minutes with default intervals). Keep the backup and rollback images until you are satisfied.
 
-For this migration, leave Watchtower stopped until verification completes. The existing Watchtower configuration monitors broadly and does not provide an ordered schema/Compose rollout. Resume it only if you intend to return to those automatic-update semantics:
+Keep Watchtower running in monitor-only mode after verification. This provides an update signal without replacing containers outside the ordered schema/Compose deployment:
 
 ```bash
 docker compose start watchtower
 ```
+
+`WATCHTOWER_MONITOR_ONLY=true` must remain set. Do not remove it as part of
+routine recovery. A deployment must explicitly pull and recreate the intended
+services after its migrations and health checks are ready.
+
+Long-running collectors expose Docker liveness through heartbeats. Source-level
+success and partial failures remain recorded separately in
+`collection_attempts` or each worker's status output; a `healthy` heartbeat does
+not assert that every upstream source returned data.
+
+Install the repository's `systemd/open-ried-certbot-renew.service` and
+`systemd/open-ried-certbot-renew.timer` under `/etc/systemd/system/`, then run
+`systemctl daemon-reload && systemctl enable --now open-ried-certbot-renew.timer`.
+Certbot is a one-shot renewal job and should not be kept running as a daemon. The
+timer uses the existing Compose files and certificate volumes, then reloads
+Nginx after a successful renewal.
 
 For future schema changes, pause it again before publishing. Digest/version-pinned application releases and a controlled migration step are preferable to relying on `latest` for coordinated upgrades.
 

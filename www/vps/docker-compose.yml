@@ -6,6 +6,12 @@ services:
       dockerfile: satellite-collector/Dockerfile
     image: ghcr.io/erik-metz/open-ried-sens-satellite-collector:latest
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/satellite-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<60 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 1m
+      retries: 3
     environment:
       SPACE_TRACK_IDENTITY: ${SPACE_TRACK_IDENTITY:-}
       SPACE_TRACK_PASSWORD: ${SPACE_TRACK_PASSWORD:-}
@@ -329,6 +335,12 @@ services:
     image: ghcr.io/erik-metz/open-ried-sens-emf-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/emf-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 1m
+      retries: 3
     environment:
       DB_HOST: timescaledb
       DB_PORT: 5432
@@ -372,6 +384,12 @@ services:
     image: ghcr.io/erik-metz/open-ried-sens-registry-sync-worker:latest
     restart: unless-stopped
     stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/registry-sync-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 2m
+      retries: 3
     volumes:
       - sync_state:/data
     environment:
@@ -481,6 +499,12 @@ services:
   nginx:
     image: nginx:alpine
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz | grep -q '^ok$'"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     ports:
       - "80:80"
       - "443:443"
@@ -493,6 +517,7 @@ services:
 
   certbot:
     image: certbot/certbot
+    profiles: ["certbot"]
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_etc:/etc/letsencrypt
@@ -501,6 +526,12 @@ services:
     image: containrrr/watchtower
     container_name: watchtower
     restart: always
+    healthcheck:
+      test: ["CMD", "/watchtower", "--health-check"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -509,6 +540,7 @@ services:
       - WATCHTOWER_TIMEOUT=11m
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_HTTP_API_PERIODIC_POLLS=false
+      - WATCHTOWER_MONITOR_ONLY=true
 
 volumes:
   shake_state:

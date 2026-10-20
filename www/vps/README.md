@@ -33,7 +33,7 @@ This directory contains the cloud backend service and container configuration de
 1. **`backend-api`**: High-performance asynchronous FastAPI service powered by `psycopg 3` with connection pooling (`psycopg-pool`). Automatically self-initializes the database schema on startup and auto-registers unknown incoming sensor IDs.
 2. **`timescaledb`**: TimescaleDB running on PostgreSQL 16. Automatically partitions the `sensor_data` table into optimized time-based chunks (hypertables) for millisecond queries over millions of telemetry points.
 3. **`shake-collector`**: Real-time daemon streaming 100 Hz seismic telemetry from Raspberry Shake station `AM.R498E.00.EHZ` (Bürstadt / Bobstadt) via CAPS WebSocket, calculating 5-second windowed vibration intensity metrics (Peak Ground Velocity & RMS Noise Floor), and pushing telemetry to the backend API.
-4. **`watchtower`**: Lightweight daemon monitoring GitHub Container Registry (GHCR). When a new container image is pushed to `main`, Watchtower automatically pulls the new image and recreates containers with zero manual SSH intervention.
+4. **`watchtower`**: Monitors GitHub Container Registry (GHCR) for new images. It runs with `WATCHTOWER_MONITOR_ONLY=true`; updates are deployed in a controlled order after any required migration and health checks.
 5. **`smartcity-collector`**: Polls the public Bürstadt/Lampertheim overview every 60 seconds, preserves source observation timestamps and transactionally deduplicates measurements. See [collector setup and deployment](smartcity-collector/README.md) for supported metrics, pilot filters, schema ordering and freshness checks.
 
 ---

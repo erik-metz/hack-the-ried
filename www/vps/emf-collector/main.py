@@ -4,6 +4,7 @@ import asyncio
 import logging
 import sys
 from datetime import UTC, datetime
+from pathlib import Path
 from time import monotonic
 
 import collection_status
@@ -19,6 +20,13 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 LOG = logging.getLogger("emf-collector")
+
+
+async def _heartbeat_loop():
+    path = Path("/tmp/emf-heartbeat")
+    while True:
+        path.touch()
+        await asyncio.sleep(30)
 
 
 async def _poll_cycle(
@@ -138,13 +146,18 @@ async def main():
             LOG.info("Run finished: %s", res)
             return
 
-        while True:
-            try:
-                await poll_cycle(http_client, settings)
-            except Exception:
-                LOG.exception("Error in EMF collection cycle")
-            LOG.info("Sleeping for %d seconds...", settings.poll_seconds)
-            await asyncio.sleep(settings.poll_seconds)
+        heartbeat = asyncio.create_task(_heartbeat_loop())
+        try:
+            while True:
+                try:
+                    await poll_cycle(http_client, settings)
+                except Exception:
+                    LOG.exception("Error in EMF collection cycle")
+                LOG.info("Sleeping for %d seconds...", settings.poll_seconds)
+                await asyncio.sleep(settings.poll_seconds)
+        finally:
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
 
 
 if __name__ == "__main__":
