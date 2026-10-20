@@ -59,7 +59,7 @@ async def inventory(conn):
             "notice": "Row counts are estimates. Includes Timescale chunks. Check host free disk separately."}
 
 
-async def capacity(conn, available_gib):
+async def capacity(conn, available_gib, family=None):
     """Conservative rehearsal gate; free space is a fresh operator-supplied sample.
 
     PostgreSQL doesn't expose free filesystem space via a portable SQL function.
@@ -69,13 +69,30 @@ async def capacity(conn, available_gib):
     available = Decimal(str(available_gib))
     if not available.is_finite() or available < 0:
         raise ValueError("Available disk must be a finite nonnegative GiB value")
-    cursor = await conn.execute("""WITH RECURSIVE relations(oid) AS (
-        SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-        WHERE n.nspname=current_schema() AND c.relname IN ('sensor_data','movement_positions')
-        UNION
-        SELECT i.inhrelid FROM pg_inherits i JOIN relations r ON i.inhparent=r.oid
-    ) SELECT COALESCE(SUM(pg_total_relation_size(oid)),0)::bigint FROM relations""")
-    source_bytes = (await cursor.fetchone())[0]
+    if family == "ttn":
+        # This family copies only TTN rows. Measure those rows directly so an
+        # unrelated large movement history cannot veto this small, bounded job.
+        # The 4x amplification and fixed 2 GiB reserve remain in force.
+        cursor = await conn.execute("""SELECT (
+            SELECT COALESCE(SUM(pg_column_size(s)),0) FROM sensor_data s
+            WHERE s.sensor_id LIKE 'ttn-%'
+        ) + (
+            SELECT COALESCE(SUM(pg_column_size(w) + pg_column_size(m)),0)
+            FROM sensor_measurement_windows w JOIN sensor_window_metrics m
+              USING (sensor_id,window_end)
+            WHERE w.sensor_id LIKE 'ttn-%'
+        ) + (
+            SELECT COALESCE(SUM(pg_column_size(e)),0) FROM ttn_uplink_events e
+        )""")
+        source_bytes = (await cursor.fetchone())[0]
+    else:
+        cursor = await conn.execute("""WITH RECURSIVE relations(oid) AS (
+            SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname=current_schema() AND c.relname IN ('sensor_data','movement_positions')
+            UNION
+            SELECT i.inhrelid FROM pg_inherits i JOIN relations r ON i.inhparent=r.oid
+        ) SELECT COALESCE(SUM(pg_total_relation_size(oid)),0)::bigint FROM relations""")
+        source_bytes = (await cursor.fetchone())[0]
     # Four times current source storage plus 2 GiB headroom. Do not allow an
     # accidental full copy on a nearly full VPS even before a sizing rehearsal.
     required_bytes = source_bytes * 4 + 2 * 1024**3
@@ -400,7 +417,7 @@ async def main(args):
         elif args.action == "retire-unused-registries":
             result = await retire_unused_registries(conn)
         else:
-            report = await capacity(conn, args.available_disk_gib)
+            report = await capacity(conn, args.available_disk_gib, family=args.family)
             if not report['passes_preliminary_gate']:
                 raise RuntimeError("Insufficient preliminary migration headroom: " + json.dumps(report))
             result = await backfill(conn, args.family, args.batch_size, args.max_batches)

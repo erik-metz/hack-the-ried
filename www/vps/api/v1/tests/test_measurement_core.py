@@ -98,6 +98,34 @@ class MeasurementCoreTests(DatabaseCase):
         with self.assertRaises(ValueError):
             await capacity(self.conn, 'NaN')
 
+    async def test_ttn_capacity_gate_counts_only_ttn_backfill_sources(self):
+        await self.conn.execute("""INSERT INTO sensor_metadata(id,friendly_name)
+            VALUES ('ttn-gateway-test','TTN'),('unrelated','Other')""")
+        stamp = self.now
+        await self.conn.execute("""INSERT INTO ttn_uplink_events
+            (application_id,event_id,device_id,received_at,payload_sha256)
+            VALUES ('app','event','device',%s,%s)""", (stamp, '0' * 64))
+        await self.conn.execute("""INSERT INTO sensor_measurement_windows
+            (sensor_id,window_end,window_start,window_seconds,event_id)
+            VALUES ('ttn-gateway-test',%s,%s,300,'event')""", (stamp, stamp-timedelta(minutes=5)))
+        await self.conn.execute("""INSERT INTO sensor_window_metrics
+            (sensor_id,window_end,metric,unit,minimum,mean,maximum,sample_count)
+            VALUES ('ttn-gateway-test',%s,'temperature','°C',1,2,3,5)""", (stamp,))
+        await self.conn.execute("""INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
+            VALUES ('ttn-gateway-test','temperature','°C',%s,2),
+                   ('unrelated','temperature','°C',%s,99)""", (stamp, stamp))
+        report = await capacity(self.conn, '2.1', family='ttn')
+        expected = await self.scalar("""SELECT (
+            SELECT COALESCE(SUM(pg_column_size(s)),0) FROM sensor_data s
+            WHERE s.sensor_id LIKE 'ttn-%'
+        ) + (
+            SELECT COALESCE(SUM(pg_column_size(w) + pg_column_size(m)),0)
+            FROM sensor_measurement_windows w JOIN sensor_window_metrics m
+              USING (sensor_id,window_end) WHERE w.sensor_id LIKE 'ttn-%'
+        ) + (SELECT COALESCE(SUM(pg_column_size(e)),0) FROM ttn_uplink_events e)""")
+        self.assertEqual(report['source_bytes'], expected)
+        self.assertTrue(report['passes_preliminary_gate'])
+
     async def test_decimal_precision_retries_and_corrections(self):
         value = Decimal("12345678901234567890.12")
         identity = await self.write("revenue", value)
