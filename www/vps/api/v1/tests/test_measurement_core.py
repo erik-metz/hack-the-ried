@@ -142,7 +142,7 @@ class MeasurementCoreTests(DatabaseCase):
                    ('ttn-gateway-test','temperature','°C',%s,18.5)""",
             (self.now, self.now, self.now, self.now))
 
-        result = await backfill(self.conn, "ttn", batch_size=100)
+        result = await backfill(self.conn, "ttn", batch_size=100, max_batches=2)
 
         self.assertTrue(result["caught_up"])
         self.assertEqual(result["processed"], 2)
