@@ -15,7 +15,8 @@ Existing I2C environmental sensors and the LoRaWAN payload remain supported.
 | GND | GND |
 
 The sketch captures 256 stereo frames at 16 kHz with 32-bit I2S slots once per second,
-uses the right slot selected by L/R=HIGH, and calculates an RMS digital level. It prints
+selects the active slot by comparing the measured signal in both slots (L/R=HIGH selects
+the right channel at the microphone), and calculates an RMS digital level. It prints
 the result on USB serial and includes metric 7 (`sound_level`) in the regular telemetry
 uplink. The value is dBFS (tenths) and is not an acoustically calibrated dB SPL reading.
 The sketch does not save or transmit raw audio and does not yet perform event detection.

@@ -60,7 +60,7 @@ export function categoriesFor(sensor: ApiMapSensor): Category[] {
   const soil = ["GreenspaceRecord", "SoilMeasurement", "SoilTension"].includes(type ?? "") || /bodentemperatur/i.test(sensor.friendly_name);
   for (const r of sensor.readings ?? []) {
     if (["temperature", "soil_temperature", "humidity", "relative_humidity", "precipitation",
-      "bme688_temperature", "bme688_humidity", "pressure"].includes(r.metric))
+      "bme688_temperature", "bme688_humidity", "pressure", "sound_level"].includes(r.metric))
       categories.add(r.metric === "soil_temperature" || soil ? "soil" : "weather");
     if (["uv_index", "ambient_light", "ltr390_uv_raw", "ltr390_als_raw"].includes(r.metric)) categories.add("weather");
     if (r.metric.startsWith("soil_") || r.metric === "water_surface_distance") categories.add("soil");

@@ -50,3 +50,5 @@ validation details. Firmware v9 adds Bosch BME680/BME688 measurements at I²C
 address `0x76` or `0x77`. It emits calibrated temperature, humidity, pressure,
 and validated gas resistance while preserving the v8 LTR390 and other sensors.
 See `v9/README.md` for settings, metric scales and BSEC limitations.
+Firmware v10 adds the ICS-43434 digital microphone and reports an uncalibrated RMS sound level in dBFS;
+see `v10/README.md` for wiring and validation details.

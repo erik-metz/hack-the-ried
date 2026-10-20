@@ -47,7 +47,7 @@ static constexpr uint32_t UPLINK_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_BASE_MS = 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_MAX_MS = 30UL * 60UL * 1000UL;
 static constexpr uint8_t UPLINK_FPORT = 10;
-static constexpr uint8_t FIRMWARE_VERSION = 9;
+static constexpr uint8_t FIRMWARE_VERSION = 10;
 static constexpr uint8_t PAYLOAD_VERSION = 4;
 static constexpr uint8_t PAYLOAD_HEADER_BYTES = 2;
 static constexpr size_t MAX_MEASUREMENTS = 41;
@@ -184,6 +184,7 @@ uint8_t bme68xAddress = BME68X_ADDRESS_LOW;
 struct bme68x_dev bme68xDevice = {};
 uint32_t nextBme68xSampleMs = 0;
 int32_t latestSoundLevelTenthsDbfs = -960;
+char latestI2sMicActiveSlot = 'R';
 uint32_t nextI2sMicSampleMs = 0;
 i2s_chan_handle_t i2sMicRxChannel = nullptr;
 
@@ -244,7 +245,7 @@ bool initI2sMicrophone() {
     i2sMicRxChannel = nullptr;
     return false;
   }
-  Serial.printf("[I2S-MIC] ICS-43434 bereit: SD=GPIO%d, SCK/BCLK=GPIO%d, WS=GPIO%d, %lu Hz, 32-Bit-Slots, rechter Kanal (L/R=HIGH).\n",
+  Serial.printf("[I2S-MIC] ICS-43434 bereit: SD=GPIO%d, SCK/BCLK=GPIO%d, WS=GPIO%d, %lu Hz, 32-Bit-Stereo-Slots; L/R=HIGH erwartet rechts, aktiver Slot wird erkannt.\n",
       I2S_MIC_SD_PIN, I2S_MIC_SCK_PIN, I2S_MIC_WS_PIN,
       static_cast<unsigned long>(I2S_MIC_SAMPLE_RATE));
   return true;
@@ -263,13 +264,18 @@ bool sampleI2sMicrophone(int32_t& levelTenthsDbfs) {
     return false;
   }
 
-  // L/R=HIGH selects the right 32-bit slot. The 24-bit sample is MSB-aligned.
-  double sumSquares = 0.0;
+  // L/R=HIGH selects the right slot. Compare both captured slots so an unexpected
+  // board/core channel ordering is visible and the active microphone slot is used.
+  double sumSquares[2] = {0.0, 0.0};
   for (size_t frame = 0; frame < frameCount; ++frame) {
-    const double normalized = static_cast<double>(stereoSamples[frame * 2 + 1]) / 2147483648.0;
-    sumSquares += normalized * normalized;
+    for (size_t slot = 0; slot < 2; ++slot) {
+      const double normalized = static_cast<double>(stereoSamples[frame * 2 + slot]) / 2147483648.0;
+      sumSquares[slot] += normalized * normalized;
+    }
   }
-  const double rms = sqrt(sumSquares / frameCount);
+  const size_t activeSlot = sumSquares[1] >= sumSquares[0] ? 1 : 0;
+  latestI2sMicActiveSlot = activeSlot == 1 ? 'R' : 'L';
+  const double rms = sqrt(sumSquares[activeSlot] / frameCount);
   levelTenthsDbfs = rms > 0.0
       ? static_cast<int32_t>(lround(200.0 * log10(rms)))
       : -960;
@@ -1259,8 +1265,8 @@ void loop() {
     if (sampleI2sMicrophone(soundLevelTenthsDbfs)) {
       latestSoundLevelTenthsDbfs = soundLevelTenthsDbfs;
       haveSoundSample = true;
-      Serial.printf("[I2S-MIC] RMS-Pegel=%.1f dBFS (unkalibriert)\n",
-          latestSoundLevelTenthsDbfs / 10.0f);
+      Serial.printf("[I2S-MIC] RMS-Pegel=%.1f dBFS (unkalibriert, Slot %c)\n",
+          latestSoundLevelTenthsDbfs / 10.0f, latestI2sMicActiveSlot);
     }
   }
 

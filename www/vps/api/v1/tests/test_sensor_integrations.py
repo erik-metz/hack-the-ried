@@ -55,6 +55,7 @@ class SensorIntegrationTests(DatabaseCase):
                     "measurements": [
                         {"metric": "temperature", "value": 18.5, "unit": "°C"},
                         {"metric": "humidity", "value": 62, "unit": "%"},
+                        {"metric": "sound_level", "value": -32.4, "unit": "dBFS"},
                     ]
                 },
                 "locations": {"user": {"latitude": 49.6855, "longitude": 8.3863}},
@@ -73,9 +74,13 @@ class SensorIntegrationTests(DatabaseCase):
 
         self.assertEqual(accepted["status"], "accepted")
         self.assertEqual(accepted["sensor_id"], "ttn-weather-node-1")
-        self.assertEqual(accepted["inserted_count"], 2)
+        self.assertEqual(accepted["inserted_count"], 3)
         self.assertEqual(duplicate["status"], "duplicate")
-        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 2)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 3)
+        sound = await (await self.conn.execute(
+            "SELECT value,unit FROM sensor_data WHERE sensor_id='ttn-weather-node-1' AND metric='sound_level'"
+        )).fetchone()
+        self.assertEqual((sound["value"], sound["unit"]), (-32.4, "dBFS"))
         self.assertEqual(await self.scalar("SELECT count(*) FROM ttn_uplink_events"), 1)
         hidden = await self.scalar(
             "SELECT is_hidden FROM sensor_metadata WHERE id='ttn-weather-node-1'"
@@ -117,7 +122,7 @@ class SensorIntegrationTests(DatabaseCase):
             with self.assertRaises(HTTPException) as error:
                 await receive_sensor_uplink(body, credentials, self.pool())
         self.assertEqual(error.exception.status_code, 409)
-        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 2)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 3)
 
     async def test_accepts_full_sensor_codebook_uplink(self):
         credentials = HTTPBasicCredentials(username="ttn-user", password="ttn-secret")

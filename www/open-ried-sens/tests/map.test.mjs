@@ -65,6 +65,11 @@ test("new RAK devices without readings are categorized as weather", () => {
   const nodes = model.toMapNodes([sensor([], { id: "ttn-rak3112-002" })]);
   assert.deepEqual([...nodes[0].categories], ["weather"]);
 });
+test("RAK microphone sound level is retained as an environmental map reading", () => {
+  const nodes = model.toMapNodes([sensor([reading("sound_level", -32.4, "dBFS")], { id: "ttn-rak3112-001" })]);
+  assert.deepEqual([...nodes[0].categories], ["weather"]);
+  assert.deepEqual(nodes[0].readings.map(({ metric }) => metric), ["sound_level"]);
+});
 test("measurement age is independent of fetch time; parking is a state, never online", () => {
   assert.equal(model.readingFreshness(reading("temperature"), now), "fresh");
   assert.equal(model.readingFreshness(reading("temperature", 18, "°C", "2026-01-01T00:00:00Z"), now), "stale");
@@ -410,6 +415,8 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(telemetry.metricLabel(reading("bme688_humidity", 48.15, "%")), "Luftfeuchtigkeit (BME688)");
   assert.equal(telemetry.metricLabel(reading("pressure", 1013.2, "hPa")), "Luftdruck (BME688)");
   assert.equal(telemetry.metricLabel(reading("bme688_gas_resistance", 12000, "Ω")), "Gaswiderstand (BME688)");
+  assert.equal(telemetry.metricLabel(reading("sound_level", -32.4, "dBFS")), "Schallpegel (ICS-43434)");
+  assert.equal(telemetry.metricPrecision(reading("sound_level", -32.4, "dBFS")), 1);
   assert.equal(telemetry.metricPrecision(reading("ltr390_uv_raw", 696, "raw")), 0);
   assert.equal(telemetry.metricPrecision(reading("sgp41_voc_index", 120, "index")), 0);
   assert.equal(telemetry.unitLabel("count"), "Anzahl");
