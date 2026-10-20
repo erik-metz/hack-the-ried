@@ -217,6 +217,20 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
   außerhalb des Sensors und verteilen ein versioniertes Modell. Roh-Audio
   wird im aktuellen v12 nur in flüchtigen PSRAM-Puffern gehalten.
 
+### Modellbewertung und Ausblick
+
+- **Rolle von ACDNet20 / ESC-50:**
+  Diente erfolgreich als hardwarenaher Machbarkeitsnachweis (Bring-up/Baseline) für TFLite Micro, Resampling, PSRAM-Verwaltung und INT8-Inferenz auf dem ESP32-S3. Für den produktiven Außenraumeinsatz ist es jedoch unzureichend: ESC-50 erzwingt eine Single-Label-Entscheidung aus 50 isolierten Soundeffekten (oft Haushaltsgeräusche) ohne native Stille-, Umgebungsrausch- oder Multi-Label-Unterstützung.
+- **Zielmodell (Micro-Student):**
+  Für spätere Versionen soll ein schlankes, direkt mit 16 kHz trainiertes Modell (ohne Resampling-Overhead) eingesetzt werden. Trainingsgrundlage sind urbane Datensätze (z. B. SONYC-UST, UrbanSound8K oder gezielte AudioSet-Auszüge via YAMNet-Teacher) mit expliziten Klassen für `silence` und `ambient_noise`.
+- **Audio-Initialisierung und Kalibrierung (Audio Initializer Konzept):**
+  Um den `silent_threshold` dynamisch und standortgerecht zu bestimmen, soll ein Kalibrierungsmodus dokumentiert und vorbereitet werden:
+  - *Trigger:* Einmalig beim ersten Kaltstart nach dem Booten oder periodisch einmal täglich in der Nacht (z. B. zwischen 02:00 und 04:00 Uhr, wenn minimale Umweltaktivität herrscht).
+  - *Ablauf:* Der Sensor misst über mehrere Fenster (z. B. 30–60 Sekunden) das Grundrauschen des ICS-43434-Mikrofons und ermittelt den Rauschflur (Noise Floor RMS in dBFS).
+  - *Funktion:* Der Stille-Schwellwert (`silent_threshold`) wird auf `noise_floor + Offset` (z. B. +6 dB) gesetzt. Fenster unterhalb dieses Werts überspringen die Vorverarbeitung und Inferenz komplett.
+- **Datenpfad & Frontend-Fokus:**
+  Eine Frontend-Visualisierung in der Kartenansicht entfällt für diese Phase; die aggregierten Geräuschereignisse werden autoritativ im Drei-Tabellen-Schema (`readings`) abgelegt und stehen dort direkt für Hackathons, Exporte und Auswertungen bereit.
+
 ### Abnahme für die erste produktive Audio-ML-Version
 
 - bestehende Sensorwerte und Format-5-Uplinks bleiben kompatibel;

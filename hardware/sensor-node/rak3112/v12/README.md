@@ -2,10 +2,13 @@
 
 Firmware v12 adds local audio classification to v11 using the quantized
 ACDNet20 ESC-50 fold-4 model and Espressif's TFLite Micro runtime. It captures
-the existing ICS-43434 I²S stream at 16 kHz, builds temporary 1.51-second
-mono windows in PSRAM, resamples them to the model's 20 kHz input, and prints
-the three highest model scores to USB serial. It does not save raw audio or
-send classifications. LoRaWAN sensor reports remain payload format 5.
+the existing ICS-43434 I²S stream at 16 kHz and builds temporary 1.51-second
+mono windows in PSRAM. An RMS silence gate (threshold -36 dBFS) drops quiet
+windows before preprocessing/inference to prevent false positives and conserve CPU/power.
+Active windows are resampled to 20 kHz and classified; predictions above confidence
+threshold (0.35) are accumulated in a 5-minute event histogram and transmitted
+in LoRaWAN Payload Format 6. During quiet windows without sound events, 0 extra bytes
+are appended to the payload. Raw audio is never stored or transmitted.
 
 ## Model and limits
 
@@ -35,10 +38,10 @@ Sources: [ACDNet model/repository](https://github.com/mohaimenz/acdnet),
 [ESC-50 dataset and class mapping](https://github.com/karoldvl/ESC-50).
 
 The taxonomy and contract for eventual multi-label Open-Ried-Sens events are
-still in [`../audio-event-ml-plan.md`](../audio-event-ml-plan.md). In
-particular, model scores are not yet sent to TTN, decoded, or written to the
-canonical database tables. Format 6 and the event-data path remain future
-work.
+in [`../audio-event-ml-plan.md`](../audio-event-ml-plan.md). Format 6 encodes
+the 5-minute event counts as 4-byte TLVs (`tag=3, code=58`); TTN decodes them into
+`sound_events` and the VPS webhook writes them as canonical interval statistics
+into `readings` (`sound_event_count`).
 
 ## RAK3112 resource measurement
 

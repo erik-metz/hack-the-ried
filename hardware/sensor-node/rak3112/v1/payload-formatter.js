@@ -1,12 +1,12 @@
-// RAK3112 uplink decoder. Formats 3/4 are point samples; format 5 is a window summary.
+// RAK3112 uplink decoder. Formats 3/4 are point samples; format 5/6 are window summaries.
 function decodeUplink(input) {
   const bytes = input.bytes;
   if (input.fPort !== undefined && input.fPort !== 10) return { errors: ["Unsupported FPort; expected 10"] };
   if (!Array.isArray(bytes) || bytes.length === 0) return { errors: ["Payload is empty"] };
   const version = bytes[0];
-  if (version !== 3 && version !== 4 && version !== 5) return { errors: ["Unsupported payload version: " + version] };
-  if (version === 5) {
-    if (bytes.length < 9 || (bytes.length - 5) % 4 !== 0 || bytes.length > 222) {
+  if (version !== 3 && version !== 4 && version !== 5 && version !== 6) return { errors: ["Unsupported payload version: " + version] };
+  if (version === 5 || version === 6) {
+    if (bytes.length < 9 || bytes.length > 222) {
       return { errors: ["Window payload has an invalid length"] };
     }
     const windowSeconds = (bytes[2] << 16) | (bytes[3] << 8) | bytes[4];
@@ -27,11 +27,34 @@ function decodeUplink(input) {
       37:["shunt_voltage","µV",1],38:["current","mA",1],39:["power","mW",1],
       40:["sound_dominant_frequency","Hz",1],41:["sound_event_class","class",1]
     };
+    const audioClasses = [
+      "dog","rooster","pig","cow","frog","cat","hen","insects","sheep","crow",
+      "rain","sea_waves","crackling_fire","crickets","chirping_birds","water_drops","wind",
+      "pouring_water","toilet_flush","thunderstorm","crying_baby","sneezing","clapping",
+      "breathing","coughing","footsteps","laughing","brushing_teeth","snoring","drinking_sipping",
+      "door_wood_knock","mouse_click","keyboard_typing","door_wood_creaks","can_opening",
+      "washing_machine","vacuum_cleaner","clock_alarm","clock_tick","glass_breaking","helicopter",
+      "chainsaw","siren","car_horn","engine","train","church_bells","airplane","fireworks","hand_saw"
+    ];
     const groupForMetric = {1:1,2:1,4:2,5:2,6:2,29:3,30:3,3:4,32:4,31:5,33:5,18:6,19:6,20:6,21:7,7:8};
-    const groups = {}, stats = {}, seen = {};
+    const groups = {}, stats = {}, seen = {}, soundEvents = [];
+    if ((bytes.length - 5) % 4 !== 0) return { errors: ["Window payload has an invalid length"] };
     for (let offset = 5; offset < bytes.length; offset += 4) {
       const tag = bytes[offset] >> 6;
       const code = bytes[offset] & 0x3F;
+      if (tag === 3 && code === 58) {
+        const classId = bytes[offset + 1];
+        const count = bytes[offset + 2];
+        const maxScorePct = bytes[offset + 3];
+        const className = audioClasses[classId] || ("class_" + classId);
+        soundEvents.push({
+          class_id: classId,
+          class: className,
+          count: count,
+          max_score: Math.round((maxScorePct / 100) * 1000) / 1000
+        });
+        continue;
+      }
       const rawUnsigned = (bytes[offset+1] << 16) | (bytes[offset+2] << 8) | bytes[offset+3];
       if (tag === 3) {
         if (code < 50 || code > 57 || groups[code] !== undefined) return { errors: ["Invalid or duplicate window sample-count group: " + code] };
@@ -62,8 +85,11 @@ function decodeUplink(input) {
         mean_value:item.mean,max_value:item.maximum,sample_count:item.sample_count});
     });
     if (!measurements.length) return { errors: ["Window payload contains no metric means"] };
-    const data = {version:5,firmware_version:bytes[1],window_seconds:windowSeconds,
+    const data = {version:version,firmware_version:bytes[1],window_seconds:windowSeconds,
       measurements:measurements,window_statistics:windowStatistics};
+    if (version === 6) {
+      data.sound_events = soundEvents;
+    }
     return {data:data};
   }
   const legacyHeaderBytes = version === 3 ? 1 : 2;

@@ -139,6 +139,38 @@ test("decodes unsigned 24-bit BME68x resistance and mean-only raw diagnostics", 
   ]);
 });
 
+const soundEventRecord = (classId, count, maxScorePct) => {
+  return [((3 << 6) | 58) & 255, classId & 255, count & 255, maxScorePct & 255];
+};
+
+test("decodes format 6 window summary with silence (no sound events)", () => {
+  const result = decode({ fPort: 10, bytes: [6, 12, 0, 1, 44,
+    ...windowRecord(1, 0, 120), ...windowRecord(1, 1, 125), ...windowRecord(1, 2, 130),
+    ...windowRecord(50, 3, 300),
+  ] });
+  assert.equal(result.data.version, 6);
+  assert.equal(result.data.firmware_version, 12);
+  assert.equal(result.data.window_seconds, 300);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.sound_events)), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.measurements)), [
+    { metric: "temperature", unit: "°C", value: 12.5 },
+  ]);
+});
+
+test("decodes format 6 window summary with classified sound events", () => {
+  const result = decode({ fPort: 10, bytes: [6, 12, 0, 1, 44,
+    ...windowRecord(1, 0, 120), ...windowRecord(1, 1, 125), ...windowRecord(1, 2, 130),
+    ...windowRecord(50, 3, 300),
+    ...soundEventRecord(0, 5, 75),  // class 0 (dog), count 5, max_score 75%
+    ...soundEventRecord(42, 2, 88), // class 42 (siren), count 2, max_score 88%
+  ] });
+  assert.equal(result.data.version, 6);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.sound_events)), [
+    { class_id: 0, class: "dog", count: 5, max_score: 0.75 },
+    { class_id: 42, class: "siren", count: 2, max_score: 0.88 },
+  ]);
+});
+
 test("rejects malformed, duplicate, oversized, and wrong-port payloads", () => {
   assert.ok(decode({ bytes: [] }).errors);
   assert.ok(decode({ bytes: [2, 0, 171, 1, 247] }).errors);

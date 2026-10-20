@@ -12,19 +12,27 @@ In the TTN Console, create a custom webhook using JSON, set the URL above, confi
 
 ## Payload formatter contract
 
-The FPort-10 application formatter supports RAK payload formats 3, 4 and 5.
-For formats 3/4 it returns `decoded_payload.measurements`. Format 5 also returns
-`firmware_version`, `window_seconds` and a `window_statistics` array. Each
-measurement has a stable metric name, finite numeric value, and explicit unit:
+The FPort-10 application formatter supports RAK payload formats 3, 4, 5 and 6.
+For formats 3/4 it returns `decoded_payload.measurements`. Format 5 and 6 also return
+`firmware_version`, `window_seconds` and a `window_statistics` array. Format 6 adds
+an optional `sound_events` array for on-device aggregated audio classifications:
 
 ```json
 {
   "measurements": [
     {"metric": "temperature", "value": 18.5, "unit": "°C"},
     {"metric": "humidity", "value": 62, "unit": "%"}
+  ],
+  "sound_events": [
+    {"class": "siren", "class_id": 42, "count": 2, "max_score": 0.88}
   ]
 }
 ```
+
+Sound events are written as canonical interval statistics in `readings` under the metric
+`sound_event_count` with unit `count`, dimensions `{"class": "<class>", "taxonomy": "esc50_v1"}`
+and peak score in provenance. When no sound events are detected during a window (silence),
+the sound events section in the payload is omitted (0 bytes overhead).
 
 At most 41 measurements and 41 window statistics are accepted per uplink.
 Names use lowercase letters, digits and underscores, starting with a lowercase

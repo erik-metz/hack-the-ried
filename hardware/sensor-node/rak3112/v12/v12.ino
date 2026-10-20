@@ -59,7 +59,7 @@ static constexpr uint32_t JOIN_RETRY_BASE_MS = 60UL * 1000UL;
 static constexpr uint32_t JOIN_RETRY_MAX_MS = 30UL * 60UL * 1000UL;
 static constexpr uint8_t UPLINK_FPORT = 10;
 static constexpr uint8_t FIRMWARE_VERSION = 12;
-static constexpr uint8_t PAYLOAD_VERSION = 5;
+static constexpr uint8_t PAYLOAD_VERSION = 6;
 static constexpr uint8_t PAYLOAD_HEADER_BYTES = 5;
 static constexpr size_t MAX_MEASUREMENTS = 41;
 static constexpr size_t MAX_WINDOW_PAYLOAD_BYTES = 222;
@@ -232,6 +232,26 @@ void restoreMetricWindows(const MetricWindow* snapshot) {
   portEXIT_CRITICAL(&metricWindowMux);
 }
 
+static constexpr float AUDIO_ML_SILENCE_THRESHOLD_DBFS = -36.0f;
+static constexpr float AUDIO_ML_MIN_CONFIDENCE = 0.35f;
+static constexpr uint8_t WINDOW_TAG_EVENT = 3;
+static constexpr uint8_t SOUND_EVENT_CODE = 58;
+
+static AudioEventStats audioEventCounts[AUDIO_MODEL_CLASS_COUNT] = {};
+static portMUX_TYPE audioEventMux = portMUX_INITIALIZER_UNLOCKED;
+static uint32_t audioMlSilentWindows = 0;
+
+void restoreAudioEvents(const AudioEventStats* snapshot) {
+  portENTER_CRITICAL(&audioEventMux);
+  for (size_t c = 0; c < AUDIO_MODEL_CLASS_COUNT; ++c) {
+    audioEventCounts[c].count += snapshot[c].count;
+    if (snapshot[c].maxScore > audioEventCounts[c].maxScore) {
+      audioEventCounts[c].maxScore = snapshot[c].maxScore;
+    }
+  }
+  portEXIT_CRITICAL(&audioEventMux);
+}
+
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RESET, LORA_BUSY);
 LoRaWANBand_t singleChannelEU868;
 LoRaWANNode* node = nullptr;
@@ -331,6 +351,25 @@ void audioInferenceTask(void*) {
   while (true) {
     if (xQueueReceive(audioMlWindowQueue, &bufferIndex, portMAX_DELAY) != pdTRUE) continue;
 
+    // Fast RMS silence detection over the 1.51 s window before any resampling or inference
+    double sumSquares = 0.0;
+    for (size_t sampleIndex = 0; sampleIndex < AUDIO_CAPTURE_SAMPLE_COUNT; ++sampleIndex) {
+      const double normalized = static_cast<double>(audioCaptureBuffers[bufferIndex][sampleIndex]) / 32768.0;
+      sumSquares += normalized * normalized;
+    }
+    const double rms = sqrt(sumSquares / AUDIO_CAPTURE_SAMPLE_COUNT);
+    const float rmsDbfs = rms > 0.0 ? static_cast<float>(20.0 * log10(rms)) : -96.0f;
+
+    if (rmsDbfs < AUDIO_ML_SILENCE_THRESHOLD_DBFS) {
+      audioCaptureBufferBusy[bufferIndex] = false;
+      ++audioMlSilentWindows;
+      if (audioMlSilentWindows % 20 == 1) {
+        Serial.printf("[AUDIO-ML] Stille erkannt: RMS=%.1f dBFS < Schwelle %.1f dBFS (Inferenz uebersprungen, %lu Stille-Fenster)\n",
+            rmsDbfs, AUDIO_ML_SILENCE_THRESHOLD_DBFS, static_cast<unsigned long>(audioMlSilentWindows));
+      }
+      continue;
+    }
+
     const int64_t preprocessingStartedUs = esp_timer_get_time();
     for (size_t outputIndex = 0; outputIndex < AUDIO_MODEL_SAMPLE_COUNT; ++outputIndex) {
       const size_t sourcePositionTimesFour = outputIndex * 4;
@@ -383,11 +422,22 @@ void audioInferenceTask(void*) {
       const float score2 = (topScores[2] - zeroPoint) * scoreScale;
       const uint32_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
       const uint32_t freePsram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-      Serial.printf("[AUDIO-ML] #%lu %s=%.3f %s=%.3f %s=%.3f prep=%lu ms infer=%lu ms heap_int=%lu psram=%lu stack_hwm=%u dropped_samples=%lu\n",
+
+      if (topIndices[0] >= 0 && score0 >= AUDIO_ML_MIN_CONFIDENCE) {
+        portENTER_CRITICAL(&audioEventMux);
+        audioEventCounts[topIndices[0]].count++;
+        if (score0 > audioEventCounts[topIndices[0]].maxScore) {
+          audioEventCounts[topIndices[0]].maxScore = score0;
+        }
+        portEXIT_CRITICAL(&audioEventMux);
+      }
+
+      Serial.printf("[AUDIO-ML] #%lu %s=%.3f %s=%.3f %s=%.3f RMS=%.1f dBFS prep=%lu ms infer=%lu ms heap_int=%lu psram=%lu stack_hwm=%u dropped_samples=%lu\n",
           static_cast<unsigned long>(inferenceCount),
           AUDIO_MODEL_CLASSES[topIndices[0]], score0,
           AUDIO_MODEL_CLASSES[topIndices[1]], score1,
           AUDIO_MODEL_CLASSES[topIndices[2]], score2,
+          rmsDbfs,
           static_cast<unsigned long>(preprocessingMs), static_cast<unsigned long>(inferenceMs),
           static_cast<unsigned long>(freeInternal), static_cast<unsigned long>(freePsram),
           static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr) * sizeof(StackType_t)),
@@ -1356,6 +1406,12 @@ void sendTelemetryUplink() {
   if (node == nullptr) return;
   MetricWindow snapshot[42] = {};
   snapshotMetricWindows(snapshot);
+  AudioEventStats eventSnapshot[AUDIO_MODEL_CLASS_COUNT] = {};
+  portENTER_CRITICAL(&audioEventMux);
+  memcpy(eventSnapshot, audioEventCounts, sizeof(eventSnapshot));
+  memset(audioEventCounts, 0, sizeof(audioEventCounts));
+  portEXIT_CRITICAL(&audioEventMux);
+
   size_t metricCount = 0;
   for (uint8_t code = 1; code <= 41; ++code) if (snapshot[code].hasValue) ++metricCount;
   if (metricCount == 0) {
@@ -1398,16 +1454,33 @@ void sendTelemetryUplink() {
     const uint32_t count = groupCounts[group] > 0xFFFFFFUL ? 0xFFFFFFUL : groupCounts[group];
     appendInt24(payload, payloadLength, code, WINDOW_COUNT, static_cast<int32_t>(count));
   }
+
+  uint8_t soundEventsReported = 0;
+  for (size_t classIndex = 0; classIndex < AUDIO_MODEL_CLASS_COUNT; ++classIndex) {
+    if (eventSnapshot[classIndex].count == 0) continue;
+    if (payloadLength + 4 > MAX_WINDOW_PAYLOAD_BYTES) break;
+    payload[payloadLength] = (WINDOW_TAG_EVENT << 6) | SOUND_EVENT_CODE;
+    payload[payloadLength + 1] = static_cast<uint8_t>(classIndex);
+    payload[payloadLength + 2] = eventSnapshot[classIndex].count > 255
+        ? 255 : static_cast<uint8_t>(eventSnapshot[classIndex].count);
+    payload[payloadLength + 3] = static_cast<uint8_t>(
+        lroundf(eventSnapshot[classIndex].maxScore * 100.0f));
+    payloadLength += 4;
+    ++soundEventsReported;
+  }
+
   if (payloadLength > MAX_WINDOW_PAYLOAD_BYTES) {
     restoreMetricWindows(snapshot);
+    restoreAudioEvents(eventSnapshot);
     Serial.printf("[UPLINK][FEHLER] Zeitfenster-Payload zu gross: %u Byte.\n",
         static_cast<unsigned>(payloadLength));
     return;
   }
 
-  Serial.printf("[UPLINK] Format=%u, firmware=v%u, Zeitfenster=%lu s, Messgroessen=%u, payload=%u Byte\n",
+  Serial.printf("[UPLINK] Format=%u, firmware=v%u, Zeitfenster=%lu s, Messgroessen=%u, AudioEvents=%u, payload=%u Byte\n",
       payload[0], FIRMWARE_VERSION, static_cast<unsigned long>(seconds),
-      static_cast<unsigned>(metricCount), static_cast<unsigned>(payloadLength));
+      static_cast<unsigned>(metricCount), static_cast<unsigned>(soundEventsReported),
+      static_cast<unsigned>(payloadLength));
 
   uint8_t downlink[16];
   size_t downlinkLength = sizeof(downlink);
@@ -1416,6 +1489,7 @@ void sendTelemetryUplink() {
   persistLoRaWANSecurityState();
   if (state < RADIOLIB_ERR_NONE) {
     restoreMetricWindows(snapshot);
+    restoreAudioEvents(eventSnapshot);
     Serial.printf("[UPLINK][FEHLER] Senden/Empfang fehlgeschlagen: %d; Zeitfenster bleibt gepuffert.\n", state);
     if (state == RADIOLIB_ERR_NETWORK_NOT_JOINED) {
       Serial.println(F("[LORAWAN] Keine aktive Sitzung; Rejoin wird eingeplant."));

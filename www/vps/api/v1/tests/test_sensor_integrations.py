@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import psycopg
 from endpoints.sensor_integrations import (
+    _sound_events,
     _window_statistics,
     _write_canonical_readings,
     receive_sensor_uplink,
@@ -53,7 +54,56 @@ class WindowStatisticsValidationTests(TestCase):
             _window_statistics(decoded)
 
 
+class SoundEventsValidationTests(TestCase):
+    def test_valid_sound_events_parsing(self):
+        decoded = {
+            "sound_events": [
+                {"class": "dog", "class_id": 0, "count": 5, "max_score": 0.75},
+                {"class": "siren", "class_id": 42, "count": 2, "max_score": 0.88},
+            ]
+        }
+        self.assertEqual(_sound_events(decoded), [
+            {"class": "dog", "class_id": 0, "count": 5, "max_score": 0.75},
+            {"class": "siren", "class_id": 42, "count": 2, "max_score": 0.88},
+        ])
+
+    def test_sound_events_invalid_or_duplicate(self):
+        with self.assertRaises(HTTPException):
+            _sound_events({"sound_events": "invalid"})
+        with self.assertRaises(HTTPException):
+            _sound_events({"sound_events": [{"class": "dog", "count": 1}, {"class": "dog", "count": 2}]})
+
+
 class CanonicalWriterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sound_events_become_canonical_readings_with_taxonomy_dimensions(self):
+        class Connection:
+            def __init__(self):
+                self.calls = []
+
+            async def execute(self, query, params):
+                self.calls.append((query, params))
+
+        conn = Connection()
+        end = datetime.fromisoformat("2026-10-20T10:05:00+00:00")
+        events = [
+            {"class": "dog", "class_id": 0, "count": 5, "max_score": 0.75},
+            {"class": "siren", "class_id": 42, "count": 2, "max_score": 0.88},
+        ]
+        await _write_canonical_readings(
+            conn, sensor_id="ttn-rak", device_id="rak",
+            application_id="ried-sensors", event_id="event-1", observed_at=end,
+            collected_at=end, measurements=[{"metric": "sound_level", "unit": "dBFS", "value": -32.4}],
+            window=(300, []), sound_events=events,
+        )
+        writes = [params for query, params in conn.calls if "write_measurement" in query]
+        sound_writes = [w for w in writes if w[1] == "sound_event_count"]
+        self.assertEqual(len(sound_writes), 2)
+        dog_write = next(w for w in sound_writes if json.loads(w[4])["class"] == "dog")
+        self.assertEqual(dog_write[2], "count")
+        self.assertEqual(dog_write[6], Decimal("5"))
+        self.assertEqual(json.loads(dog_write[4])["taxonomy"], "esc50_v1")
+        self.assertEqual(json.loads(dog_write[8])["max_score"], 0.75)
+
     async def test_window_statistics_become_three_canonical_readings(self):
         class Connection:
             def __init__(self):

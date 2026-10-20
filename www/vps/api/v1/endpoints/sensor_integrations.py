@@ -132,6 +132,43 @@ def _window_statistics(decoded: Any) -> tuple[int, list[dict[str, Any]]] | None:
     return seconds, result
 
 
+def _sound_events(decoded: Any) -> list[dict[str, Any]]:
+    if not isinstance(decoded, dict) or "sound_events" not in decoded:
+        return []
+    events = decoded.get("sound_events")
+    if not isinstance(events, list):
+        raise HTTPException(422, "decoded_payload.sound_events must be an array")
+    if len(events) > 50:
+        raise HTTPException(422, "decoded_payload.sound_events contains too many entries")
+    result = []
+    seen = set()
+    for item in events:
+        if not isinstance(item, dict):
+            raise HTTPException(422, "Each sound event must be an object")
+        class_name = item.get("class")
+        count = item.get("count")
+        max_score = item.get("max_score")
+        if not isinstance(class_name, str) or not METRIC_PATTERN.fullmatch(class_name):
+            raise HTTPException(422, "Sound event class has an invalid name")
+        if class_name in seen:
+            raise HTTPException(422, f"Duplicate sound event class: {class_name}")
+        seen.add(class_name)
+        if isinstance(count, bool) or not isinstance(count, int) or not 0 <= count <= 65535:
+            raise HTTPException(422, "Sound event count must be an unsigned integer")
+        if max_score is not None and (
+            isinstance(max_score, bool) or not isinstance(max_score, (int, float))
+            or not 0.0 <= max_score <= 1.0
+        ):
+            raise HTTPException(422, "Sound event max_score must be between 0.0 and 1.0")
+        result.append({
+            "class": class_name,
+            "class_id": item.get("class_id"),
+            "count": count,
+            "max_score": float(max_score) if max_score is not None else None,
+        })
+    return result
+
+
 def _ttn_coordinates(uplink: dict[str, Any]) -> tuple[float, float] | None:
     locations = uplink.get("locations")
     if not isinstance(locations, dict):
@@ -186,6 +223,7 @@ async def _write_canonical_readings(conn, *, sensor_id: str, device_id: str,
                                     observed_at: datetime, collected_at: datetime,
                                     measurements: list[dict[str, Any]],
                                     window: tuple[int, list[dict[str, Any]]] | None,
+                                    sound_events: list[dict[str, Any]] | None = None,
                                     backfill: bool = False,
                                     window_start: datetime | None = None) -> None:
     """Write TTN observations to the authoritative entities/definitions/readings model."""
@@ -225,6 +263,28 @@ async def _write_canonical_readings(conn, *, sensor_id: str, device_id: str,
                 (entity_id, metric, unit, f"ttn:{application_id}",
                  json.dumps(dimensions), observed_at, Decimal(str(value)), collected_at,
                  json.dumps(provenance), period_start, period_end, semantics, backfill))
+    if sound_events:
+        for event in sound_events:
+            dimensions = {"class": event["class"], "taxonomy": "esc50_v1"}
+            provenance = {
+                "protocol": "ttn",
+                "application_id": application_id,
+                "device_id": device_id,
+                "event_id": event_id,
+                "statistic": "interval_count",
+            }
+            if event.get("max_score") is not None:
+                provenance["max_score"] = event["max_score"]
+            if event.get("class_id") is not None:
+                provenance["class_id"] = event["class_id"]
+            if window:
+                provenance["window_seconds"] = window[0]
+            await conn.execute("""SELECT write_measurement(
+                %s,%s,%s,%s,'observed',%s::jsonb,%s,%s,%s,%s::jsonb,
+                'valid',%s,%s,%s,%s)""",
+                (entity_id, "sound_event_count", "count", f"ttn:{application_id}",
+                 json.dumps(dimensions), observed_at, Decimal(str(event["count"])), collected_at,
+                 json.dumps(provenance), window_start, observed_at, "interval_statistic", backfill))
 
 
 @router.post("/uplink", status_code=status.HTTP_200_OK,
@@ -253,6 +313,7 @@ async def receive_sensor_uplink(
     decoded_measurements = _measurements(uplink.get("decoded_payload"))
     decoded_payload = uplink.get("decoded_payload")
     window = _window_statistics(decoded_payload)
+    sound_events = _sound_events(decoded_payload)
     firmware_version = decoded_payload.get("firmware_version") if isinstance(decoded_payload, dict) else None
     if firmware_version is not None and (
         isinstance(firmware_version, bool)
@@ -310,7 +371,8 @@ async def receive_sensor_uplink(
             conn, sensor_id=sensor_id, device_id=device_id,
             application_id=application_id, event_id=event_id,
             observed_at=observed_at, collected_at=datetime.now(UTC),
-            measurements=decoded_measurements, window=window)
+            measurements=decoded_measurements, window=window,
+            sound_events=sound_events)
         async with conn.cursor() as cur:
             await cur.executemany("""INSERT INTO sensor_data(timestamp,sensor_id,value,unit,metric)
                 VALUES (%s,%s,%s,%s,%s)""",
