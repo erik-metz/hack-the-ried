@@ -241,6 +241,45 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
 - Worst-Case-Uplink, CPU/RAM/Flash und Energie sind am RAK gemessen;
 - Testgüte wird nach Klassen und Aufnahmebedingungen berichtet, nicht nur als globale Accuracy.
 
+### Live-Integrationsaudit (21.10.2026)
+
+- Der angeschlossene Knoten sendet bereits Firmware v12 und Payload-Format 6.
+  TTN empfängt Uplinks von `rak3112-002` auf FPort 10 (zuletzt im Live-Stream
+  um 15:46 Uhr MESZ), kann sie mit dem aktuell in der TTN-Konsole gespeicherten
+  Formatter aber nicht dekodieren: `Unsupported payload version: 6`. Der dort
+  aktive Formatter akzeptiert nur Versionen 3, 4 und 5.
+- TTN protokolliert nach diesen Decode-Fehlern `Fail to send webhook`; ein
+  zugehöriger Webhook-Aufruf an die VPS endet außerdem mit HTTP 422. Das ist
+  eine Folge des fehlenden `decoded_payload`, kein Hinweis auf einen Fehler in
+  der Funkverbindung. Der Webhookpfad ist damit nicht kompatibel mit der im
+  Repository implementierten Format-6-Version.
+- Die VPS-Datenbank enthält für `rak3112-002` 427 angenommene Uplink-Receipts;
+  der letzte gespeicherte Empfang ist **20.10.2026 22:21:39 MESZ**. In den
+  gespeicherten Altwerten gibt es `sound_level`, aber keine
+  `sound_event_count`-Messwerte. Die aktuellen, fehlgeschlagenen TTN-Uplinks
+  erreichen die Datenbank folglich nicht. Die API-Leseendpunkte antworten
+  weiterhin 200, liefern für diesen Sensor aber nur den alten Datenstand.
+- Im Repository enthält [`v1/payload-formatter.js`](v1/payload-formatter.js)
+  bereits den Format-6-Decoder für Ereignis-TLVs; ebenso unterstützen
+  VPS-Webhook und kanonischer `readings`-Schreibpfad `sound_events`. Diese
+  Implementierung ist jedoch nicht automatisch in der TTN-Konsole aktiv. Vor
+  Wiederaufnahme des End-to-End-Betriebs muss genau dieser Decoder dort
+  bereitgestellt und anhand eines aktuellen Uplinks geprüft werden: TTN zeigt
+  dekodierte Messwerte und `sound_events`, der Webhook erhält HTTP 200, danach
+  steigen Receipt- und `readings`-Zähler inklusive `sound_event_count`.
+- Kein erneutes Flashen war für diese Diagnose erforderlich: das Board sendet
+  Format 6 bereits. Ein Flash würde den TTN-Formatter-Fehler nicht beheben.
+  Die serielle Schnittstelle `/dev/cu.usbmodem1101` war vorhanden, lieferte
+  während des kurzen Monitor-Aufrufs aber keine neue Ausgabe; die Funk-/TTN-
+  Evidenz bestätigt den laufenden Knoten unabhängig davon.
+
+**Status:** Die lokale Klassifikator-Machbarkeit und die Repo-seitige
+Format-6-/VPS-Implementierung sind vorhanden. Die produktive Ende-zu-Ende-
+Integration ist noch offen, weil der aktive TTN-Formatter hinter dem
+Repositorystand liegt. Bis dieser Konfigurationsschritt sowie der beschriebene
+Live-Nachweis erfolgt sind, dürfen ESC-50-Ausgaben nicht als erfolgreich
+gespeicherte ML-Ereignisse behandelt werden.
+
 ## Technische Referenzen
 
 - [Google AudioSet event ontology](https://research.google.com/audioset/ontology/)
