@@ -201,6 +201,7 @@ export default function TelemetryCharts({
             const isActive = cardReadings.some(reading => seriesKey(reading) === (active && seriesKey(active)));
             const descriptions = [...new Set(cardReadings.map(metricDescription).filter((description): description is string => Boolean(description)))];
             const groupDescription = measurementGroupDescription(groupId) ?? (descriptions.length === 1 ? descriptions[0] : undefined);
+            const latestReading = cardReadings.reduce((latest, reading) => Date.parse(reading.timestamp) > Date.parse(latest.timestamp) ? reading : latest, cardReadings[0]);
             const key = cardReadings.map(seriesKey).join("|");
             return <button key={key} type="button" aria-pressed={isActive} onClick={() => {
               const reading = cardReadings.find(item => seriesKey(item) === (active && seriesKey(active))) ?? cardReadings[0];
@@ -212,18 +213,7 @@ export default function TelemetryCharts({
               <span className="block text-sm text-slate-400">{grouped ? title : metricLabel(cardReadings[0])}</span>
               {grouped ? <>
                 {groupDescription && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{groupDescription}</span>}
-                <span className={`mt-2 block divide-y divide-slate-800 ${cardReadings.length >= 6 ? "sm:grid sm:grid-cols-2 sm:gap-x-4 sm:divide-y-0" : ""}`}>
-                  {cardReadings.map(reading => {
-                    const summary = readingRangeSummary(reading);
-                    return <span key={seriesKey(reading)} className="block border-t border-slate-800 py-2 first:pt-0 first:border-t-0">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="text-xs text-slate-400">{metricLabel(reading)}</span>
-                      <span className="shrink-0 text-lg font-bold">{reading.metric === "crossing_state" ? crossingStateLabel(reading.value) : <>{number(reading.value, reading)} <span className="text-xs font-normal text-slate-400">{unitLabel(reading.unit)}</span></>}</span>
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">Stand: {time(reading.timestamp)}{summary ? ` · ${summary}` : ""}</span>
-                  </span>;
-                  })}
-                </span>
+                <span className="mt-2 block text-xs text-slate-500">Letzte Messung: {time(latestReading.timestamp)}</span>
               </> : <>
                 {metricDescription(cardReadings[0]) && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{metricDescription(cardReadings[0])}</span>}
                 <span className="block mt-2 text-2xl font-bold break-words">
