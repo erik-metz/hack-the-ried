@@ -1,6 +1,19 @@
 import type { Reading } from "./mapData";
 
 export const seriesKey = (reading: { metric: string; unit: string }) => JSON.stringify([reading.metric, reading.unit]);
+
+/** Related measurements that are useful to compare over time for one station. */
+export function measurementGroup(reading: { metric: string; unit: string }): string | undefined {
+  const metric = reading.metric.toLocaleLowerCase("de-DE").replace(/[.-]/g, "_");
+  if (["temperature", "scd41_temperature", "bme688_temperature", "humidity", "relative_humidity", "scd41_humidity", "bme688_humidity"].includes(metric)) return "temperature-humidity";
+  if (["ambient_light", "ltr390_als_raw", "uv_index", "ltr390_uv_raw"].includes(metric)) return "light-uv";
+  if (["pm0_5", "pm1_0", "pm2_5", "pm4_0", "pm10", "pm25", "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) {
+    return metric.startsWith("particle_number_") ? "particulate-count" : "air-concentration";
+  }
+  if (["no2", "o3"].includes(metric)) return "air-concentration";
+  if (["fuel_e5", "fuel_e10", "fuel_diesel"].includes(metric)) return "fuel-price";
+  return undefined;
+}
 const LABELS: Record<string, string> = {
   fuel_e5: "Super E5", fuel_e10: "Super E10", fuel_diesel: "Diesel",
   pgv: "Peak-Vibration (PGV)", rms: "RMS-Tremor", waveform: "Wellenform", temperature: "Temperatur",

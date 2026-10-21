@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 
@@ -13,6 +13,7 @@ type SensorWindow = { window_start: string; window_end: string; window_seconds: 
 type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyUnavailable?: boolean; historyTruncated?: boolean };
 const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
 const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const seriesColors = ["#34d399", "#38bdf8", "#fbbf24", "#c084fc", "#fb7185", "#a3e635", "#22d3ee", "#f97316"];
 
 export default function TelemetryCharts({
   node,
@@ -70,21 +71,35 @@ export default function TelemetryCharts({
   const parking = parkingSummary(readings);
   const bikes = bikeSummary(readings);
   const active = readings.find(reading => seriesKey(reading) === selectedSeries) ?? (mobilityEntity ? readings.find(r => r.metric === "crossing_state" || r.metric === "speed") : undefined) ?? readings[0] ?? (mobilityEntity && data?.history.length ? { metric: data.history[0].metric, unit: data.history[0].unit, value: 0, timestamp: data.history[0].bucket } : undefined);
-  const history = active ? (data?.history ?? []).filter(bucket => seriesKey(bucket) === seriesKey(active) && bucket.avg_value !== null).sort((a, b) => Date.parse(a.bucket) - Date.parse(b.bucket)) : [];
-  const values = history.map(bucket => bucket.avg_value!);
-  const [lower, upper] = active ? chartScale(active, values, fuelEntity) : [0, 1];
+  const historyFor = (reading: Reading) => (data?.history ?? []).filter(bucket => seriesKey(bucket) === seriesKey(reading) && bucket.avg_value !== null).sort((a, b) => Date.parse(a.bucket) - Date.parse(b.bucket));
+  const group = active ? measurementGroup(active) : undefined;
+  const groupedReadings = group ? readings.filter(reading => measurementGroup(reading) === group) : [];
+  const chartReadings = groupedReadings.length > 1 && new Set(groupedReadings.map(reading => reading.unit)).size <= 2 ? groupedReadings : active ? [active] : [];
+  const chartSeries = chartReadings.map(reading => ({ reading, history: historyFor(reading) })).filter(series => series.history.length > 0);
+  const units = [...new Set(chartSeries.map(series => series.reading.unit))];
+  const scales = units.map(unit => {
+    const unitSeries = chartSeries.filter(series => series.reading.unit === unit);
+    const scaleReading = unitSeries.find(series => isCountMetric(series.reading))?.reading ?? unitSeries[0]?.reading ?? active!;
+    return chartScale(scaleReading, unitSeries.flatMap(series => series.history.map(bucket => bucket.avg_value!)), fuelEntity || unit === "€/l");
+  });
+  const scaleFor = (reading: Reading) => scales[Math.max(0, units.indexOf(reading.unit))] ?? [0, 1] as [number, number];
   const start = data ? Date.parse(data.start) : 0;
   const end = data ? Date.parse(data.end) : 1;
-  const points = history.map(bucket => ({
-    x: 130 + Math.max(0, Math.min(1, (Date.parse(bucket.bucket) - start) / (end - start))) * 655,
-    y: 180 - ((bucket.avg_value! - lower) / (upper - lower)) * 155,
-    bucket,
-  }));
+  const pointsBySeries = chartSeries.map(series => {
+    const [lower, upper] = scaleFor(series.reading);
+    return { ...series, points: series.history.map(bucket => ({
+      x: 130 + Math.max(0, Math.min(1, (Date.parse(bucket.bucket) - start) / (end - start))) * 655,
+      y: 180 - ((bucket.avg_value! - lower) / (upper - lower)) * 155,
+      bucket,
+    })) };
+  });
+  const activePoints = pointsBySeries.find(series => seriesKey(series.reading) === seriesKey(active ?? { metric: "", unit: "" }))?.points ?? [];
   const windowMetric = (reading: Reading) => data?.window?.metrics.find(item => item.metric === reading.metric && item.unit === reading.unit);
-  const path = points.map((point, index) => {
-    const previous = points[index - 1];
-    const interrupted = (fuelEntity && previous && Date.parse(point.bucket.bucket)-Date.parse(previous.bucket.bucket)>20*60*1000) || (barrierEntity && previous && (data?.history ?? []).some(b => b.avg_value === null && Date.parse(b.bucket)>Date.parse(previous.bucket.bucket) && Date.parse(b.bucket)<Date.parse(point.bucket.bucket)));
-    return !previous || interrupted ? `M ${point.x} ${point.y}` : (barrierEntity || fuelEntity) ? `H ${point.x} V ${point.y}` : `L ${point.x} ${point.y}`;
+  const pathFor = (series: typeof pointsBySeries[number]) => series.points.map((point, index) => {
+    const previous = series.points[index - 1];
+    const isFuel = series.reading.unit === "€/l";
+    const interrupted = (isFuel && previous && Date.parse(point.bucket.bucket)-Date.parse(previous.bucket.bucket)>20*60*1000) || (barrierEntity && previous && (data?.history ?? []).some(b => b.avg_value === null && Date.parse(b.bucket)>Date.parse(previous.bucket.bucket) && Date.parse(b.bucket)<Date.parse(point.bucket.bucket)));
+    return !previous || interrupted ? `M ${point.x} ${point.y}` : (barrierEntity || isFuel) ? `H ${point.x} V ${point.y}` : `L ${point.x} ${point.y}`;
   }).join(" ");
 
   return (
@@ -200,20 +215,21 @@ export default function TelemetryCharts({
           </button>)}
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">
-          <h4 className="font-semibold">{metricLabel(active)} · {unitLabel(active.unit)}</h4>
+          <h4 className="font-semibold">{chartSeries.length > 1 ? `Messwertgruppe · ${{ "temperature-humidity": "Temperatur & Luftfeuchtigkeit", "light-uv": "Licht & UV", "particulate-count": "Feinstaub · Partikelanzahl", "air-concentration": "Feinstaub & Luftschadstoffe", "fuel-price": "Kraftstoffpreise" }[group ?? ""] ?? "Messwerte"}` : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
+          {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)} · {unitLabel(series.reading.unit)}</span>)}</div>}
           {metricDescription(active) && <p className="mt-1 text-sm text-slate-400">{metricDescription(active)}</p>}
           <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : "5-Minuten-Mittelwerte"} · Uhrzeit Europe/Berlin</p>
           {fuelEntity && <p className="mt-2 text-xs text-slate-400">Gemeldete Preise in €/l. Zeitpunkte sind Abrufzeiten, keine exakten Preisänderungszeiten. Historie ab Beginn der Preiserfassung; Datenlücken werden nicht verbunden.</p>}
           {active.metric.startsWith("traffic_") && <p className="mt-2 text-xs text-amber-200">Stunden-/Tagessummen der Quelle, keine einzelnen Verkehrserfassungen. Aufeinanderfolgende Meldungen werden nicht addiert. Exakte Intervallgrenzen meldet die Quelle nicht.</p>}
           {data?.historyUnavailable && <p role="status" className="mt-2 text-sm text-amber-200">Der Zeitverlauf konnte nicht geladen werden. Aktuelle Werte bleiben sichtbar.</p>}
           {data?.historyTruncated && <p className="mt-2 text-sm text-amber-200">Der Verlauf ist auf die neuesten verfügbaren Meldungen dieses Zeitraums begrenzt.</p>}
-          {history.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten 24 Stunden.</p> : <>
-            <svg viewBox="0 0 800 225" role="img" aria-label={`${metricLabel(active)} in ${unitLabel(active.unit)}, letzte 24 Stunden`} className="w-full mt-5 touch-pan-y"
+          {activePoints.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten 24 Stunden.</p> : <>
+            <svg viewBox="0 0 850 225" role="img" aria-label={`${chartSeries.map(series => metricLabel(series.reading)).join(", ")}, letzte 24 Stunden`} className="w-full mt-5 touch-pan-y"
               onPointerMove={event => {
-                if (!points.length) return;
+                if (!activePoints.length) return;
                 const bounds = event.currentTarget.getBoundingClientRect();
-                const chartX = ((event.clientX - bounds.left) / bounds.width) * 800;
-                const nearest = points.reduce((best, point, index) => Math.abs(point.x - chartX) < Math.abs(points[best].x - chartX) ? index : best, 0);
+                const chartX = ((event.clientX - bounds.left) / bounds.width) * 850;
+                const nearest = activePoints.reduce((best, point, index) => Math.abs(point.x - chartX) < Math.abs(activePoints[best].x - chartX) ? index : best, 0);
                 setHoverIndex(nearest);
               }}
               onPointerLeave={() => setHoverIndex(null)}>
@@ -227,14 +243,21 @@ export default function TelemetryCharts({
                     </text>
                   </g>
                 ))
-              ) : (
-                [lower, (lower + upper) / 2, upper].map((value, index) => <g key={index}>
+              ) : active.metric === "crossing_state" ? (
+                ["Offen", "Schließt bald", "Geschlossen"].map((label, index) => <g key={label}>
                   <line x1="130" x2="785" y1={180 - index * 77.5} y2={180 - index * 77.5} stroke="#334155" strokeDasharray="4 4" />
-                  <text x="122" y={184 - index * 77.5} textAnchor="end" fill="#94a3b8" fontSize="11">{number(isCountMetric(active) ? Math.round(value) : value, active)}</text>
+                  <text x="122" y={184 - index * 77.5} textAnchor="end" fill="#94a3b8" fontSize="11">{label}</text>
                 </g>)
+              ) : (
+                scales.map(([lower, upper], unitIndex) => [lower, (lower + upper) / 2, upper].map((value, index) => <g key={`${unitIndex}-${index}`}>
+                  {unitIndex === 0 && <line x1="130" x2="785" y1={180 - index * 77.5} y2={180 - index * 77.5} stroke="#334155" strokeDasharray="4 4" />}
+                  <text x={unitIndex === 0 ? 122 : 792} y={184 - index * 77.5} textAnchor={unitIndex === 0 ? "end" : "start"} fill={seriesColors[unitIndex % seriesColors.length]} fontSize="11">{number(isCountMetric(chartSeries.find(series => series.reading.unit === units[unitIndex])?.reading ?? active) ? Math.round(value) : value, chartSeries.find(series => series.reading.unit === units[unitIndex])?.reading ?? active)}</text>
+                </g>))
               )}
-              {points.length > 1 && <path d={path} fill="none" stroke={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-              {points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"}><title>{time(point.bucket.bucket)}: {active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active)} ${unitLabel(active.unit)}`}</title></circle>)}
+              {pointsBySeries.map((series, seriesIndex) => <g key={seriesKey(series.reading)}>
+                {series.points.length > 1 && <path d={pathFor(series)} fill="none" stroke={seriesColors[seriesIndex % seriesColors.length]} strokeWidth={seriesKey(series.reading) === seriesKey(active) ? "2.5" : "2"} strokeLinejoin="round" strokeLinecap="round" />}
+                {series.points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.2" fill={seriesColors[seriesIndex % seriesColors.length]}><title>{metricLabel(series.reading)} · {time(point.bucket.bucket)}: {number(point.bucket.avg_value!, series.reading)} {unitLabel(series.reading.unit)}</title></circle>)}
+              </g>)}
               <line x1="130" x2="785" y1="180" y2="180" stroke="#64748b" />
               {Array.from({ length: 5 }, (_, index) => {
                 const timestamp = start + (end - start) * index / 4;
@@ -244,17 +267,27 @@ export default function TelemetryCharts({
                   <text x={x} y="202" textAnchor={index === 0 ? "start" : index === 4 ? "end" : "middle"} fill="#94a3b8" fontSize="11">{new Date(timestamp).toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}</text>
                 </g>;
               })}
-              {hoverIndex !== null && points[hoverIndex] && (() => {
-                const point = points[hoverIndex];
-                const tooltipX = Math.max(132, Math.min(575, point.x + 12));
-                const tooltipY = Math.max(4, point.y - 48);
-                const value = active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active)} ${unitLabel(active.unit)}`;
+              {hoverIndex !== null && activePoints[hoverIndex] && (() => {
+                const point = activePoints[hoverIndex];
+                const tooltipWidth = 250;
+                const tooltipHeight = 39 + chartSeries.length * 18;
+                const tooltipX = Math.max(132, Math.min(850 - tooltipWidth - 4, point.x + 12));
+                const tooltipY = Math.max(4, Math.min(180 - tooltipHeight, point.y - tooltipHeight - 8));
                 return <g pointerEvents="none">
                   <line x1={point.x} x2={point.x} y1="25" y2="180" stroke="#94a3b8" strokeDasharray="4 4" />
-                  <circle cx={point.x} cy={point.y} r="5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"} stroke="#ecfdf5" strokeWidth="2" />
-                  <rect x={tooltipX} y={tooltipY} width="200" height="42" rx="6" fill="#0f172a" stroke="#475569" />
+                  {pointsBySeries.map((series, index) => {
+                    const nearest = series.points.reduce((best, candidate, candidateIndex) => Math.abs(candidate.x - point.x) < Math.abs(series.points[best].x - point.x) ? candidateIndex : best, 0);
+                    const sample = series.points[nearest];
+                    return <circle key={seriesKey(series.reading)} cx={sample.x} cy={sample.y} r="5" fill={seriesColors[index % seriesColors.length]} stroke="#ecfdf5" strokeWidth="2" />;
+                  })}
+                  <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="6" fill="#0f172a" stroke="#475569" />
                   <text x={tooltipX + 9} y={tooltipY + 16} fill="#cbd5e1" fontSize="11">{time(point.bucket.bucket)}</text>
-                  <text x={tooltipX + 9} y={tooltipY + 33} fill="#f8fafc" fontSize="12" fontWeight="600">{value}</text>
+                  {pointsBySeries.map((series, index) => {
+                    const nearest = series.points.reduce((best, candidate, candidateIndex) => Math.abs(candidate.x - point.x) < Math.abs(series.points[best].x - point.x) ? candidateIndex : best, 0);
+                    const sample = series.points[nearest];
+                    const value = series.reading.metric === "crossing_state" ? crossingStateLabel(sample.bucket.avg_value!) : `${number(sample.bucket.avg_value!, series.reading)} ${unitLabel(series.reading.unit)}`;
+                    return <text key={seriesKey(series.reading)} x={tooltipX + 9} y={tooltipY + 33 + index * 18} fill={seriesColors[index % seriesColors.length]} fontSize="11" fontWeight="600">{metricLabel(series.reading)}: {value}</text>;
+                  })}
                 </g>;
               })()}
             </svg>
