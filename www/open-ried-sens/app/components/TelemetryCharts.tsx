@@ -193,7 +193,7 @@ export default function TelemetryCharts({
         );
       })()}
       {(readings.length > 0 || (mobilityEntity && active)) && <>
-        <div className="grid grid-cols-1 items-start sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 auto-rows-fr sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {measurementCardGroups(readings).map(cardReadings => {
             const grouped = cardReadings.length > 1;
             const groupId = measurementGroup(cardReadings[0]);
@@ -209,7 +209,7 @@ export default function TelemetryCharts({
               setLocalSelectedSeries(k);
               setHoverIndex(null);
               onSelectMetric?.(k);
-            }} className={`min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400 ${grouped && cardReadings.length >= 6 ? "sm:col-span-2 xl:col-span-2" : ""}`}>
+            }} className="h-full min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
               <span className="block text-sm text-slate-400">{grouped ? title : metricLabel(cardReadings[0])}</span>
               {grouped ? <>
                 {groupDescription && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{groupDescription}</span>}
