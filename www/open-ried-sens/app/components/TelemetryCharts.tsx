@@ -85,6 +85,9 @@ export default function TelemetryCharts({
   const scaleFor = (reading: Reading) => scales[Math.max(0, units.indexOf(reading.unit))] ?? [0, 1] as [number, number];
   const start = data ? Date.parse(data.start) : 0;
   const end = data ? Date.parse(data.end) : 1;
+  const tickStep = 6 * 60 * 60 * 1000;
+  const firstTick = Math.ceil(start / tickStep) * tickStep;
+  const timeTicks = Array.from({ length: 5 }, (_, index) => firstTick + index * tickStep).filter(timestamp => timestamp <= end);
   const pointsBySeries = chartSeries.map(series => {
     const [lower, upper] = scaleFor(series.reading);
     return { ...series, points: series.history.map(bucket => ({
@@ -227,7 +230,7 @@ export default function TelemetryCharts({
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">
           <h4 className="font-semibold">{chartReadings.length > 1 ? measurementGroupLabel(group) ?? "Messwerte" : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
-          {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)} · {unitLabel(series.reading.unit)}</span>)}</div>}
+          {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)}</span>)}</div>}
           {(chartReadings.length > 1 ? measurementGroupDescription(group) : metricDescription(active)) && <p className="mt-1 text-sm text-slate-400">{chartReadings.length > 1 ? measurementGroupDescription(group) : metricDescription(active)}</p>}
           <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : "5-Minuten-Mittelwerte"} · Uhrzeit Europe/Berlin</p>
           {fuelEntity && <p className="mt-2 text-xs text-slate-400">Gemeldete Preise in €/l. Zeitpunkte sind Abrufzeiten, keine exakten Preisänderungszeiten. Historie ab Beginn der Preiserfassung; Datenlücken werden nicht verbunden.</p>}
@@ -260,17 +263,17 @@ export default function TelemetryCharts({
                   <text x={unitIndex === 0 ? 122 : 792} y={184 - index * 77.5} textAnchor={unitIndex === 0 ? "end" : "start"} fill={seriesColors[unitIndex % seriesColors.length]} fontSize="11">{number(isCountMetric(chartSeries.find(series => series.reading.unit === units[unitIndex])?.reading ?? active) ? Math.round(value) : value, chartSeries.find(series => series.reading.unit === units[unitIndex])?.reading ?? active)}</text>
                 </g>))
               )}
+              {active.metric !== "crossing_state" && units.map((unit, index) => <text key={unit} x={index === 0 ? 122 : 792} y="16" textAnchor={index === 0 ? "end" : "start"} fill={seriesColors[index % seriesColors.length]} fontSize="10">{unitLabel(unit)}</text>)}
               {pointsBySeries.map((series, seriesIndex) => <g key={seriesKey(series.reading)}>
                 {series.points.length > 1 && <path d={pathFor(series)} fill="none" stroke={seriesColors[seriesIndex % seriesColors.length]} strokeWidth={seriesKey(series.reading) === seriesKey(active) ? "2.5" : "2"} strokeLinejoin="round" strokeLinecap="round" />}
-                {series.points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.2" fill={seriesColors[seriesIndex % seriesColors.length]}><title>{metricLabel(series.reading)} · {time(point.bucket.bucket)}: {number(point.bucket.avg_value!, series.reading)} {unitLabel(series.reading.unit)}</title></circle>)}
+                {series.points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.2" fill={seriesColors[seriesIndex % seriesColors.length]} />)}
               </g>)}
               <line x1="130" x2="785" y1="180" y2="180" stroke="#64748b" />
-              {Array.from({ length: 5 }, (_, index) => {
-                const timestamp = start + (end - start) * index / 4;
-                const x = 130 + 655 * index / 4;
+              {timeTicks.map((timestamp, index) => {
+                const x = 130 + 655 * (timestamp - start) / (end - start);
                 return <g key={index}>
                   <line x1={x} x2={x} y1="180" y2="184" stroke="#64748b" />
-                  <text x={x} y="202" textAnchor={index === 0 ? "start" : index === 4 ? "end" : "middle"} fill="#94a3b8" fontSize="11">{new Date(timestamp).toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}</text>
+                  <text x={x} y="202" textAnchor={x < 150 ? "start" : x > 765 ? "end" : "middle"} fill="#94a3b8" fontSize="11">{new Date(timestamp).toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit" })}:00</text>
                 </g>;
               })}
               {hoverIndex !== null && activePoints[hoverIndex] && (() => {
