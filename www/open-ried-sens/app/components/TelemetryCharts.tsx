@@ -12,7 +12,7 @@ type WindowMetric = { metric: string; unit: string; min_value: number | null; me
 type SensorWindow = { window_start: string; window_end: string; window_seconds: number; metrics: WindowMetric[] };
 type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyUnavailable?: boolean; historyTruncated?: boolean };
 const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
-const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export default function TelemetryCharts({
   node,
@@ -246,13 +246,13 @@ export default function TelemetryCharts({
               })}
               {hoverIndex !== null && points[hoverIndex] && (() => {
                 const point = points[hoverIndex];
-                const tooltipX = Math.max(132, Math.min(632, point.x + 12));
+                const tooltipX = Math.max(132, Math.min(575, point.x + 12));
                 const tooltipY = Math.max(4, point.y - 48);
                 const value = active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active)} ${unitLabel(active.unit)}`;
                 return <g pointerEvents="none">
                   <line x1={point.x} x2={point.x} y1="25" y2="180" stroke="#94a3b8" strokeDasharray="4 4" />
                   <circle cx={point.x} cy={point.y} r="5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"} stroke="#ecfdf5" strokeWidth="2" />
-                  <rect x={tooltipX} y={tooltipY} width="156" height="42" rx="6" fill="#0f172a" stroke="#475569" />
+                  <rect x={tooltipX} y={tooltipY} width="200" height="42" rx="6" fill="#0f172a" stroke="#475569" />
                   <text x={tooltipX + 9} y={tooltipY + 16} fill="#cbd5e1" fontSize="11">{time(point.bucket.bucket)}</text>
                   <text x={tooltipX + 9} y={tooltipY + 33} fill="#f8fafc" fontSize="12" fontWeight="600">{value}</text>
                 </g>;
