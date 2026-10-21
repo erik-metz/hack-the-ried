@@ -5,6 +5,8 @@ import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@
 import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel, measurementGroupDescription } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
+import { ChartContainer } from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from "recharts";
 
 type Reading = { metric: string; unit: string; value: number; timestamp: string };
 type Bucket = { metric: string; unit: string; bucket: string; avg_value: number | null };
@@ -14,6 +16,7 @@ type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow
 const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
 const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const seriesColors = ["#34d399", "#38bdf8", "#fbbf24", "#c084fc", "#fb7185", "#a3e635", "#22d3ee", "#f97316"];
+const axisDate = (value: number) => new Date(value).toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
 
 export default function TelemetryCharts({
   node,
@@ -32,7 +35,6 @@ export default function TelemetryCharts({
   const [error, setError] = useState(false);
   const [localSelectedSeries, setLocalSelectedSeries] = useState(selectedMetric ?? "");
   const selectedSeries = selectedMetric ?? localSelectedSeries;
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const mobilityEntity = node.id.startsWith("movement:") || node.id.startsWith("crossing:");
   const barrierEntity = node.id.startsWith("crossing:");
   const fuelEntity = node.id.startsWith("fuel-");
@@ -82,21 +84,23 @@ export default function TelemetryCharts({
     const scaleReading = unitSeries.find(series => isCountMetric(series.reading))?.reading ?? unitSeries[0]?.reading ?? active!;
     return chartScale(scaleReading, unitSeries.flatMap(series => series.history.map(bucket => bucket.avg_value!)), fuelEntity || unit === "€/l");
   });
-  const scaleFor = (reading: Reading) => scales[Math.max(0, units.indexOf(reading.unit))] ?? [0, 1] as [number, number];
   const start = data ? Date.parse(data.start) : 0;
   const end = data ? Date.parse(data.end) : 1;
-  const tickStep = 6 * 60 * 60 * 1000;
-  const firstTick = Math.ceil(start / tickStep) * tickStep;
-  const timeTicks = Array.from({ length: 5 }, (_, index) => firstTick + index * tickStep).filter(timestamp => timestamp <= end);
-  const pointsBySeries = chartSeries.map(series => {
-    const [lower, upper] = scaleFor(series.reading);
-    return { ...series, points: series.history.map(bucket => ({
-      x: 130 + Math.max(0, Math.min(1, (Date.parse(bucket.bucket) - start) / (end - start))) * 655,
-      y: 180 - ((bucket.avg_value! - lower) / (upper - lower)) * 155,
-      bucket,
-    })) };
-  });
-  const activePoints = pointsBySeries.find(series => seriesKey(series.reading) === seriesKey(active ?? { metric: "", unit: "" }))?.points ?? [];
+  const chartDefinitions = chartSeries.map((series, index) => ({
+    ...series,
+    key: `series${index}`,
+    axisId: `unit-${units.indexOf(series.reading.unit)}`,
+    color: seriesColors[index % seriesColors.length],
+  }));
+  const chartData = [...chartSeries.reduce((rows, series, index) => {
+    for (const bucket of series.history) {
+      const timestamp = Date.parse(bucket.bucket);
+      const row = rows.get(timestamp) ?? { timestamp };
+      row[`series${index}`] = bucket.avg_value;
+      rows.set(timestamp, row);
+    }
+    return rows;
+  }, new Map<number, { timestamp: number; [key: string]: number | null }>()).values()].sort((a, b) => a.timestamp - b.timestamp);
   const windowMetric = (reading: Reading) => data?.window?.metrics.find(item => item.metric === reading.metric && item.unit === reading.unit);
   const readingRangeSummary = (reading: Reading) => {
     const dailyRange = measurementRange(reading, (data?.history ?? []).map(sample => ({ metric: sample.metric, unit: sample.unit, value: sample.avg_value })));
@@ -108,13 +112,6 @@ export default function TelemetryCharts({
       : "Fenstermittel";
     return `${Math.round(data!.window!.window_seconds / 60)}-Minuten-Fenster · ${range} · n=${summary.sample_count}`;
   };
-  const pathFor = (series: typeof pointsBySeries[number]) => series.points.map((point, index) => {
-    const previous = series.points[index - 1];
-    const isFuel = series.reading.unit === "€/l";
-    const interrupted = (isFuel && previous && Date.parse(point.bucket.bucket)-Date.parse(previous.bucket.bucket)>20*60*1000) || (barrierEntity && previous && (data?.history ?? []).some(b => b.avg_value === null && Date.parse(b.bucket)>Date.parse(previous.bucket.bucket) && Date.parse(b.bucket)<Date.parse(point.bucket.bucket)));
-    return !previous || interrupted ? `M ${point.x} ${point.y}` : (barrierEntity || isFuel) ? `H ${point.x} V ${point.y}` : `L ${point.x} ${point.y}`;
-  }).join(" ");
-
   return (
     <section id="messwerte" className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-6 space-y-6">
       <div className="grid gap-5 lg:grid-cols-2 border-b border-slate-800 pb-5">
@@ -210,7 +207,6 @@ export default function TelemetryCharts({
               const reading = cardReadings.find(item => seriesKey(item) === (active && seriesKey(active))) ?? cardReadings[0];
               const k = seriesKey(reading);
               setLocalSelectedSeries(k);
-              setHoverIndex(null);
               onSelectMetric?.(k);
             }} className="h-full min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
               <span className="block text-sm text-slate-400">{grouped ? title : metricLabel(cardReadings[0])}</span>
@@ -237,69 +233,76 @@ export default function TelemetryCharts({
           {active.metric.startsWith("traffic_") && <p className="mt-2 text-xs text-amber-200">Stunden-/Tagessummen der Quelle, keine einzelnen Verkehrserfassungen. Aufeinanderfolgende Meldungen werden nicht addiert. Exakte Intervallgrenzen meldet die Quelle nicht.</p>}
           {data?.historyUnavailable && <p role="status" className="mt-2 text-sm text-amber-200">Der Zeitverlauf konnte nicht geladen werden. Aktuelle Werte bleiben sichtbar.</p>}
           {data?.historyTruncated && <p className="mt-2 text-sm text-amber-200">Der Verlauf ist auf die neuesten verfügbaren Meldungen dieses Zeitraums begrenzt.</p>}
-          {activePoints.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten 24 Stunden.</p> : <>
-            <svg viewBox="0 0 850 225" role="img" aria-label={`${chartSeries.map(series => metricLabel(series.reading)).join(", ")}, letzte 24 Stunden`} className="w-full mt-5 touch-pan-y"
-              onPointerMove={event => {
-                if (!activePoints.length) return;
-                const bounds = event.currentTarget.getBoundingClientRect();
-                const chartX = ((event.clientX - bounds.left) / bounds.width) * 850;
-                const nearest = activePoints.reduce((best, point, index) => Math.abs(point.x - chartX) < Math.abs(activePoints[best].x - chartX) ? index : best, 0);
-                setHoverIndex(nearest);
-              }}
-              onPointerLeave={() => setHoverIndex(null)}>
-              <rect x="130" y="25" width="655" height="155" fill="transparent" pointerEvents="all" />
-              {active.metric === "crossing_state" ? (
-                [0, 1, 2].map((stateVal, idx) => (
-                  <g key={idx}>
-                    <line x1="130" x2="785" y1={180 - idx * 77.5} y2={180 - idx * 77.5} stroke="#334155" strokeDasharray="4 4" />
-                    <text x="122" y={184 - idx * 77.5} textAnchor="end" fill="#94a3b8" fontSize="11">
-                      {stateVal === 2 ? "Geschlossen" : stateVal === 1 ? "Schließt bald" : "Offen"}
-                    </text>
-                  </g>
-                ))
-              ) : (
-                scales.map(([lower, upper], unitIndex) => [lower, (lower + upper) / 2, upper].map((value, index) => <g key={`${unitIndex}-${index}`}>
-                  {unitIndex === 0 && <line x1="130" x2="785" y1={180 - index * 77.5} y2={180 - index * 77.5} stroke="#334155" strokeDasharray="4 4" />}
-                  <text x={unitIndex === 0 ? 122 : 792} y={184 - index * 77.5} textAnchor={unitIndex === 0 ? "end" : "start"} fill={seriesColors[unitIndex % seriesColors.length]} fontSize="11">{number(isCountMetric(chartSeries.find(series => series.reading.unit === units[unitIndex])?.reading ?? active) ? Math.round(value) : value, chartSeries.find(series => series.reading.unit === units[unitIndex])?.reading ?? active)}</text>
-                </g>))
-              )}
-              {active.metric !== "crossing_state" && units.map((unit, index) => <text key={unit} x={index === 0 ? 122 : 792} y="16" textAnchor={index === 0 ? "end" : "start"} fill={seriesColors[index % seriesColors.length]} fontSize="10">{unitLabel(unit)}</text>)}
-              {pointsBySeries.map((series, seriesIndex) => <g key={seriesKey(series.reading)}>
-                {series.points.length > 1 && <path d={pathFor(series)} fill="none" stroke={seriesColors[seriesIndex % seriesColors.length]} strokeWidth={seriesKey(series.reading) === seriesKey(active) ? "2.5" : "2"} strokeLinejoin="round" strokeLinecap="round" />}
-                {series.points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.2" fill={seriesColors[seriesIndex % seriesColors.length]} />)}
-              </g>)}
-              <line x1="130" x2="785" y1="180" y2="180" stroke="#64748b" />
-              {timeTicks.map((timestamp, index) => {
-                const x = 130 + 655 * (timestamp - start) / (end - start);
-                return <g key={index}>
-                  <line x1={x} x2={x} y1="180" y2="184" stroke="#64748b" />
-                  <text x={x} y="202" textAnchor={x < 150 ? "start" : x > 765 ? "end" : "middle"} fill="#94a3b8" fontSize="11">{new Date(timestamp).toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit" })}:00</text>
-                </g>;
-              })}
-              {hoverIndex !== null && activePoints[hoverIndex] && (() => {
-                const point = activePoints[hoverIndex];
-                const tooltipWidth = 250;
-                const tooltipHeight = 39 + chartSeries.length * 18;
-                const tooltipX = Math.max(132, Math.min(850 - tooltipWidth - 4, point.x + 12));
-                const tooltipY = Math.max(4, Math.min(180 - tooltipHeight, point.y - tooltipHeight - 8));
-                return <g pointerEvents="none">
-                  <line x1={point.x} x2={point.x} y1="25" y2="180" stroke="#94a3b8" strokeDasharray="4 4" />
-                  {pointsBySeries.map((series, index) => {
-                    const nearest = series.points.reduce((best, candidate, candidateIndex) => Math.abs(candidate.x - point.x) < Math.abs(series.points[best].x - point.x) ? candidateIndex : best, 0);
-                    const sample = series.points[nearest];
-                    return <circle key={seriesKey(series.reading)} cx={sample.x} cy={sample.y} r="5" fill={seriesColors[index % seriesColors.length]} stroke="#ecfdf5" strokeWidth="2" />;
-                  })}
-                  <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="6" fill="#0f172a" stroke="#475569" />
-                  <text x={tooltipX + 9} y={tooltipY + 16} fill="#cbd5e1" fontSize="11">{time(point.bucket.bucket)}</text>
-                  {pointsBySeries.map((series, index) => {
-                    const nearest = series.points.reduce((best, candidate, candidateIndex) => Math.abs(candidate.x - point.x) < Math.abs(series.points[best].x - point.x) ? candidateIndex : best, 0);
-                    const sample = series.points[nearest];
-                    const value = series.reading.metric === "crossing_state" ? crossingStateLabel(sample.bucket.avg_value!) : `${number(sample.bucket.avg_value!, series.reading)} ${unitLabel(series.reading.unit)}`;
-                    return <text key={seriesKey(series.reading)} x={tooltipX + 9} y={tooltipY + 33 + index * 18} fill={seriesColors[index % seriesColors.length]} fontSize="11" fontWeight="600">{metricLabel(series.reading)}: {value}</text>;
-                  })}
-                </g>;
-              })()}
-            </svg>
+          {chartData.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten 24 Stunden.</p> : <>
+            <ChartContainer className="mt-5 h-[320px] sm:h-[360px]">
+              <AreaChart data={chartData} margin={{ top: 8, right: units.length > 1 ? 8 : 18, bottom: 4, left: 0 }}>
+                <defs>
+                  {chartDefinitions.map(series => <linearGradient key={series.key} id={`fill-${series.key}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={series.color} stopOpacity={0.28} />
+                    <stop offset="95%" stopColor={series.color} stopOpacity={0.015} />
+                  </linearGradient>)}
+                </defs>
+                <CartesianGrid vertical={false} stroke="#334155" strokeDasharray="3 5" />
+                <XAxis
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={[start, end]}
+                  tickCount={5}
+                  axisLine={false}
+                  tickLine={false}
+                  tickMargin={10}
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  tickFormatter={axisDate}
+                  minTickGap={28}
+                />
+                {units.map((unit, index) => {
+                  const reading = chartSeries.find(series => series.reading.unit === unit)?.reading ?? active;
+                  return <YAxis
+                    key={unit}
+                    yAxisId={`unit-${index}`}
+                    orientation={index === 0 ? "left" : "right"}
+                    width={58}
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={8}
+                    tick={{ fill: seriesColors[index % seriesColors.length], fontSize: 11 }}
+                    domain={active.metric === "crossing_state" ? [0, 2] : scales[index]}
+                    ticks={active.metric === "crossing_state" ? [0, 1, 2] : undefined}
+                    tickFormatter={value => active.metric === "crossing_state" ? crossingStateLabel(Number(value)) : number(Number(value), reading)}
+                    label={{ value: unitLabel(unit), angle: index === 0 ? -90 : 90, position: index === 0 ? "insideLeft" : "insideRight", fill: seriesColors[index % seriesColors.length], fontSize: 11 }}
+                  />;
+                })}
+                <Tooltip
+                  cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4", strokeWidth: 1 }}
+                  labelFormatter={value => time(new Date(Number(value)).toISOString())}
+                  formatter={(value, _name, item) => {
+                    const series = chartDefinitions.find(definition => definition.key === item.dataKey);
+                    if (!series || value === null || value === undefined) return ["–", ""];
+                    const formatted = series.reading.metric === "crossing_state" ? crossingStateLabel(Number(value)) : `${number(Number(value), series.reading)} ${unitLabel(series.reading.unit)}`;
+                    return [formatted, metricLabel(series.reading)];
+                  }}
+                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #475569", borderRadius: 12, boxShadow: "0 12px 30px rgb(0 0 0 / 0.35)", padding: "10px 12px" }}
+                  itemStyle={{ color: "#e2e8f0", fontSize: 12, padding: "2px 0" }}
+                  labelStyle={{ color: "#94a3b8", fontSize: 11, marginBottom: 6 }}
+                />
+                {chartDefinitions.length > 1 && <Legend verticalAlign="top" align="left" height={34} iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 12, color: "#cbd5e1" }} formatter={value => metricLabel(chartDefinitions.find(series => series.key === value)?.reading ?? active)} />}
+                {chartDefinitions.map(series => <Area
+                  key={series.key}
+                  type={barrierEntity || series.reading.unit === "€/l" ? "stepAfter" : "monotone"}
+                  dataKey={series.key}
+                  name={series.key}
+                  yAxisId={series.axisId}
+                  stroke={series.color}
+                  strokeWidth={seriesKey(series.reading) === seriesKey(active) ? 2.8 : 2}
+                  fill={`url(#fill-${series.key})`}
+                  activeDot={{ r: 5, stroke: "#f8fafc", strokeWidth: 2 }}
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />)}
+              </AreaChart>
+            </ChartContainer>
           </>}
         </div>}
       </>}
