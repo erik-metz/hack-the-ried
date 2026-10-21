@@ -457,7 +457,9 @@ test("related readings are grouped across sensor types that share a chart contex
   const cases = [
     [[["parking_free", "count"], ["parking_occupied", "count"], ["parking_capacity", "count"]], "Stellplätze"],
     [[["bike_available", "count"], ["bike_racks_free", "count"], ["bike_capacity", "count"]], "Leihräder"],
-    [[["pm10", "µg/m³"], ["PM2.5", "µg/m³"], ["particle_number_pm2_5", "#/cm³"]], "Feinstaub"],
+    [[["pm10", "µg/m³"], ["PM2.5", "µg/m³"]], "Feinstaub · Masse"],
+    [[["particle_number_pm2_5", "#/cm³"], ["particle_number_pm10", "#/cm³"]], "Feinstaub · Partikelanzahl"],
+    [[["particle_size_typical", "nm"], ["particle_size_typical", "µm"]], "Feinstaub · Partikelgröße"],
     [[["illuminance", "lx"], ["uv_intensity", "μW/cm²"]], "Licht & UV"],
     [[["temperature", "°C"], ["relative_humidity", "%"], ["dew_point", "°C"]], "Temperatur & Luftfeuchtigkeit"],
     [[["soil_moisture_30cm", "%"], ["soil_tension_30cm", "kPa"]], "Bodenfeuchte"],
@@ -478,7 +480,7 @@ test("related readings are grouped across sensor types that share a chart contex
     assert.equal(groups[0].length, metrics.length);
   }
   assert.equal(telemetry.measurementGroup(reading("ltr390_als_raw", "raw")), undefined);
-  assert.equal(telemetry.measurementGroup(reading("particle_size_typical", "µm")), undefined);
+  assert.equal(telemetry.measurementGroupLabel(telemetry.measurementGroup(reading("particle_size_typical", "µm"))), "Feinstaub · Partikelgröße");
   assert.equal(telemetry.metricLabel(reading("parking_occupancy_pct", "%")), "Stellplatzbelegung");
   assert.equal(telemetry.metricLabel(reading("day_ahead_price", "EUR/MWh")), "Börsenstrompreis");
   assert.equal(telemetry.metricLabel(reading("dew_point", "°C")), "Taupunkt");

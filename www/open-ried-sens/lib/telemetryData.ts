@@ -7,7 +7,9 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
   const metric = reading.metric.toLocaleLowerCase("de-DE").replace(/[.-]/g, "_");
   if (["temperature", "scd41_temperature", "bme688_temperature", "humidity", "relative_humidity", "scd41_humidity", "bme688_humidity", "dew_point"].includes(metric)) return "temperature-humidity";
   if (["ambient_light", "illuminance", "uv_index", "uv_intensity"].includes(metric)) return "light-uv";
-  if (["pm0_5", "pm1_0", "pm2_5", "pm25", "pm4_0", "pm10", "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) return "particulate";
+  if (metric === "particle_size_typical") return "particulate-size";
+  if (["particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) return "particulate-count";
+  if (["pm0_5", "pm1_0", "pm2_5", "pm25", "pm4_0", "pm10"].includes(metric)) return "particulate-mass";
   if (["no2", "o3", "so2", "co2"].includes(metric)) return "air-pollutants";
   if (["sgp41_voc_index", "sgp41_nox_index", "air_quality_index"].includes(metric)) return "air-quality";
   if (["parking_free", "parking_occupied", "parking_capacity", "parking_occupancy_pct"].includes(metric)) return "parking";
@@ -25,7 +27,9 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
 const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
   "temperature-humidity": "Temperatur & Luftfeuchtigkeit",
   "light-uv": "Licht & UV",
-  particulate: "Feinstaub",
+  "particulate-mass": "Feinstaub · Masse",
+  "particulate-count": "Feinstaub · Partikelanzahl",
+  "particulate-size": "Feinstaub · Partikelgröße",
   "air-pollutants": "Luftschadstoffe",
   "air-quality": "Luftqualität",
   parking: "Stellplätze",
@@ -42,7 +46,9 @@ const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
 const MEASUREMENT_GROUP_DESCRIPTIONS: Record<string, string> = {
   "temperature-humidity": "Temperatur, Luftfeuchtigkeit und bei passenden Sensoren der Taupunkt im gemeinsamen zeitlichen Verlauf.",
   "light-uv": "Helligkeit und UV werden je nach Einheit mit getrennten Skalen verglichen.",
-  particulate: "Masse und Anzahl der Feinstaubpartikel nach Größenklasse.",
+  "particulate-mass": "Masse der Feinstaubpartikel pro Luftvolumen, getrennt nach Größenklasse.",
+  "particulate-count": "Anzahl der Feinstaubpartikel pro Luftvolumen, getrennt nach Größenklasse.",
+  "particulate-size": "Typische Größe der erfassten Schwebeteilchen.",
   "air-pollutants": "Konzentrationen verschiedener Luftschadstoffe; unterschiedliche Einheiten haben eigene Skalen.",
   "air-quality": "Sensorindizes für flüchtige Stoffe und Stickoxide; Indizes sind keine Konzentrationswerte.",
   parking: "Freie, belegte und insgesamt verfügbare Stellplätze an diesem Standort.",
