@@ -12,11 +12,11 @@ const LABELS: Record<string, string> = {
   uv_index: "UV-Index",
   ambient_light: "Umgebungslicht",
   co2: "Kohlendioxid (CO₂)",
-  scd41_temperature: "Temperatur (SCD41)",
-  scd41_humidity: "Luftfeuchtigkeit (SCD41)",
+  scd41_temperature: "Temperatur",
+  scd41_humidity: "Luftfeuchtigkeit",
   bme688_temperature: "Temperatur",
   bme688_humidity: "Luftfeuchtigkeit",
-  bme688_gas_resistance: "Gasempfindlichkeit",
+  bme688_gas_resistance: "Luftgüte-Signal",
   pressure: "Luftdruck",
   sound_level: "Lautstärke",
   particle_number_pm0_5: "Ultrafeine Partikel (PM₀,₅)",
@@ -107,13 +107,23 @@ export function chartScale(reading: { metric: string; unit: string }, values: nu
   return [lower, upper];
 }
 
+export function measurementRange(
+  reading: { metric: string; unit: string },
+  samples: { metric: string; unit: string; value: number | null }[],
+): { min: number; max: number; count: number } | undefined {
+  const values = samples.filter(sample => sample.metric === reading.metric && sample.unit === reading.unit && sample.value !== null && Number.isFinite(sample.value)).map(sample => sample.value!);
+  if (!values.length) return undefined;
+  return { min: Math.min(...values), max: Math.max(...values), count: values.length };
+}
+
 export function metricLabel(reading: { metric: string; unit: string }): string {
   const traffic = reading.metric.match(/^traffic_(.+)_(hourly|daily_city|daily)$/);
   if (traffic) {
     const names: Record<string, string> = { total: "Verkehr gesamt", cars: "PKW", trucks: "LKW", buses: "Busse", bicycles: "Fahrräder", pedestrians: "Passanten", motorcycles: "Motorräder", other: "Sonstiger Verkehr" };
     return `${names[traffic[1]] ?? traffic[1]} · ${traffic[2] === "hourly" ? "Stundensumme" : traffic[2] === "daily_city" ? "Tagessumme Stadt" : "Tagessumme"}`;
   }
-  const known = LABELS[reading.metric];
+  const normalizedMetric = reading.metric.toLocaleLowerCase("de-DE").replace(/[.-]/g, "_");
+  const known = LABELS[reading.metric] ?? LABELS[normalizedMetric];
   if (known) return known;
   if (reading.metric === "value") return ({ celsius: "Temperatur", "°C": "Temperatur", dBm: "Signalstärke", mm: "Niederschlag" } as Record<string, string>)[reading.unit] ?? "Messwert";
   const humanized = reading.metric.replace(/_/g, " ").replace(/\bpm\s?(\d+(?:[._]\d+)?)\b/i, (_, size: string) => `PM${size.replace("_", ",").replace(".", ",")}`).replace(/\b\w/g, letter => letter.toLocaleUpperCase("de-DE"));
@@ -125,6 +135,7 @@ export function metricDescription(reading: { metric: string; unit: string }): st
   if (reading.metric.startsWith("particle_number_")) return `Anzahl der Partikel dieser Größenklasse pro ${reading.unit.includes("cm") ? "Kubikzentimeter" : "Volumeneinheit"}.`;
   if (/^pm(?:0_5|1_0|2_5|4_0|10)$/.test(reading.metric)) return "Masse der Feinstaubpartikel pro Luftvolumen in dieser Größenklasse.";
   if (reading.metric === "particle_size_typical") return "Typische Größe der erfassten Schwebeteilchen.";
+  if (reading.metric === "bme688_gas_resistance") return "Reaktionssignal auf flüchtige Stoffe; daraus lässt sich keine direkte Konzentration ablesen.";
   if (reading.metric === "sound_level") return "Momentaner Schalldruckpegel; dBFS ist ein relativer digitaler Messwert.";
   if (reading.metric === "ltr390_uv_raw" || reading.metric === "ltr390_als_raw") return "Unskalierter Sensorwert; für die Nutzung ist der berechnete Index aussagekräftiger.";
   return undefined;

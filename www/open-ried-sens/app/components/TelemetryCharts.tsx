@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 
@@ -172,6 +172,7 @@ export default function TelemetryCharts({
           {readings.map(reading => <button key={seriesKey(reading)} type="button" aria-pressed={seriesKey(reading) === (active && seriesKey(active))} onClick={() => {
             const k = seriesKey(reading);
             setLocalSelectedSeries(k);
+            setHoverIndex(null);
             onSelectMetric?.(k);
           }} className="min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
             <span className="block text-sm text-slate-400">{metricLabel(reading)}</span>
@@ -188,6 +189,8 @@ export default function TelemetryCharts({
             <span className="block mt-2 text-xs text-slate-500">Stand: {time(reading.timestamp)}</span>
             {(() => {
               const summary = windowMetric(reading);
+              const dailyRange = measurementRange(reading, (data?.history ?? []).map(sample => ({ metric: sample.metric, unit: sample.unit, value: sample.avg_value })));
+              if (dailyRange) return <span className="block mt-1 text-xs text-slate-400">24-Stunden-Verlauf · Min {number(dailyRange.min, reading)} · Max {number(dailyRange.max, reading)} · n={dailyRange.count}</span>;
               if (!summary) return null;
               const range = summary.min_value !== null && summary.max_value !== null
                 ? `Min ${number(summary.min_value, reading)} · Max ${number(summary.max_value, reading)}`
@@ -214,6 +217,7 @@ export default function TelemetryCharts({
                 setHoverIndex(nearest);
               }}
               onPointerLeave={() => setHoverIndex(null)}>
+              <rect x="130" y="25" width="655" height="155" fill="transparent" pointerEvents="all" />
               {active.metric === "crossing_state" ? (
                 [0, 1, 2].map((stateVal, idx) => (
                   <g key={idx}>

@@ -414,12 +414,22 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(telemetry.metricLabel(reading("bme688_temperature", 22.53, "°C")), "Temperatur");
   assert.equal(telemetry.metricLabel(reading("bme688_humidity", 48.15, "%")), "Luftfeuchtigkeit");
   assert.equal(telemetry.metricLabel(reading("pressure", 1013.2, "hPa")), "Luftdruck");
-  assert.equal(telemetry.metricLabel(reading("bme688_gas_resistance", 12000, "Ω")), "Gasempfindlichkeit");
+  assert.equal(telemetry.metricLabel(reading("bme688_gas_resistance", 12000, "Ω")), "Luftgüte-Signal");
+  assert.equal(telemetry.metricLabel(reading("particle_size_typical", 0.6, "µm")), "Typische Partikelgröße");
+  assert.equal(telemetry.metricLabel(reading("PARTICLE_NUMBER_PM0.5", 37.2, "#/cm³")), "Ultrafeine Partikel (PM₀,₅)");
+  assert.equal(telemetry.metricLabel(reading("pm1_0", 5.7, "µg/m³")), "Feinstaubmasse (PM₁)");
   assert.equal(telemetry.metricLabel(reading("sound_level", -32.4, "dBFS")), "Lautstärke");
   assert.equal(telemetry.metricLabel(reading("particle_number_pm2_5", 46.2, "#/cm³")), "Partikelanzahl (PM₂,₅)");
   assert.equal(telemetry.metricLabel(reading("pm2_5", 6.9, "µg/m³")), "Feinstaubmasse (PM₂,₅)");
   assert.match(telemetry.metricDescription(reading("sgp41_voc_index", 120, "index")), /flüchtige Stoffe/);
+  assert.match(telemetry.metricDescription(reading("particle_size_typical", 0.6, "µm")), /Typische Größe/);
   assert.deepEqual([...telemetry.chartScale(reading("temperature", 20, "°C"), [19.8, 20.9])], [17.85, 22.85]);
+  assert.deepEqual(JSON.parse(JSON.stringify(telemetry.measurementRange(reading("temperature", 20, "°C"), [
+    { metric: "temperature", unit: "°C", value: 19.8 },
+    { metric: "temperature", unit: "°C", value: null },
+    { metric: "temperature", unit: "°C", value: 20.9 },
+    { metric: "humidity", unit: "%", value: 60 },
+  ]))), { min: 19.8, max: 20.9, count: 2 });
   assert.equal(telemetry.metricPrecision(reading("sound_level", -32.4, "dBFS")), 1);
   assert.equal(telemetry.metricPrecision(reading("ltr390_uv_raw", 696, "raw")), 0);
   assert.equal(telemetry.metricPrecision(reading("sgp41_voc_index", 120, "index")), 0);
