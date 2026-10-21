@@ -96,6 +96,19 @@ test("telemetry preserves latest parking metrics when history fails", async () =
   assert.deepEqual(result.readings, readings);
   assert.equal(result.historyUnavailable, true);
 });
+test("telemetry hides unscaled LTR390 values from current readings and history", async () => {
+  const raw = { metric: "ltr390_uv_raw", value: 696, unit: "raw", timestamp: "2026-09-14T12:00:00Z" };
+  const visible = { metric: "uv_index", value: 2, unit: "index", timestamp: "2026-09-14T12:00:00Z" };
+  const route = load("app/api/telemetry/route.ts", { "@/env": { env: { BACKEND_API_URL: "https://backend.example" } } }, {
+    URL, URLSearchParams, Response, AbortSignal,
+    fetch: async url => url.pathname.endsWith("/metrics") ? Response.json([raw, visible])
+      : url.pathname.endsWith("/aggregates") ? Response.json([{ metric: raw.metric, unit: raw.unit, bucket: raw.timestamp, avg_value: raw.value }, { metric: visible.metric, unit: visible.unit, bucket: visible.timestamp, avg_value: visible.value }])
+      : Response.json(null),
+  });
+  const result = await (await route.GET(new Request("https://app.example/api/telemetry?sensor_id=rak"))).json();
+  assert.deepEqual(result.readings.map(reading => reading.metric), ["uv_index"]);
+  assert.deepEqual(result.history.map(reading => reading.metric), ["uv_index"]);
+});
 test("traffic snapshot history preserves counts instead of averaging totals", async () => {
   const calls = [];
   const readings = [{ metric: "traffic_cars_hourly", value: 664, unit: "count", timestamp: "2026-09-14T12:00:00Z" }];

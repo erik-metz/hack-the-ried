@@ -51,6 +51,23 @@ test("SCD41 CO2 readings are air readings", () => {
   assert.deepEqual([...nodes[0].categories], ["weather", "air"]);
   assert.equal(nodes[0].readings.some(({ metric }) => metric === "co2"), true);
 });
+test("unscaled LTR390 signals are omitted from frontend station readings", () => {
+  const nodes = model.toStationNodes([sensor([
+    reading("ltr390_uv_raw", 696, "raw"),
+    reading("ltr390_als_raw", 6170, "raw"),
+    reading("uv_index", 2, "index"),
+    reading("ambient_light", 58, "lux"),
+  ])]);
+  assert.deepEqual(nodes[0].readings.map(({ metric }) => metric), ["uv_index", "ambient_light"]);
+});
+test("CO2 and air-quality indicators share one comparison group", () => {
+  const readings = [reading("co2", 613, "ppm"), reading("sgp41_voc_index", 85, "index"), reading("sgp41_nox_index", 94, "index")];
+  const groups = telemetry.measurementCardGroups(readings);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].length, 3);
+  assert.equal(telemetry.measurementGroupLabel(telemetry.measurementGroup(readings[0])), "Luftqualität");
+  assert.match(telemetry.measurementGroupDescription("air-quality"), /CO₂/);
+});
 
 test("SCD41 temperature and humidity are omitted from frontend station readings", () => {
   const nodes = model.toStationNodes([sensor([

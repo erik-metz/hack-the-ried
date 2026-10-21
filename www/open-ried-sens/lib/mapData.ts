@@ -36,6 +36,7 @@ export type Reading = { metric: string; value: number; unit: string; timestamp: 
 export type MapMode = "category" | "temperature";
 export const HIDDEN_FRONTEND_METRICS = new Set([
   "sgp41_voc_raw", "sgp41_nox_raw", "scd41_temperature", "scd41_humidity",
+  "ltr390_uv_raw", "ltr390_als_raw",
 ]);
 export type Freshness = "fresh" | "stale" | "unknown" | "state";
 export type ApiMapSensor = {

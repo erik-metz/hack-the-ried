@@ -10,8 +10,8 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
   if (metric === "particle_size_typical") return "particulate-size";
   if (["particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) return "particulate-count";
   if (["pm0_5", "pm1_0", "pm2_5", "pm25", "pm4_0", "pm10"].includes(metric)) return "particulate-mass";
-  if (["no2", "o3", "so2", "co2"].includes(metric)) return "air-pollutants";
-  if (["sgp41_voc_index", "sgp41_nox_index", "air_quality_index"].includes(metric)) return "air-quality";
+  if (["no2", "o3", "so2"].includes(metric)) return "air-pollutants";
+  if (["co2", "bme688_co2_equivalent", "bme688_bvoc_equivalent", "sgp41_voc_index", "sgp41_nox_index", "air_quality_index"].includes(metric)) return "air-quality";
   if (["parking_free", "parking_occupied", "parking_capacity", "parking_occupancy_pct"].includes(metric)) return "parking";
   if (["bike_available", "bike_racks_free", "bike_capacity", "bike_ebikes"].includes(metric)) return "bikes";
   if (["soil_moisture", "soil_moisture_30cm", "soil_moisture_60cm", "soil_tension", "soil_tension_30cm", "soil_tension_60cm"].includes(metric)) return "soil-moisture";
@@ -50,7 +50,7 @@ const MEASUREMENT_GROUP_DESCRIPTIONS: Record<string, string> = {
   "particulate-count": "Anzahl der Feinstaubpartikel pro Luftvolumen, getrennt nach Größenklasse.",
   "particulate-size": "Typische Größe der erfassten Schwebeteilchen.",
   "air-pollutants": "Konzentrationen verschiedener Luftschadstoffe; unterschiedliche Einheiten haben eigene Skalen.",
-  "air-quality": "Sensorindizes für flüchtige Stoffe und Stickoxide; Indizes sind keine Konzentrationswerte.",
+  "air-quality": "CO₂-Messwerte und Hinweise auf flüchtige Stoffe oder Stickoxide. Sensorindizes zeigen Veränderungen und sind keine Konzentrationswerte.",
   parking: "Freie, belegte und insgesamt verfügbare Stellplätze an diesem Standort.",
   bikes: "Verfügbare Räder, freie Rückgabeplätze und Stationskapazität.",
   "soil-moisture": "Vergleich von Bodenwassergehalt und Bodensaugspannung, sofern beides erfasst wird.",
@@ -100,6 +100,8 @@ const LABELS: Record<string, string> = {
   sgp41_nox_index: "Luftqualität · Stickoxide",
   ltr390_uv_raw: "UV-Rohwert",
   ltr390_als_raw: "Licht-Rohwert",
+  bme688_co2_equivalent: "CO₂-Äquivalent",
+  bme688_bvoc_equivalent: "Flüchtige Stoffe · Äquivalent",
   uv_index: "UV-Index",
   ambient_light: "Umgebungslicht",
   illuminance: "Helligkeit",
@@ -238,6 +240,8 @@ export function metricDescription(reading: { metric: string; unit: string }): st
   if (reading.metric === "particle_size_typical") return "Typische Größe der erfassten Schwebeteilchen.";
   if (reading.metric === "bme688_gas_resistance") return "Reaktionssignal auf flüchtige Stoffe; daraus lässt sich keine direkte Konzentration ablesen.";
   if (reading.metric === "sound_level") return "Momentaner Schalldruckpegel; dBFS ist ein relativer digitaler Messwert.";
+  if (reading.metric === "bme688_co2_equivalent") return "Vom Sensor geschätzter CO₂-Äquivalentwert; kein direkt gemessener CO₂-Wert.";
+  if (reading.metric === "bme688_bvoc_equivalent") return "Vom Sensor geschätzter Wert für flüchtige organische Stoffe.";
   if (reading.metric === "ltr390_uv_raw" || reading.metric === "ltr390_als_raw") return "Unskalierter Sensorwert; für die Nutzung ist der berechnete Index aussagekräftiger.";
   if (reading.metric === "dew_point") return "Temperatur, bei der die Luftfeuchtigkeit durch Abkühlung 100 % erreicht.";
   if (reading.metric === "uv_intensity") return "Gemessene Stärke der ultravioletten Strahlung.";
