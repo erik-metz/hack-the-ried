@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 
@@ -95,6 +95,16 @@ export default function TelemetryCharts({
   });
   const activePoints = pointsBySeries.find(series => seriesKey(series.reading) === seriesKey(active ?? { metric: "", unit: "" }))?.points ?? [];
   const windowMetric = (reading: Reading) => data?.window?.metrics.find(item => item.metric === reading.metric && item.unit === reading.unit);
+  const readingRangeSummary = (reading: Reading) => {
+    const dailyRange = measurementRange(reading, (data?.history ?? []).map(sample => ({ metric: sample.metric, unit: sample.unit, value: sample.avg_value })));
+    if (dailyRange) return `24-Stunden-Verlauf · Min ${number(dailyRange.min, reading)} · Max ${number(dailyRange.max, reading)} · n=${dailyRange.count}`;
+    const summary = windowMetric(reading);
+    if (!summary) return undefined;
+    const range = summary.min_value !== null && summary.max_value !== null
+      ? `Min ${number(summary.min_value, reading)} · Max ${number(summary.max_value, reading)}`
+      : "Fenstermittel";
+    return `${Math.round(data!.window!.window_seconds / 60)}-Minuten-Fenster · ${range} · n=${summary.sample_count}`;
+  };
   const pathFor = (series: typeof pointsBySeries[number]) => series.points.map((point, index) => {
     const previous = series.points[index - 1];
     const isFuel = series.reading.unit === "€/l";
@@ -184,38 +194,45 @@ export default function TelemetryCharts({
       })()}
       {(readings.length > 0 || (mobilityEntity && active)) && <>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          {readings.map(reading => <button key={seriesKey(reading)} type="button" aria-pressed={seriesKey(reading) === (active && seriesKey(active))} onClick={() => {
-            const k = seriesKey(reading);
-            setLocalSelectedSeries(k);
-            setHoverIndex(null);
-            onSelectMetric?.(k);
-          }} className="min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
-            <span className="block text-sm text-slate-400">{metricLabel(reading)}</span>
-            {metricDescription(reading) && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{metricDescription(reading)}</span>}
-            <span className="block mt-2 text-2xl font-bold break-words">
-              {reading.metric === "crossing_state" ? (
-                crossingStateLabel(reading.value)
-              ) : (
-                <>
-                  {number(reading.value, reading)} <span className="text-sm font-normal text-slate-400">{unitLabel(reading.unit)}</span>
-                </>
-              )}
-            </span>
-            <span className="block mt-2 text-xs text-slate-500">Stand: {time(reading.timestamp)}</span>
-            {(() => {
-              const summary = windowMetric(reading);
-              const dailyRange = measurementRange(reading, (data?.history ?? []).map(sample => ({ metric: sample.metric, unit: sample.unit, value: sample.avg_value })));
-              if (dailyRange) return <span className="block mt-1 text-xs text-slate-400">24-Stunden-Verlauf · Min {number(dailyRange.min, reading)} · Max {number(dailyRange.max, reading)} · n={dailyRange.count}</span>;
-              if (!summary) return null;
-              const range = summary.min_value !== null && summary.max_value !== null
-                ? `Min ${number(summary.min_value, reading)} · Max ${number(summary.max_value, reading)}`
-                : "Fenstermittel";
-              return <span className="block mt-1 text-xs text-slate-400">{Math.round(data!.window!.window_seconds / 60)}-Minuten-Fenster · {range} · n={summary.sample_count}</span>;
-            })()}
-          </button>)}
+          {measurementCardGroups(readings).map(cardReadings => {
+            const grouped = cardReadings.length > 1;
+            const groupId = measurementGroup(cardReadings[0]);
+            const title = grouped ? measurementGroupLabel(groupId) ?? "Messwertgruppe" : metricLabel(cardReadings[0]);
+            const isActive = cardReadings.some(reading => seriesKey(reading) === (active && seriesKey(active)));
+            const descriptions = [...new Set(cardReadings.map(metricDescription).filter((description): description is string => Boolean(description)))];
+            const key = cardReadings.map(seriesKey).join("|");
+            return <button key={key} type="button" aria-pressed={isActive} onClick={() => {
+              const reading = cardReadings.find(item => seriesKey(item) === (active && seriesKey(active))) ?? cardReadings[0];
+              const k = seriesKey(reading);
+              setLocalSelectedSeries(k);
+              setHoverIndex(null);
+              onSelectMetric?.(k);
+            }} className="min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
+              <span className="block text-sm text-slate-400">{grouped ? title : metricLabel(cardReadings[0])}</span>
+              {grouped ? <>
+                {descriptions.length === 1 && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{descriptions[0]}</span>}
+                <span className="mt-2 block divide-y divide-slate-800">
+                  {cardReadings.map(reading => <span key={seriesKey(reading)} className="block py-2 first:pt-0 last:pb-0">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-xs text-slate-400">{metricLabel(reading)}</span>
+                      <span className="shrink-0 text-lg font-bold">{reading.metric === "crossing_state" ? crossingStateLabel(reading.value) : <>{number(reading.value, reading)} <span className="text-xs font-normal text-slate-400">{unitLabel(reading.unit)}</span></>}</span>
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">Stand: {time(reading.timestamp)}{readingRangeSummary(reading) ? ` · ${readingRangeSummary(reading)}` : ""}</span>
+                  </span>)}
+                </span>
+              </> : <>
+                {metricDescription(cardReadings[0]) && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{metricDescription(cardReadings[0])}</span>}
+                <span className="block mt-2 text-2xl font-bold break-words">
+                  {cardReadings[0].metric === "crossing_state" ? crossingStateLabel(cardReadings[0].value) : <>{number(cardReadings[0].value, cardReadings[0])} <span className="text-sm font-normal text-slate-400">{unitLabel(cardReadings[0].unit)}</span></>}
+                </span>
+                <span className="block mt-2 text-xs text-slate-500">Stand: {time(cardReadings[0].timestamp)}</span>
+                {readingRangeSummary(cardReadings[0]) && <span className="block mt-1 text-xs text-slate-400">{readingRangeSummary(cardReadings[0])}</span>}
+              </>}
+            </button>;
+          })}
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">
-          <h4 className="font-semibold">{chartSeries.length > 1 ? `Messwertgruppe · ${{ "temperature-humidity": "Temperatur & Luftfeuchtigkeit", "light-uv": "Licht & UV", "particulate-count": "Feinstaub · Partikelanzahl", "air-concentration": "Feinstaub & Luftschadstoffe", "fuel-price": "Kraftstoffpreise" }[group ?? ""] ?? "Messwerte"}` : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
+          <h4 className="font-semibold">{chartSeries.length > 1 ? `Messwertgruppe · ${measurementGroupLabel(group) ?? "Messwerte"}` : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
           {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)} · {unitLabel(series.reading.unit)}</span>)}</div>}
           {metricDescription(active) && <p className="mt-1 text-sm text-slate-400">{metricDescription(active)}</p>}
           <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : "5-Minuten-Mittelwerte"} · Uhrzeit Europe/Berlin</p>
@@ -243,11 +260,6 @@ export default function TelemetryCharts({
                     </text>
                   </g>
                 ))
-              ) : active.metric === "crossing_state" ? (
-                ["Offen", "Schließt bald", "Geschlossen"].map((label, index) => <g key={label}>
-                  <line x1="130" x2="785" y1={180 - index * 77.5} y2={180 - index * 77.5} stroke="#334155" strokeDasharray="4 4" />
-                  <text x="122" y={184 - index * 77.5} textAnchor="end" fill="#94a3b8" fontSize="11">{label}</text>
-                </g>)
               ) : (
                 scales.map(([lower, upper], unitIndex) => [lower, (lower + upper) / 2, upper].map((value, index) => <g key={`${unitIndex}-${index}`}>
                   {unitIndex === 0 && <line x1="130" x2="785" y1={180 - index * 77.5} y2={180 - index * 77.5} stroke="#334155" strokeDasharray="4 4" />}

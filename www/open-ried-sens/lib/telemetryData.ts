@@ -14,6 +14,40 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
   if (["fuel_e5", "fuel_e10", "fuel_diesel"].includes(metric)) return "fuel-price";
   return undefined;
 }
+const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
+  "temperature-humidity": "Temperatur & Luftfeuchtigkeit",
+  "light-uv": "Licht & UV",
+  "particulate-count": "Feinstaub · Partikelanzahl",
+  "air-concentration": "Feinstaub & Luftschadstoffe",
+  "fuel-price": "Kraftstoffpreise",
+};
+export function measurementGroupLabel(group: string | undefined): string | undefined {
+  return group ? MEASUREMENT_GROUP_LABELS[group] : undefined;
+}
+export function measurementCardGroups<T extends { metric: string; unit: string }>(readings: T[]): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const reading of readings) {
+    const group = measurementGroup(reading);
+    if (group) groups.set(group, [...(groups.get(group) ?? []), reading]);
+  }
+  const result: T[][] = [];
+  const added = new Set<string>();
+  for (const reading of readings) {
+    const group = measurementGroup(reading);
+    if (!group) {
+      result.push([reading]);
+      continue;
+    }
+    if (added.has(group)) continue;
+    added.add(group);
+    const members = groups.get(group) ?? [reading];
+    result.push(members.length > 1 && new Set(members.map(member => member.unit)).size <= 2 ? members : [reading]);
+    if (members.length <= 1 || new Set(members.map(member => member.unit)).size > 2) {
+      for (const remaining of members.slice(1)) result.push([remaining]);
+    }
+  }
+  return result;
+}
 const LABELS: Record<string, string> = {
   fuel_e5: "Super E5", fuel_e10: "Super E10", fuel_diesel: "Diesel",
   pgv: "Peak-Vibration (PGV)", rms: "RMS-Tremor", waveform: "Wellenform", temperature: "Temperatur",
