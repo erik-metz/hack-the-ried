@@ -128,6 +128,19 @@ test("decodes format 5 window summaries, signed levels and grouped sample counts
   ]);
 });
 
+test("decodes SPS30 statistics with their dedicated sample-count group", () => {
+  const result = decode({ fPort: 10, bytes: [6, 13, 0, 1, 44,
+    ...windowRecord(8, 0, 42), ...windowRecord(8, 1, 50), ...windowRecord(8, 2, 61),
+    ...windowRecord(14, 1, 123), ...windowRecord(17, 1, 8),
+    ...windowRecord(59, 3, 60),
+  ] });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.data.window_statistics)), [
+    { metric: "pm1_0", unit: "µg/m³", min_value: 4.2, mean_value: 5, max_value: 6.1, sample_count: 60 },
+    { metric: "particle_number_pm2_5", unit: "#/cm³", min_value: null, mean_value: 12.3, max_value: null, sample_count: 60 },
+    { metric: "particle_size_typical", unit: "µm", min_value: null, mean_value: 0.8, max_value: null, sample_count: 60 },
+  ]);
+});
+
 test("decodes unsigned 24-bit BME68x resistance and mean-only raw diagnostics", () => {
   const result = decode({ bytes: [5, 11, 0, 0, 10,
     ...windowRecord(21, 0, 10000000), ...windowRecord(21, 1, 12000000), ...windowRecord(21, 2, 15000000),

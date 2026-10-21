@@ -17,7 +17,7 @@ function decodeUplink(input) {
       8:["pm1_0","µg/m³",0.1],9:["pm2_5","µg/m³",0.1],10:["pm4_0","µg/m³",0.1],11:["pm10","µg/m³",0.1],
       12:["particle_number_pm0_5","#/cm³",0.1],13:["particle_number_pm1_0","#/cm³",0.1],
       14:["particle_number_pm2_5","#/cm³",0.1],15:["particle_number_pm4_0","#/cm³",0.1],
-      16:["particle_number_pm10","#/cm³",0.1],17:["particle_size_typical","nm",1],
+      16:["particle_number_pm10","#/cm³",0.1],17:["particle_size_typical","µm",0.1],
       18:["bme688_temperature","°C",0.01],19:["bme688_humidity","%",0.01],20:["pressure","hPa",0.1],
       21:["bme688_gas_resistance","Ω",1],22:["bme688_iaq","index",0.1],23:["bme688_static_iaq","index",0.1],
       24:["bme688_co2_equivalent","ppm",1],25:["bme688_bvoc_equivalent","ppm",0.01],26:["bme688_gas_percentage","%",0.1],
@@ -36,7 +36,8 @@ function decodeUplink(input) {
       "washing_machine","vacuum_cleaner","clock_alarm","clock_tick","glass_breaking","helicopter",
       "chainsaw","siren","car_horn","engine","train","church_bells","airplane","fireworks","hand_saw"
     ];
-    const groupForMetric = {1:1,2:1,4:2,5:2,6:2,29:3,30:3,3:4,32:4,31:5,33:5,18:6,19:6,20:6,21:7,7:8};
+    const groupForMetric = {1:1,2:1,4:2,5:2,6:2,29:3,30:3,3:4,32:4,31:5,33:5,18:6,19:6,20:6,21:7,7:8,
+      8:9,9:9,10:9,11:9,12:9,13:9,14:9,15:9,16:9,17:9};
     const groups = {}, stats = {}, seen = {}, soundEvents = [];
     if ((bytes.length - 5) % 4 !== 0) return { errors: ["Window payload has an invalid length"] };
     for (let offset = 5; offset < bytes.length; offset += 4) {
@@ -57,7 +58,7 @@ function decodeUplink(input) {
       }
       const rawUnsigned = (bytes[offset+1] << 16) | (bytes[offset+2] << 8) | bytes[offset+3];
       if (tag === 3) {
-        if (code < 50 || code > 57 || groups[code] !== undefined) return { errors: ["Invalid or duplicate window sample-count group: " + code] };
+        if (!((code >= 50 && code <= 57) || code === 59) || groups[code] !== undefined) return { errors: ["Invalid or duplicate window sample-count group: " + code] };
         groups[code] = rawUnsigned;
         continue;
       }
@@ -79,7 +80,7 @@ function decodeUplink(input) {
       const item = stats[code];
       if (item.mean === null) return;
       const group = groupForMetric[code];
-      item.sample_count = group ? (groups[49 + group] || 0) : 0;
+      item.sample_count = group ? (groups[group === 9 ? 59 : 49 + group] || 0) : 0;
       measurements.push({metric:item.metric,unit:item.unit,value:item.mean});
       windowStatistics.push({metric:item.metric,unit:item.unit,min_value:item.minimum,
         mean_value:item.mean,max_value:item.maximum,sample_count:item.sample_count});
@@ -101,7 +102,7 @@ function decodeUplink(input) {
     8:["pm1_0","µg/m³",0.1],9:["pm2_5","µg/m³",0.1],10:["pm4_0","µg/m³",0.1],11:["pm10","µg/m³",0.1],
     12:["particle_number_pm0_5","#/cm³",0.1],13:["particle_number_pm1_0","#/cm³",0.1],
     14:["particle_number_pm2_5","#/cm³",0.1],15:["particle_number_pm4_0","#/cm³",0.1],
-    16:["particle_number_pm10","#/cm³",0.1],17:["particle_size_typical","nm",1],
+    16:["particle_number_pm10","#/cm³",0.1],17:["particle_size_typical","µm",0.1],
     18:["bme688_temperature","°C",0.01],19:["bme688_humidity","%",0.01],20:["pressure","hPa",0.1],
     21:["bme688_gas_resistance","Ω",1],22:["bme688_iaq","index",0.1],23:["bme688_static_iaq","index",0.1],
     24:["bme688_co2_equivalent","ppm",1],25:["bme688_bvoc_equivalent","ppm",0.01],26:["bme688_gas_percentage","%",0.1],

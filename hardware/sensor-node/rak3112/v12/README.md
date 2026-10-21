@@ -10,6 +10,16 @@ threshold (0.35) are accumulated in a 5-minute event histogram and transmitted
 in LoRaWAN Payload Format 6. During quiet windows without sound events, 0 extra bytes
 are appended to the payload. Raw audio is never stored or transmitted.
 
+The firmware also reads an optional Sensirion SPS30 over the shared 100 kHz I²C
+bus (SDA GPIO14, SCL GPIO13, address `0x69`). It starts particulate measurement
+in IEEE754 mode, validates the SPS30 CRC on every received word, and samples all
+10 outputs every five seconds. The four PM mass concentrations and five particle
+number concentrations and typical particle size are sent as five-minute window
+means with 0.1-unit resolution (`µg/m³`, `#/cm³`, and `µm`, respectively). The SPS30 group
+shares its sample count across the ten readings. The first periodic uplink waits for an SPS30 sample
+when the sensor is detected. Connect the SPS30 in I²C mode with its SEL pin low
+at power-up and provide its specified 5 V supply.
+
 ## Model and limits
 
 - Model: ACDNet20, ESC-50 fold 4, post-training INT8; model file is
@@ -42,6 +52,12 @@ in [`../audio-event-ml-plan.md`](../audio-event-ml-plan.md). Format 6 encodes
 the 5-minute event counts as 4-byte TLVs (`tag=3, code=58`); TTN decodes them into
 `sound_events` and the VPS webhook writes them as canonical interval statistics
 into `readings` (`sound_event_count`).
+
+SPS30 measurements use metric codes 8–17. Their shared window sample count is
+the Format 5/6 TLV `tag=3, code=59`; code 58 remains reserved for Format 6 sound
+events. The TTN decoder scales these into PM mass (`µg/m³`), particle number
+(`#/cm³`), and typical size (`nm`) measurements for the existing webhook and
+frontend API path.
 
 ## RAK3112 resource measurement
 

@@ -67,7 +67,7 @@ identifiers; the value scale and unit belong to each code:
 | 7 | `sound_level` | `dBFS` | tenths; digital level relative to full scale |
 | 8–11 | `pm1_0`, `pm2_5`, `pm4_0`, `pm10` | `µg/m³` | tenths |
 | 12–16 | `particle_number_pm0_5`, `particle_number_pm1_0`, `particle_number_pm2_5`, `particle_number_pm4_0`, `particle_number_pm10` | `#/cm³` | tenths |
-| 17 | `particle_size_typical` | `nm` | whole nm |
+| 17 | `particle_size_typical` | `µm` | tenths |
 | 18 | `bme688_temperature` | `°C` | hundredths |
 | 19 | `bme688_humidity` | `%` | hundredths |
 | 20 | `pressure` | `hPa` | tenths |
@@ -112,8 +112,13 @@ explicitly discarded. The formatter accepts payload formats 3, 4 and 5.
 Format 4 exposes the semantic firmware version as `firmware_version` metadata,
 separate from `measurements`. Format 5 adds a window duration and structured
 minimum/mean/maximum/sample-count statistics; its `measurements` array still
-contains one mean per metric for compatible database and chart ingestion. The
-RAK3112 v11 sampling and format-5 contract are documented in `../v11/README.md`.
+contains one mean per metric for compatible database and chart ingestion. RAK3112
+v12 adds Format 6 sound-event records (`tag=3, code=58`). SPS30 window summaries
+use metric codes 8–17 and a shared sample-count record (`tag=3, code=59`); these
+ten channels send mean-only statistics to fit the 222-byte LoRaWAN payload while
+preserving their five-minute sample count. The formatter accepts payload formats
+3–6. The RAK3112 v11 sampling and format-5 contract are documented in
+`../v11/README.md`.
 The formatter does not expose the removed uptime or uplink-counter diagnostics.
 
 Install `payload-formatter.js` as the TTN uplink payload formatter for FPort 10.

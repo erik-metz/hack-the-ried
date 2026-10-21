@@ -69,6 +69,7 @@ static constexpr uint32_t WINDOW_SECONDS = 5U * 60U;
 static constexpr int8_t I2C_SDA_PIN = 14;
 static constexpr int8_t I2C_SCL_PIN = 13;
 static constexpr uint8_t SHT41_ADDRESS = 0x44;
+static constexpr uint8_t SPS30_ADDRESS = 0x69;
 static constexpr uint8_t SGP41_ADDRESS = 0x59;
 static constexpr uint8_t SCD41_ADDRESS = 0x62;
 static constexpr uint8_t LTR390_ADDRESS = 0x53;
@@ -93,6 +94,8 @@ static constexpr uint32_t AUDIO_MODEL_REPORT_INTERVAL_MS = 1000;
 
 static constexpr uint8_t SHT41_MEASURE_HIGH_PRECISION = 0xFD;
 static constexpr uint32_t SGP41_SAMPLE_INTERVAL_MS = 1000;
+static constexpr uint32_t SPS30_SAMPLE_INTERVAL_MS = 5000;
+static constexpr uint8_t SPS30_SAMPLE_COUNT_CODE = 59;
 static constexpr uint32_t SGP41_CONDITIONING_MS = 10000;
 static constexpr uint32_t BME68X_SAMPLE_INTERVAL_MS = 10000;
 static constexpr uint16_t BME68X_HEATER_TEMP_C = 320;
@@ -260,6 +263,7 @@ Preferences preferences;
 bool radioReady = false;
 bool joined = false;
 bool sgp41Ready = false;
+bool sps30Ready = false;
 bool sgp41Conditioning = false;
 bool scd41Ready = false;
 bool ltr390Ready = false;
@@ -275,6 +279,9 @@ bool initialUplinkPending = false;
 bool haveSht41Sample = false;
 bool haveSgp41Sample = false;
 bool haveScd41Sample = false;
+bool haveSps30Sample = false;
+uint32_t nextSps30SampleMs = 0;
+uint32_t lastSps30ErrorMs = 0;
 bool sht41ErrorLogged = false;
 bool defaultCompensationLogged = false;
 
@@ -1085,7 +1092,112 @@ bool initScd41() {
 // ---------------------------------------------------------------------------
 // Sensor Sampling
 // ---------------------------------------------------------------------------
+uint8_t sps30Crc(const uint8_t* data, size_t length) {
+  uint8_t crc = 0xFF;
+  for (size_t i = 0; i < length; ++i) {
+    crc ^= data[i];
+    for (uint8_t bit = 0; bit < 8; ++bit) {
+      crc = (crc & 0x80) ? static_cast<uint8_t>((crc << 1) ^ 0x31) : static_cast<uint8_t>(crc << 1);
+    }
+  }
+  return crc;
+}
+
+bool sps30SetPointer(uint16_t pointer) {
+  Wire.beginTransmission(SPS30_ADDRESS);
+  Wire.write(static_cast<uint8_t>(pointer >> 8));
+  Wire.write(static_cast<uint8_t>(pointer));
+  // SPS30's Set Pointer & Read Data transfer ends the pointer write with a
+  // STOP before the separate read transaction.
+  return Wire.endTransmission() == 0;
+}
+
+bool sps30ReadWords(uint16_t pointer, uint8_t* output, size_t wordCount) {
+  if (!sps30SetPointer(pointer)) return false;
+  const size_t byteCount = wordCount * 3;
+  if (Wire.requestFrom(SPS30_ADDRESS, static_cast<uint8_t>(byteCount)) != byteCount) return false;
+  for (size_t word = 0; word < wordCount; ++word) {
+    uint8_t pair[2];
+    pair[0] = Wire.read();
+    pair[1] = Wire.read();
+    const int receivedCrc = Wire.read();
+    if (receivedCrc < 0 || sps30Crc(pair, sizeof(pair)) != static_cast<uint8_t>(receivedCrc)) return false;
+    output[word * 2] = pair[0];
+    output[word * 2 + 1] = pair[1];
+  }
+  return true;
+}
+
+bool sps30WriteCommand(uint16_t command, const uint8_t* payload, size_t payloadLength) {
+  Wire.beginTransmission(SPS30_ADDRESS);
+  Wire.write(static_cast<uint8_t>(command >> 8));
+  Wire.write(static_cast<uint8_t>(command));
+  for (size_t offset = 0; offset < payloadLength; offset += 2) {
+    const uint8_t pair[2] = {payload[offset], payload[offset + 1]};
+    Wire.write(pair[0]);
+    Wire.write(pair[1]);
+    Wire.write(sps30Crc(pair, sizeof(pair)));
+  }
+  return Wire.endTransmission() == 0;
+}
+
+float sps30Float(const uint8_t* bytes) {
+  const uint32_t bits = (static_cast<uint32_t>(bytes[0]) << 24) |
+      (static_cast<uint32_t>(bytes[1]) << 16) |
+      (static_cast<uint32_t>(bytes[2]) << 8) | bytes[3];
+  float value = 0.0f;
+  memcpy(&value, &bits, sizeof(value));
+  return value;
+}
+
+bool initSps30() {
+  // SPS30 output format 3 is IEEE754 float, encoded big-endian on the bus.
+  const uint8_t outputFormat[2] = {0x03, 0x00};
+  if (!sps30WriteCommand(0x0010, outputFormat, sizeof(outputFormat))) {
+    Serial.println(F("[SPS30][INFO] Kein SPS30 auf I2C-Adresse 0x69 erkannt."));
+    return false;
+  }
+  delay(20);
+  Serial.println(F("[SPS30] Messung gestartet (I2C 0x69, IEEE754, 5-s-Abfrage)."));
+  nextSps30SampleMs = millis();
+  return true;
+}
+
+void sampleSps30() {
+  if (!sps30Ready || static_cast<int32_t>(millis() - nextSps30SampleMs) < 0) return;
+  nextSps30SampleMs = millis() + SPS30_SAMPLE_INTERVAL_MS;
+  uint8_t ready[2] = {};
+  if (!sps30ReadWords(0x0202, ready, 1) || ready[1] == 0) return;
+
+  uint8_t data[40] = {};
+  if (!sps30ReadWords(0x0300, data, 20)) {
+    if (millis() - lastSps30ErrorMs >= 30000) {
+      Serial.println(F("[SPS30][FEHLER] Messdaten/CRC konnten nicht gelesen werden."));
+      lastSps30ErrorMs = millis();
+    }
+    return;
+  }
+  float values[10];
+  for (size_t i = 0; i < 10; ++i) values[i] = sps30Float(&data[i * 4]);
+  for (size_t i = 0; i < 10; ++i) {
+    if (!isfinite(values[i]) || values[i] < 0.0f) return;
+  }
+  const uint8_t codes[10] = {METRIC_PM1_0, METRIC_PM2_5, METRIC_PM4_0, METRIC_PM10,
+      METRIC_PARTICLE_NUMBER_PM0_5, METRIC_PARTICLE_NUMBER_PM1_0,
+      METRIC_PARTICLE_NUMBER_PM2_5, METRIC_PARTICLE_NUMBER_PM4_0,
+      METRIC_PARTICLE_NUMBER_PM10, METRIC_PARTICLE_SIZE_TYPICAL};
+  for (size_t i = 0; i < 10; ++i) {
+    const float scaled = values[i] * 10.0f;
+    if (scaled > 8388607.0f) continue;
+    recordMetric(codes[i], static_cast<int32_t>(lroundf(scaled)));
+  }
+  haveSps30Sample = true;
+  Serial.printf("[SPS30] PM1=%.1f PM2.5=%.1f PM4=%.1f PM10=%.1f ug/m3; N0.5=%.1f #/cm3\n",
+      values[0], values[1], values[2], values[3], values[4]);
+}
+
 void sampleSensors() {
+  sampleSps30();
   // 1. SHT41
   int32_t shtTemp = 0;
   int32_t shtHum = 0;
@@ -1374,6 +1486,10 @@ void scheduleJoinRetry() {
 
 uint8_t windowGroupForMetric(uint8_t code) {
   switch (code) {
+    case METRIC_PM1_0: case METRIC_PM2_5: case METRIC_PM4_0: case METRIC_PM10:
+    case METRIC_PARTICLE_NUMBER_PM0_5: case METRIC_PARTICLE_NUMBER_PM1_0:
+    case METRIC_PARTICLE_NUMBER_PM2_5: case METRIC_PARTICLE_NUMBER_PM4_0:
+    case METRIC_PARTICLE_NUMBER_PM10: case METRIC_PARTICLE_SIZE_TYPICAL: return 9;
     case METRIC_TEMPERATURE: case METRIC_HUMIDITY: return 1;
     case METRIC_CO2: case METRIC_SCD41_TEMPERATURE: case METRIC_SCD41_HUMIDITY: return 2;
     case METRIC_SGP41_VOC_INDEX: case METRIC_SGP41_NOX_INDEX: return 3;
@@ -1386,13 +1502,15 @@ uint8_t windowGroupForMetric(uint8_t code) {
   }
 }
 
-void appendInt24(uint8_t* payload, size_t& length, uint8_t code,
+bool appendInt24(uint8_t* payload, size_t& length, size_t capacity, uint8_t code,
     WindowStatistic statistic, int32_t value) {
+  if (length + 4 > capacity) return false;
   payload[length++] = static_cast<uint8_t>((static_cast<uint8_t>(statistic) << 6) | (code & 0x3F));
   const uint32_t encoded = static_cast<uint32_t>(value);
   payload[length++] = static_cast<uint8_t>(encoded >> 16);
   payload[length++] = static_cast<uint8_t>(encoded >> 8);
   payload[length++] = static_cast<uint8_t>(encoded);
+  return true;
 }
 
 int32_t meanForMetric(uint8_t code, const MetricWindow& window) {
@@ -1431,28 +1549,51 @@ void sendTelemetryUplink() {
   payload[3] = static_cast<uint8_t>(seconds >> 8);
   payload[4] = static_cast<uint8_t>(seconds);
 
-  uint32_t groupCounts[9] = {};
+  uint32_t groupCounts[10] = {};
   for (uint8_t code = 1; code <= 41; ++code) {
     const MetricWindow& window = snapshot[code];
     if (!window.hasValue) continue;
     const uint8_t group = windowGroupForMetric(code);
     if (group > 0 && window.count > groupCounts[group]) groupCounts[group] = window.count;
 
-    // Raw LTR390 diagnostics are retained as a window mean only. All user-facing
-    // physical/index measurements include minimum, energy/arithmetical mean, maximum.
-    if (code != METRIC_LTR390_UV_RAW && code != METRIC_LTR390_ALS_RAW) {
-      appendInt24(payload, payloadLength, code, WINDOW_MINIMUM, window.minimum);
+    // SPS30 has ten channels, so report its window means only to keep the complete
+    // five-minute sensor summary below LoRaWAN's payload limit. Raw LTR390
+    // diagnostics are also mean-only; other user-facing measurements retain min/mean/max.
+    const bool meanOnly = code == METRIC_LTR390_UV_RAW || code == METRIC_LTR390_ALS_RAW ||
+        (code >= METRIC_PM1_0 && code <= METRIC_PARTICLE_SIZE_TYPICAL);
+    if (!meanOnly && !appendInt24(payload, payloadLength, MAX_WINDOW_PAYLOAD_BYTES,
+        code, WINDOW_MINIMUM, window.minimum)) {
+      restoreMetricWindows(snapshot);
+      restoreAudioEvents(eventSnapshot);
+      Serial.println(F("[UPLINK][FEHLER] Payload-Limit vor Minimum erreicht; Zeitfenster bleibt erhalten."));
+      return;
     }
-    appendInt24(payload, payloadLength, code, WINDOW_MEAN, meanForMetric(code, window));
-    if (code != METRIC_LTR390_UV_RAW && code != METRIC_LTR390_ALS_RAW) {
-      appendInt24(payload, payloadLength, code, WINDOW_MAXIMUM, window.maximum);
+    if (!appendInt24(payload, payloadLength, MAX_WINDOW_PAYLOAD_BYTES,
+        code, WINDOW_MEAN, meanForMetric(code, window))) {
+      restoreMetricWindows(snapshot);
+      restoreAudioEvents(eventSnapshot);
+      Serial.println(F("[UPLINK][FEHLER] Payload-Limit vor Mittelwert erreicht; Zeitfenster bleibt erhalten."));
+      return;
+    }
+    if (!meanOnly && !appendInt24(payload, payloadLength, MAX_WINDOW_PAYLOAD_BYTES,
+        code, WINDOW_MAXIMUM, window.maximum)) {
+      restoreMetricWindows(snapshot);
+      restoreAudioEvents(eventSnapshot);
+      Serial.println(F("[UPLINK][FEHLER] Payload-Limit vor Maximum erreicht; Zeitfenster bleibt erhalten."));
+      return;
     }
   }
-  for (uint8_t group = 1; group <= 8; ++group) {
+  for (uint8_t group = 1; group <= 9; ++group) {
     if (groupCounts[group] == 0) continue;
-    const uint8_t code = static_cast<uint8_t>(49 + group);
+    const uint8_t code = group == 9 ? SPS30_SAMPLE_COUNT_CODE : static_cast<uint8_t>(49 + group);
     const uint32_t count = groupCounts[group] > 0xFFFFFFUL ? 0xFFFFFFUL : groupCounts[group];
-    appendInt24(payload, payloadLength, code, WINDOW_COUNT, static_cast<int32_t>(count));
+    if (!appendInt24(payload, payloadLength, MAX_WINDOW_PAYLOAD_BYTES,
+        code, WINDOW_COUNT, static_cast<int32_t>(count))) {
+      restoreMetricWindows(snapshot);
+      restoreAudioEvents(eventSnapshot);
+      Serial.println(F("[UPLINK][FEHLER] Payload-Limit vor Samplecount erreicht; Zeitfenster bleibt erhalten."));
+      return;
+    }
   }
 
   uint8_t soundEventsReported = 0;
@@ -1515,6 +1656,7 @@ void scanI2CBus() {
     if (Wire.endTransmission() == 0) {
       Serial.printf("[I2C] Geraet gefunden auf 0x%02X", address);
       if (address == SHT41_ADDRESS) Serial.print(F(" (SHT41)"));
+      else if (address == SPS30_ADDRESS) Serial.print(F(" (SPS30)"));
       else if (address == SGP41_ADDRESS) Serial.print(F(" (SGP41)"));
       else if (address == SCD41_ADDRESS) Serial.print(F(" (SCD41)"));
       else if (address == LTR390_ADDRESS) Serial.print(F(" (LTR390)"));
@@ -1564,6 +1706,9 @@ void setup() {
         I2C_SDA_PIN, I2C_SCL_PIN);
     sht41ErrorLogged = true;
   }
+
+  // Initialize and start the optional Sensirion SPS30 particulate sensor.
+  sps30Ready = initSps30();
 
   // Initialize SCD41
   scd41Ready = initScd41();
@@ -1617,7 +1762,7 @@ void setup() {
   if (joined) {
     joinRetryCount = 0;
     lastUplinkMs = millis();
-    if (sgp41Ready || scd41Ready || ltr390Ready || bme68xReady) {
+    if (sgp41Ready || scd41Ready || ltr390Ready || bme68xReady || sps30Ready) {
       initialUplinkPending = true;
       Serial.println(F("[UPLINK] Erster Uplink wartet auf Sensor-Anlaufwerte."));
     } else {
@@ -1650,7 +1795,8 @@ void loop() {
     bool scdReadyCondition = !scd41Ready || haveScd41Sample;
     bool ltrReadyCondition = !ltr390Ready || (haveLtr390UvSample && haveLtr390AlsSample);
     bool bmeReadyCondition = !bme68xReady || haveBme68xSample;
-    if (sgpReadyCondition && scdReadyCondition && ltrReadyCondition && bmeReadyCondition) {
+    bool spsReadyCondition = !sps30Ready || haveSps30Sample;
+    if (sgpReadyCondition && scdReadyCondition && ltrReadyCondition && bmeReadyCondition && spsReadyCondition) {
       initialUplinkPending = false;
       sendTelemetryUplink();
       lastUplinkMs = millis();
@@ -1675,7 +1821,8 @@ void loop() {
       bool scdReadyCondition = !scd41Ready || haveScd41Sample;
       bool ltrReadyCondition = !ltr390Ready || (haveLtr390UvSample && haveLtr390AlsSample);
       bool bmeReadyCondition = !bme68xReady || haveBme68xSample;
-      if (!sgpReadyCondition || !scdReadyCondition || !ltrReadyCondition || !bmeReadyCondition) {
+      bool spsReadyCondition = !sps30Ready || haveSps30Sample;
+      if (!sgpReadyCondition || !scdReadyCondition || !ltrReadyCondition || !bmeReadyCondition || !spsReadyCondition) {
         initialUplinkPending = true;
         Serial.println(F("[UPLINK] Erster Uplink wartet auf Sensor-Anlaufwerte."));
       } else {
