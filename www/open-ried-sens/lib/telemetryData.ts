@@ -7,18 +7,16 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
   const metric = reading.metric.toLocaleLowerCase("de-DE").replace(/[.-]/g, "_");
   if (["temperature", "scd41_temperature", "bme688_temperature", "humidity", "relative_humidity", "scd41_humidity", "bme688_humidity"].includes(metric)) return "temperature-humidity";
   if (["ambient_light", "ltr390_als_raw", "uv_index", "ltr390_uv_raw"].includes(metric)) return "light-uv";
-  if (["pm0_5", "pm1_0", "pm2_5", "pm4_0", "pm10", "pm25", "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) {
-    return metric.startsWith("particle_number_") ? "particulate-count" : "air-concentration";
-  }
-  if (["no2", "o3"].includes(metric)) return "air-concentration";
+  if (["pm0_5", "pm1_0", "pm2_5", "pm4_0", "pm10", "pm25", "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) return "particulate";
+  if (["no2", "o3"].includes(metric)) return "air-pollutants";
   if (["fuel_e5", "fuel_e10", "fuel_diesel"].includes(metric)) return "fuel-price";
   return undefined;
 }
 const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
   "temperature-humidity": "Temperatur & Luftfeuchtigkeit",
   "light-uv": "Licht & UV",
-  "particulate-count": "Feinstaub · Partikelanzahl",
-  "air-concentration": "Feinstaub & Luftschadstoffe",
+  particulate: "Feinstaub",
+  "air-pollutants": "Luftschadstoffe",
   "fuel-price": "Kraftstoffpreise",
 };
 export function measurementGroupLabel(group: string | undefined): string | undefined {

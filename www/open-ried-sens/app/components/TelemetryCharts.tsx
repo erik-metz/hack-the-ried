@@ -193,13 +193,14 @@ export default function TelemetryCharts({
         );
       })()}
       {(readings.length > 0 || (mobilityEntity && active)) && <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 items-start sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {measurementCardGroups(readings).map(cardReadings => {
             const grouped = cardReadings.length > 1;
             const groupId = measurementGroup(cardReadings[0]);
             const title = grouped ? measurementGroupLabel(groupId) ?? "Messwertgruppe" : metricLabel(cardReadings[0]);
             const isActive = cardReadings.some(reading => seriesKey(reading) === (active && seriesKey(active)));
             const descriptions = [...new Set(cardReadings.map(metricDescription).filter((description): description is string => Boolean(description)))];
+            const groupDescription = groupId === "particulate" ? "Masse und Anzahl der Feinstaubpartikel nach Größenklasse." : descriptions.length === 1 ? descriptions[0] : undefined;
             const key = cardReadings.map(seriesKey).join("|");
             return <button key={key} type="button" aria-pressed={isActive} onClick={() => {
               const reading = cardReadings.find(item => seriesKey(item) === (active && seriesKey(active))) ?? cardReadings[0];
@@ -207,18 +208,21 @@ export default function TelemetryCharts({
               setLocalSelectedSeries(k);
               setHoverIndex(null);
               onSelectMetric?.(k);
-            }} className="min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
+            }} className={`min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400 ${grouped && cardReadings.length >= 6 ? "sm:col-span-2 xl:col-span-2" : ""}`}>
               <span className="block text-sm text-slate-400">{grouped ? title : metricLabel(cardReadings[0])}</span>
               {grouped ? <>
-                {descriptions.length === 1 && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{descriptions[0]}</span>}
-                <span className="mt-2 block divide-y divide-slate-800">
-                  {cardReadings.map(reading => <span key={seriesKey(reading)} className="block py-2 first:pt-0 last:pb-0">
+                {groupDescription && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{groupDescription}</span>}
+                <span className={`mt-2 block divide-y divide-slate-800 ${cardReadings.length >= 6 ? "sm:grid sm:grid-cols-2 sm:gap-x-4 sm:divide-y-0" : ""}`}>
+                  {cardReadings.map(reading => {
+                    const summary = readingRangeSummary(reading);
+                    return <span key={seriesKey(reading)} className="block border-t border-slate-800 py-2 first:pt-0 first:border-t-0">
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="text-xs text-slate-400">{metricLabel(reading)}</span>
                       <span className="shrink-0 text-lg font-bold">{reading.metric === "crossing_state" ? crossingStateLabel(reading.value) : <>{number(reading.value, reading)} <span className="text-xs font-normal text-slate-400">{unitLabel(reading.unit)}</span></>}</span>
                     </span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">Stand: {time(reading.timestamp)}{readingRangeSummary(reading) ? ` · ${readingRangeSummary(reading)}` : ""}</span>
-                  </span>)}
+                    <span className="mt-0.5 block text-[11px] text-slate-500">Stand: {time(reading.timestamp)}{summary ? ` · ${summary}` : ""}</span>
+                  </span>;
+                  })}
                 </span>
               </> : <>
                 {metricDescription(cardReadings[0]) && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{metricDescription(cardReadings[0])}</span>}
@@ -232,7 +236,7 @@ export default function TelemetryCharts({
           })}
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">
-          <h4 className="font-semibold">{chartSeries.length > 1 ? `Messwertgruppe · ${measurementGroupLabel(group) ?? "Messwerte"}` : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
+          <h4 className="font-semibold">{chartSeries.length > 1 ? measurementGroupLabel(group) ?? "Messwerte" : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
           {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)} · {unitLabel(series.reading.unit)}</span>)}</div>}
           {metricDescription(active) && <p className="mt-1 text-sm text-slate-400">{metricDescription(active)}</p>}
           <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : "5-Minuten-Mittelwerte"} · Uhrzeit Europe/Berlin</p>
