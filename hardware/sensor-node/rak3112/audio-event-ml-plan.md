@@ -256,9 +256,11 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
 - Die VPS-Datenbank enthält für `rak3112-002` 427 angenommene Uplink-Receipts;
   der letzte gespeicherte Empfang ist **20.10.2026 22:21:39 MESZ**. In den
   gespeicherten Altwerten gibt es `sound_level`, aber keine
-  `sound_event_count`-Messwerte. Die aktuellen, fehlgeschlagenen TTN-Uplinks
-  erreichen die Datenbank folglich nicht. Die API-Leseendpunkte antworten
-  weiterhin 200, liefern für diesen Sensor aber nur den alten Datenstand.
+  `sound_event_count`-Messwerte; in der kanonischen Tabelle `readings` stehen
+  177 `sound_level`-Werte und ebenfalls kein `sound_event_count`. Die aktuellen,
+  fehlgeschlagenen TTN-Uplinks erreichen die Datenbank folglich nicht. Die
+  API-Leseendpunkte antworten weiterhin 200, liefern für diesen Sensor aber
+  nur den alten Datenstand.
 - Im Repository enthält [`v1/payload-formatter.js`](v1/payload-formatter.js)
   bereits den Format-6-Decoder für Ereignis-TLVs; ebenso unterstützen
   VPS-Webhook und kanonischer `readings`-Schreibpfad `sound_events`. Diese
