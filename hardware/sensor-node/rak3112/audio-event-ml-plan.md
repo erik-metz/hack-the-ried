@@ -262,25 +262,36 @@ Die ML-Messwerte werden mittels `write_measurement` nach `entities`, `measuremen
   API-Leseendpunkte antworten weiterhin 200, liefern für diesen Sensor aber
   nur den alten Datenstand.
 - Im Repository enthält [`v1/payload-formatter.js`](v1/payload-formatter.js)
-  bereits den Format-6-Decoder für Ereignis-TLVs; ebenso unterstützen
-  VPS-Webhook und kanonischer `readings`-Schreibpfad `sound_events`. Diese
-  Implementierung ist jedoch nicht automatisch in der TTN-Konsole aktiv. Vor
-  Wiederaufnahme des End-to-End-Betriebs muss genau dieser Decoder dort
-  bereitgestellt und anhand eines aktuellen Uplinks geprüft werden: TTN zeigt
-  dekodierte Messwerte und `sound_events`, der Webhook erhält HTTP 200, danach
-  steigen Receipt- und `readings`-Zähler inklusive `sound_event_count`.
+  den geprüften Format-6-Decoder; VPS-Webhook und kanonischer `readings`-
+  Schreibpfad unterstützen `sound_events`. Am 21.10.2026 wurde der veraltete
+  Formatter in der TTN-Anwendung `my-gps-tracker-2026` auf den vollständigen
+  Codebuch-/Format-6-Vertrag aktualisiert. Der nächste reale Uplink wurde als
+  Format 6, Firmware 12 und 300-Sekunden-Fenster dekodiert; TTN zeigte
+  `sound_events: []`. Der VPS-WebHook antwortete auf genau diesen Uplink mit
+  HTTP 200. Die Receipt-Zahl stieg auf 428; `readings` erhielt die neuen
+  Fensterwerte (für `sound_level` jetzt 180 Werte, letzter Wert −36,7 dBFS).
+  Die aktuellen API-Abfragen für `latest/metrics`, `latest/window` und
+  `aggregates` antworten weiterhin mit HTTP 200. Damit ist der Format-6-
+  Telemetriepfad bis in die vom Frontend verwendeten API-Lesepfade wieder aktiv.
+- In diesem Uplink war `sound_events` leer; deshalb wurde korrekt kein
+  `sound_event_count` geschrieben. Der positive Klassifikationspfad ist durch
+  Decoder- und VPS-Writer-Tests im Repository abgedeckt, aber noch nicht durch
+  ein reales Ereignis im Produktivgerät belegt. Das bleibt die nächste
+  fachliche Abnahme. Der bestehende Plan sieht derzeit keine eigene
+  ML-Kartenvisualisierung vor; die Werte sind für API, Exporte und Auswertung
+  verfügbar.
 - Kein erneutes Flashen war für diese Diagnose erforderlich: das Board sendet
   Format 6 bereits. Ein Flash würde den TTN-Formatter-Fehler nicht beheben.
   Die serielle Schnittstelle `/dev/cu.usbmodem1101` war vorhanden, lieferte
   während des kurzen Monitor-Aufrufs aber keine neue Ausgabe; die Funk-/TTN-
   Evidenz bestätigt den laufenden Knoten unabhängig davon.
 
-**Status:** Die lokale Klassifikator-Machbarkeit und die Repo-seitige
-Format-6-/VPS-Implementierung sind vorhanden. Die produktive Ende-zu-Ende-
-Integration ist noch offen, weil der aktive TTN-Formatter hinter dem
-Repositorystand liegt. Bis dieser Konfigurationsschritt sowie der beschriebene
-Live-Nachweis erfolgt sind, dürfen ESC-50-Ausgaben nicht als erfolgreich
-gespeicherte ML-Ereignisse behandelt werden.
+**Status:** Der Ausfall durch den veralteten TTN-Formatter ist behoben; ein
+Format-6-Sensorfenster hat TTN → VPS-Webhook → Receipt/`readings` → API-Leseweg
+erfolgreich durchlaufen. Ein echtes ML-Ereignis mit `sound_event_count`, die
+darauf folgende Produktivpersistenz sowie Klassifikationsgüte am RAK bleiben
+offen. Der ESC-50-Prototyp bleibt bis zu dieser fachlichen Abnahme
+experimentell.
 
 ## Technische Referenzen
 
