@@ -425,6 +425,18 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(telemetry.metricLabel(reading("pm4_0", 6.9, "µg/m³")), "Feinstaub PM4.0 · Masse");
   assert.equal(telemetry.metricLabel(reading("particle_number_pm10", 46.2, "#/cm³")), "Feinstaub PM10 · Partikelanzahl");
   assert.equal(telemetry.metricLabel(reading("pm10", 6.9, "µg/m³")), "Feinstaub PM10 · Masse");
+  const particulateOrder = telemetry.mergeReadings([
+    reading("particle_number_pm10", 1, "#/cm³"), reading("pm10", 1, "µg/m³"),
+    reading("particle_number_pm2_5", 1, "#/cm³"), reading("pm2_5", 1, "µg/m³"),
+    reading("particle_number_pm1_0", 1, "#/cm³"), reading("pm1_0", 1, "µg/m³"),
+    reading("particle_number_pm4_0", 1, "#/cm³"), reading("pm4_0", 1, "µg/m³"),
+  ]).map(telemetry.metricLabel);
+  assert.deepEqual([...particulateOrder], [
+    "Feinstaub PM1.0 · Masse", "Feinstaub PM1.0 · Partikelanzahl",
+    "Feinstaub PM2.5 · Masse", "Feinstaub PM2.5 · Partikelanzahl",
+    "Feinstaub PM4.0 · Masse", "Feinstaub PM4.0 · Partikelanzahl",
+    "Feinstaub PM10 · Masse", "Feinstaub PM10 · Partikelanzahl",
+  ]);
   assert.match(telemetry.metricDescription(reading("sgp41_voc_index", 120, "index")), /flüchtige Stoffe/);
   assert.match(telemetry.metricDescription(reading("particle_size_typical", 0.6, "µm")), /Typische Größe/);
   assert.deepEqual([...telemetry.chartScale(reading("temperature", 20, "°C"), [19.8, 20.9])], [17.85, 22.85]);

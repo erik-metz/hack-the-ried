@@ -160,5 +160,5 @@ export function mergeReadings(...groups: Reading[][]): Reading[] {
     const old = latest.get(seriesKey(reading));
     if (!old || Date.parse(old.timestamp) < Date.parse(reading.timestamp)) latest.set(seriesKey(reading), reading);
   }
-  return [...latest.values()].sort((a, b) => metricLabel(a).localeCompare(metricLabel(b), "de-DE"));
+  return [...latest.values()].sort((a, b) => metricLabel(a).localeCompare(metricLabel(b), "de-DE", { numeric: true }));
 }
