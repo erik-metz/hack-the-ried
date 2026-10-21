@@ -1,159 +1,136 @@
-# Open Ried Sens – Offene Programmierschnittstelle (Open REST API)
+# Open Ried Sens – öffentliche API
 
-Freie Umweltdaten für **Hackathons, Apps & Forschung** aus Bürstadt & Lampertheim. Eine Initiative vom **KAMÜ Kulturzentrum** & Bürgerinnen/Bürgern.
+Die Open Ried Sens API stellt öffentliche Sensor-, Umwelt-, Mobilitäts- und
+Regionaldaten bereit. Öffentliche `GET`-Routen benötigen keinen API-Key. Für
+Schreibzugriffe gelten je nach Route getrennte Zugangsschlüssel. Datenquellen
+haben unterschiedliche Aktualisierungsintervalle und Lizenzbedingungen;
+beachte die Quellenangaben der jeweiligen Datensätze. Die API aktiviert CORS
+für öffentliche Browserzugriffe.
 
-Das Projekt **Open Ried Sens** stellt alle erfassten Umwelt- und Klimaparameter des Bürstädter und Lampertheimer Sensornetzwerks als **Open Data** zur Verfügung. Die Daten können ohne Zugangsbeschränkungen oder Registrierung abgefragt werden.
+## Basis-URL und aktuelle Referenz
 
-- **CORS aktiviert** [Browser-Ready]
-- **TimescaleDB Hypertable** im Backend
-- **Keine API-Keys** für Lesezugriff erforderlich
-- **Swagger UI**: Interaktive API-Dokumentation direkt auf der VPS verfügbar.
+```text
+https://open-ried-sens.duckdns.org/api/v1
+```
 
----
+Die produktive, automatisch erzeugte OpenAPI-Beschreibung ist unter
+[`/api/v1/openapi.json`](https://open-ried-sens.duckdns.org/api/v1/openapi.json)
+verfügbar; Swagger UI unter
+[`/docs`](https://open-ried-sens.duckdns.org/docs). Sie ist für vollständige
+Parameter, Antwortmodelle und die aktuelle Routenliste maßgeblich. Diese Datei
+fasst die wichtigsten öffentlichen Abfragen zusammen und ist keine vollständige
+Kopie des OpenAPI-Schemas.
 
-## 🌐 Basis-URL
+Zeitstempel werden als ISO-8601 ausgegeben. Zeitangaben ohne Zeitzone werden bei
+der Aggregatabfrage als UTC interpretiert.
 
-<https://open-ried-sens.duckdns.org/api/v1>
+## Sensorinventar und Messwerte
 
-Alle Abfragen unterstützen JSON und standardisierte ISO-8601 Zeitformate.
+### Sensoren
 
----
+```http
+GET /api/v1/sensors
+GET /api/v1/sensors/{id}
+```
 
-## 🚀 Schnelleinstieg in Code
+Liefert öffentliche Sensor-Metadaten: `id`, `friendly_name`, Koordinaten,
+Beschreibung sowie Erstellungs- und Änderungszeit. Verborgene Sensoren werden
+bei öffentlichen Abfragen ausgeschlossen.
 
-### cURL
+### Letzter Messwert eines Sensors
 
-# 1. Alle aktiven Stationen auflisten
+```http
+GET /api/v1/telemetry/latest?sensor_id=ttn-rak3112-002
+GET /api/v1/telemetry/latest?sensor_id=ttn-rak3112-002&metric=temperature
+```
 
-curl -X GET "<https://open-ried-sens.duckdns.org/api/v1/sensors>" \
- -H "Accept: application/json"
+Ohne `metric` kommt der neueste einzelne Messpunkt für den Sensor zurück. Mit
+`metric` wird auf eine Messgröße eingeschränkt. Die Antwort enthält
+`sensor_id`, `metric`, `timestamp`, `value` und `unit`.
 
-# 2. Neuesten Messwert für Station 'ried-01' abrufen
+### Letzter Wert jeder Messgröße
 
-curl -X GET "<https://open-ried-sens.duckdns.org/api/v1/telemetry/latest?sensor_id=ried-01>"
+```http
+GET /api/v1/telemetry/latest/metrics?sensor_id=ttn-rak3112-002
+```
 
-# 3. 1-Stunden-Durchschnittswerte der letzten 24 Stunden abrufen
+Liefert den zuletzt gespeicherten Wert pro Messgröße und Einheit des Sensors.
+Diese Route eignet sich für eine Übersicht mit mehreren Messwerten.
 
-curl -X GET "<https://open-ried-sens.duckdns.org/api/v1/telemetry/aggregates?sensor_id=ried-01&interval=1%20hour&start_time=2026-09-12T00:00:00.000Z>"
+### Historische Rohwerte
 
-### Python
+```http
+GET /api/v1/telemetry/raw?sensor_id=ttn-rak3112-002&start_time=2026-10-20T00:00:00Z&metric=temperature
+```
 
+Erforderlich sind `sensor_id` und `start_time`. `end_time` ist optional und
+fällt standardmäßig auf den aktuellen Zeitpunkt; `metric` kann zum Filtern
+angegeben werden. `limit` ist standardmäßig 100 und auf 5.000 begrenzt. Die
+Antwort ist nach Zeit absteigend sortiert.
+
+### Aggregierte Zeitreihe
+
+```http
+GET /api/v1/telemetry/aggregates?sensor_id=ttn-rak3112-002&metric=temperature&interval=1%20hour&start_time=2026-10-20T00:00:00Z
+```
+
+Unterstützte Intervalle: `1 minute`, `5 minutes`, `10 minutes`, `15 minutes`,
+`30 minutes`, `1 hour`, `2 hours`, `3 hours`, `6 hours`, `12 hours`, `1 day`,
+`7 days`, `1 week`, `30 days` und `1 month`. Der Zeitraum ist auf 31 Tage und
+2.000 Zeit-Buckets beschränkt. Insgesamt werden höchstens 5.000 Ergebniszeilen
+zurückgegeben; bei zu vielen Zeilen ist ein Messgrößenfilter oder ein gröberes
+Intervall nötig. Jede Zeile enthält Bucket-Zeit, Minimum, Maximum, Mittelwert,
+Stichprobenzahl, Messgröße und Einheit.
+
+### Karte und Messfenster
+
+```http
+GET /api/v1/map/sensors
+GET /api/v1/telemetry/latest/window?sensor_id=ttn-rak3112-002
+```
+
+`/map/sensors` liefert ein begrenztes Inventar öffentlicher Standorte samt
+aktuellen Messwerten in einer Antwort. ETags und Cache-Header unterstützen
+effiziente Aktualisierungen. Die Messfenster-Route stellt – sofern vorhanden –
+die lokalen Fensterstatistiken eines TTN-Sensors bereit.
+
+## Weitere öffentliche Datenbereiche
+
+Die folgenden Routen sind nach Bereichen im produktiven OpenAPI-Schema
+aufgeführt. Einzelne Antworten, Filter und Lizenzhinweise sind dort spezifiziert.
+
+| Bereich | Beispielrouten |
+| --- | --- |
+| Datenquellen und Sammlerstatus | `GET /api/v1/collection/status`, `GET /api/v1/collected/{dataset}` |
+| Umwelt und Wetter | `GET /api/v1/environment/measurements`, `GET /api/v1/environment/measurements/soil` |
+| Tankstellenpreise und Mobilität | `GET /api/v1/fuel`, `GET /api/v1/bikes`, `GET /api/v1/traffic/incidents`, `GET /api/v1/transport/stops/{stop_id}/departures` |
+| Archive und Downloads | `GET /api/v1/archives`, `GET /api/v1/downloads` |
+| Satelliten | `GET /api/v1/satellite/scenes`, `GET /api/v1/satellite/latest`, `GET /api/v1/satellites/latest` |
+| Regionale Inhalte | Veranstaltungen, Abfallkalender, Infrastruktur, Wirtschaft, Bevölkerungsdaten und weitere unter `/api/v1` |
+
+## Beispielaufrufe
+
+```bash
+curl --fail-with-body \
+  'https://open-ried-sens.duckdns.org/api/v1/sensors'
+
+curl --fail-with-body \
+  'https://open-ried-sens.duckdns.org/api/v1/telemetry/latest/metrics?sensor_id=ttn-rak3112-002'
+```
+
+```python
 import requests
 
-# Neueste Telemetriedaten abrufen
+base = "https://open-ried-sens.duckdns.org/api/v1"
+response = requests.get(
+    f"{base}/telemetry/latest/metrics",
+    params={"sensor_id": "ttn-rak3112-002"},
+    timeout=15,
+)
+response.raise_for_status()
+for reading in response.json():
+    print(reading["metric"], reading["value"], reading["unit"])
+```
 
-url = "<https://open-ried-sens.duckdns.org/api/v1/telemetry/latest>"
-params = {"sensor_id": "ried-01"}
-
-response = requests.get(url, params=params)
-data = response.json()
-
-print(f"Station: {data['sensor_id']}, Wert: {data['value']} {data['unit']}")
-
-### JavaScript (Fetch API)
-
-// Aktive Stationen abrufen
-async function getSensors() {
-const response = await fetch("<https://open-ried-sens.duckdns.org/api/v1/sensors>");
-const sensors = await response.json();
-console.log(sensors);
-}
-
-getSensors();
-
----
-
-## 📡 Endpunkt-Referenz (v1)
-
-### `GET /api/v1/sensors` (Öffentlich)
-
-Liefert die Liste aller öffentlich sichtbaren Messstationen inklusive Name, GPS-Koordinaten (Breite/Länge) und Beschreibung.
-
-Beispiel-Antwort (`200 OK`):
-[
-{
-"sensor_id": "ried-01",
-"friendly_name": "Station 1: Bürstadt Mitte",
-"latitude": 49.6425,
-"longitude": 8.456,
-"is_hidden": false,
-"description": "KAMÜ Kulturzentrum Industriestr. 11",
-"created_at": "2026-09-11T12:00:00Z"
-}
-]
-
----
-
-### `GET /api/v1/telemetry/latest` (Öffentlich)
-
-Ruft den zuletzt empfangenen Einzelwert für eine angegebene Station ab.
-
-Query-Parameter:
-
-- `sensor_id` (string, erforderlich): Die ID der Station, z.B. `ried-01`.
-
-Beispiel-Antwort (`200 OK`):
-{
-"sensor_id": "ried-01",
-"timestamp": "2026-09-11T19:42:00Z",
-"value": 21.4,
-"unit": "celsius"
-}
-
----
-
-### `GET /api/v1/telemetry/raw` (Öffentlich)
-
-Liefert die historischen Rohdatenpunkte einer Station innerhalb eines definierten Zeitintervalls.
-
-Query-Parameter:
-
-- `sensor_id` (string, erforderlich): ID der Station.
-- `start_time` (ISO-8601, erforderlich): Startzeitpunkt.
-- `end_time` (ISO-8601, optional): Endzeitpunkt [Standard: jetzt].
-- `limit` (int, optional): Max. Punkte [Standard 100, max. 5000].
-
----
-
-### `GET /api/v1/telemetry/aggregates` (Öffentlich)
-
-Berechnet direkt über TimescaleDBs `time_bucket()` statistische Kennzahlen (Durchschnitt, Min, Max, Anzahl Messungen) über reguläre Zeitintervalle. Ideal für Diagramme und Dashboards!
-
-Query-Parameter:
-
-- `sensor_id` (string, erforderlich): ID der Station.
-- `interval` (string, erforderlich): Erlaubte Intervalle: `5 minutes`, `15 minutes`, `30 minutes`, `1 hour`, `3 hours`, `6 hours`, `12 hours`, `1 day`, `7 days`, `1 month`.
-- `start_time` (ISO-8601, erforderlich): Startzeitpunkt.
-- `end_time` (ISO-8601, optional): Endzeitpunkt.
-
----
-
-## 📊 Erfasste Umweltparameter & Einheiten
-
-Übersicht über die physikalischen Größen der Multisensor-Stationen:
-
-| Kategorie        | Parameter        | Einheit / Format | Identifikator / Code |
-| :--------------- | :--------------- | :--------------- | :------------------- |
-| **Klima**        | Temperatur       | °C               | `celsius`            |
-| **Klima**        | Luftfeuchtigkeit | % r.F.           | `percent`            |
-| **Niederschlag** | Regenmenge       | mm               | `mm`                 |
-| **Sonne**        | UV-Index         | Index (0 - 11+)  | `uv_index`           |
-| **Luftqualität** | VOC-Index        | Index (0 - 500)  | `voc_index`          |
-| **Luftqualität** | NOx-Index        | Index (0 - 500)  | `nox_index`          |
-| **Partikel**     | Feinstaub PM2.5  | µg/m³            | `ug/m3`              |
-| **Akustik**      | Schallpegel      | dB               | `db`                 |
-
----
-
-## ⚖️ Open-Data Lizenz & Namensnennung
-
-Die Telemetriedaten werden unter den Bedingungen der **Creative Commons Attribution 4.0 International (CC BY 4.0)** Lizenz bereitgestellt.
-
-Bei Verwendung in Projekten bitten wir um folgende Quellenangabe:
-
-> **„Daten: Open Ried Sens / KAMÜ Kulturzentrum Bürstadt“**
-
----
-
-**Open Ried Sens** – Eine private Bürgerinitiative mit dem Kulturzentrum **KAMÜ** in Bürstadt.
-[Dashboard](https://open-ried-sens.vercel.app/) • [API Data Portal](https://open-ried-sens.vercel.app/daten)
+Die API ist außerdem über das [Datenportal](https://open-ried-sens.vercel.app/daten)
+und das [Dashboard](https://open-ried-sens.vercel.app/) erreichbar.

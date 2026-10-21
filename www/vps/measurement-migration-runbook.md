@@ -1,27 +1,31 @@
 # Measurement migration: deployment and rehearsal
 
-## Production deployment — 2026-10-01
+## Current production status — inspected 2026-10-21
 
-At the user's explicit request, the additive core was applied directly to the VPS
-without another test run. `entities`, `measurement_definitions` and `readings`
-are installed and live shadow writes are enabled. Current sensor metadata/readings,
-movement readings, seven statistics publications, two charger publications, two
-gauge publications and 1,765 archived weather receipts were transferred.
+This read-only inspection supersedes the older production-state note below:
 
-The API runs with `MEASUREMENT_READ_MODE=core_current`: current snapshots and
-supported publications use canonical readings; historical `sensor_data` queries
-continue using the complete old history. Historical transfer and some domain
-mappings remain incomplete. The weather collector runs with
-`MEASUREMENT_WEATHER_WRITE_MODE=dual`; its first live acquisition committed and
-both updated services started healthy.
+- The running API reports `MEASUREMENT_READ_MODE=legacy`. Its normal telemetry
+  reads therefore use the compatibility tables; do not describe production as
+  currently reading from `core_current`.
+- The database contains `entities`, `measurement_definitions` and `readings`.
+  Their presence confirms that the core schema is installed, but this check did
+  not verify shadow-write settings, migration parity, or transferred history.
+- Watchtower has `WATCHTOWER_MONITOR_ONLY=true` and polls every 300 seconds. It
+  does not replace the running containers automatically.
+- The deployed checkout reported commit `d5d0c84`; the local repository was at
+  `6e1bdfb`. Verify the release actually running before treating local `main` as
+  deployed.
+- The VPS Compose project is named `root`. In the inspected `docker ps` output,
+  the aircraft collector was unhealthy. Other container health and data-source
+  freshness still need their own checks.
 
-Source is mounted read-only from
-`/home/ubuntu/my-app/releases/measurement-229fb2d/www/vps/` using the default
-`docker-compose.override.yml`. `measurement_reads.py` includes the subsequent
-`core_current` change. Automatic image updates remain enabled. No legacy tables
-were removed; full historical transfer was not started with only 2.4 GiB free.
+An earlier version of this document reported `core_current`, shadow writes and
+a dual-mode weather collector on 2026-10-01. That report is superseded for
+current-state decisions: its read mode and automatic-update claims conflict
+with the live settings observed on 2026-10-21. The inspection above did not
+modify production.
 
-## Earlier implementation notes
+## Earlier implementation and rehearsal notes (historical)
 
 The working branch implements the three core tables, shared SQL ingestion, revision/latest helpers, sensor/movement/statistics/charger shadow writes, bounded backfill, comparison audits and preliminary disk sizing. Sensor, movement, statistics, charger and archive readers have an opt-in compatibility path. Reads default to legacy; this is not a completed production cutover. Installing an updated API image alone does not activate migration.
 

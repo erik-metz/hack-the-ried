@@ -152,10 +152,11 @@ docker compose up -d --no-deps smartcity-collector
 docker compose logs --tail=100 smartcity-collector
 ```
 
-The first deployment needs these explicit commands: Watchtower can update an
-existing service image, but does not add a new service or update the Compose file.
-Compose startup dependency order does not guarantee migration readiness; the
-collector will retry if started early.
+The first deployment needs these explicit commands: Watchtower is monitor-only
+on the inspected production host, so it neither updates an existing image nor
+adds a service or changes the Compose file. Use the release deployment runbook
+and the active Compose project/override. Compose startup dependency order does
+not guarantee migration readiness; the collector will retry if started early.
 
 For a small 24-hour pilot, set these in the VPS `.env` before starting:
 

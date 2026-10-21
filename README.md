@@ -21,10 +21,22 @@ npm run dev
 
 ### 2. Backend Stack (`/www/vps`)
 
-Der Backend-Service läuft via Docker Compose auf einer Contabo VPS unter einer DuckDNS-Domain.
+Das Backend und die Datensammler laufen als Docker-Compose-Stack auf dem VPS
+`169.58.102.132`. Öffentlich erreichbar ist die API über die DuckDNS-Domain;
+Nginx terminiert HTTPS und leitet Anfragen an FastAPI weiter. Die Datenbank ist
+nicht direkt öffentlich freigegeben.
 
-cd www/vps
-docker-compose up -d --build
+Für den laufenden Server ist der freigegebene SSH-Zugang vorgesehen:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@169.58.102.132
+```
+
+Lokale Entwicklung des Stacks und die kontrollierte Veröffentlichung der
+Container sind in [`www/vps/README.md`](www/vps/README.md) und
+[`www/vps/DEPLOYMENT.md`](www/vps/DEPLOYMENT.md) beschrieben. GHCR-Veröffentlichung
+und VPS-Aktualisierung sind getrennte Schritte; Watchtower läuft im
+Monitor-only-Modus und ersetzt keine geordnete Bereitstellung.
 
 ---
 

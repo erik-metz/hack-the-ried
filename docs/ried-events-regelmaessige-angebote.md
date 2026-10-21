@@ -244,6 +244,11 @@ Watchtower kann die festgelegte Image-Version nicht automatisch ersetzen.
 Die öffentliche API liefert weiterhin die zwei bestehenden Lauftreffs;
 die acht Tanzangebote sind noch nicht produktiv nachgewiesen.
 
+Betriebskorrektur vom 21.10.2026: Der aktuelle Watchtower läuft im
+Monitor-only-Modus und ersetzt grundsätzlich keine Container. Der damalige
+Digest-Konflikt bleibt als historischer Befund bestehen; ein neuer GHCR-Push
+allein würde die Vereinsangebote nicht produktiv schalten.
+
 Die gesonderte Serverkonfiguration einer anderen Aufgabe wurde nicht
 überschrieben. Vor Freischaltung ist der Versionskonflikt mit dieser
 Konfiguration aufzulösen und anschließend Quellenstatus, kombinierte

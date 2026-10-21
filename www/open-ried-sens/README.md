@@ -4,36 +4,30 @@
 
 ---
 
-## 📌 Projektkontext & Vision
+## 📌 Projektkontext & aktueller Umfang
 
-Ziel der Initiative ist die Ausrichtung eines großen regionalen **Hackathons**. Um den Teilnehmerinnen und Teilnehmern des Hackathons eine fundierte Datenbasis zu bieten, benötigt die Region kontinuierliche, verlässliche und historische Umwelt- und Echtzeitdaten. Da solche digitalen Datensätze in den Städten Bürstadt und Lampertheim bislang nicht in ausreichendem Maße öffentlich zur Verfügung stehen, wurde dieses Multisensor-Projekt ins Leben gerufen.
+Open Ried Sens verbindet eigene Sensoren mit öffentlichen und kommunalen
+Datenquellen für Bürstadt, Lampertheim und das Hessische Ried. Das Portal ist
+damit mehr als ein Dashboard für eine geplante Gruppe von fünf Stationen: Es
+zeigt Umwelt-, Mobilitäts- und Regionaldaten verschiedener Anbieter und
+Sensorarten. Die verfügbaren Werte unterscheiden sich je nach Station und
+Datenquelle.
 
----
+Eine Read-only-Abfrage der produktiven Datenbank am 21.10.2026 fand 1.217
+sichtbare Sensoren mit mindestens einem Eintrag in `sensor_latest`, 74
+verschiedene Messgrößen und 2.857 Sensor-/Messgröße-/Einheit-Kombinationen mit
+einem zuletzt gespeicherten Wert. Das ist eine veränderliche Momentaufnahme,
+kein Freshness-Nachweis oder feste Projektkapazität.
 
-## 🛰️ Phasengliederung
-
-### Phase 1: Aufbau der ersten 5 Multisensor-Stationen (Aktuell)
-In der ersten Phase werden **5 moderne Multisensor-Messstationen** auf privaten Grundstücken in Bürstadt, Lampertheim und Umgebung installiert. Diese Stationen erfassen rund um die Uhr relevante Umwelt- und Umfelddaten:
-
-- 🌡️ **Temperatur & Luftfeuchtigkeit**
-- 🌧️ **Niederschlag / Regenmenge**
-- ☀️ **UV-Index & Sonneneinstrahlung**
-- 💨 **Luftqualität (VOC & NOx Gase)**
-- 🌫️ **Feinstaub (PM2.5 & PM10)**
-- 🎙️ **Akustische Lärmklassifizierung** (Einsatz eines Mikrofons zur Klassifikation von Fahrzeuglärm, Passanten/Sprache, Wind- und Umweltgeräuschen)
-
-### Phase 2: Aufbau der regionalen LoRaWAN-Infrastruktur
-Da in der Region bislang keine flächendeckende LoRaWAN-Abdeckung existiert, umfasst das Projekt auch den schrittweisen **Aufbau von LoRaWAN-Gateways**, die an [The Things Network (TTN)](https://www.thethingsindustries.com) angebunden sind. Dadurch wird erstmals eine freie, energiesparsame IoT-Funkinfrastruktur für Bürger, Landwirtschaft und Umweltprojekte in Bürstadt und Lampertheim geschaffen.
-
-### Phase 3: Mini-Hackathon mit Schulen (50–100 Sensorstationen)
-Die gewonnenen Erfahrungen aus den ersten 5 Stationen dienen als Katalysator für einen **Mini-Hackathon in Zusammenarbeit mit lokalen Schulen** (z. B. der *Erich Kästner Schule* in Bürstadt). Schülerinnen und Schüler lernen dabei den Zusammenbau, die Programmierung und den Betrieb eigener LoRaWAN-Sensoren. Ziel ist die Ausweitung des Sensornetzes auf **50 bis 100 Messpunkte** in der gesamten Region.
-
-### Phase 4: Der regionale Hackathon & Kommunale Einbindung
-Nach einer mehrmonatigen Datenerfassungsphase steht der Haupt-Hackathon an. Mit den gesammelten historischen Daten können innovativste Anwendungen für Smart City, Umweltschutz, Lärmschutz und Bürgerdienste entwickelt werden. Parallel wird das Projekt in den politischen Gremien beider Städte vorgestellt, um öffentliche Förderungen und kommunale Mittel zur langfristigen Sicherung des Netzwerks einzuwerben.
+Die Datenbereiche umfassen unter anderem Temperatur, Luftfeuchtigkeit,
+Niederschlag, Feinstaub, Luftqualität, UV und Licht, Tankstellenpreise,
+Fahrradverfügbarkeit, Verkehr, Wetter, Luftgütestationen, LoRaWAN-Gateways
+und Bewegungsdaten. Ein einzelner Sensor liefert jeweils nur die Messgrößen,
+die für seine Quelle erfasst werden.
 
 ---
 
-## 🛠️ Technischer Stack der Web-Applikation
+## 🛠️ Technischer Stack und Betrieb
 
 Die Web-Anwendung dient als zentrales Dashboard und Dokumentationsportal für das Netzwerk:
 
@@ -41,7 +35,20 @@ Die Web-Anwendung dient als zentrales Dashboard und Dokumentationsportal für da
 - **Styling**: Tailwind CSS v4
 - **Icons**: Lucide React
 - **Kartendarstellung**: Leaflet & OpenStreetMap (Bürstadt / Lampertheim / Ried Region)
-- **Funkstandard**: LoRaWAN OTAA über [The Things Network (TTN)](https://www.thethingsindustries.com)
+- **Backend**: FastAPI und TimescaleDB auf dem VPS; Nginx veröffentlicht die API über HTTPS.
+- **Datenquellen**: eigene LoRaWAN-Sensoren über [The Things Network (TTN)](https://www.thethingsindustries.com) und eigenständige Sammler für externe Quellen.
+- **Hosting**: Frontend auf Vercel; API, Datenbank und Sammler als Docker-Compose-Stack auf dem VPS.
+- **Deployment**: GitHub Actions validiert und veröffentlicht Container-Images in GHCR. Watchtower läuft auf dem VPS im Monitor-only-Modus; der Server wird kontrolliert aktualisiert und nicht automatisch bei jedem GHCR-Push.
+
+Das Produktivsystem wird per SSH erreicht:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@169.58.102.132
+```
+
+Weitere Betriebsinformationen, darunter die tatsächlichen Compose-Dienste und
+die Deployment-Reihenfolge, stehen in [`www/vps/README.md`](../vps/README.md)
+und [`www/vps/DEPLOYMENT.md`](../vps/DEPLOYMENT.md).
 
 ---
 

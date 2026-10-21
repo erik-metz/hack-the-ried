@@ -1,12 +1,27 @@
 # Deploying the collector refactor to an existing VPS
 
-This guide assumes your existing Docker Compose stack is already running and you are deploying the collector refactor, not provisioning a new server. Commands run on the VPS in the directory containing its active `docker-compose.yml` and `.env`, except the GitHub publishing step.
+This is a release-specific runbook for the collector refactor and its `20260916`
+schema migration; it is not a generic command sequence for every later release.
+Check the migration and deployment notes for the release you are actually
+publishing before using these steps. It assumes the existing Docker Compose
+stack is already running. Commands run on the VPS in the directory containing
+its active `docker-compose.yml` and `.env`, except the GitHub publishing step.
+
+Connect to the configured production host with:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@169.58.102.132
+```
 
 Allow a maintenance window: the API and collectors will stop briefly, and the database will be recreated with the same image and volume to install its new healthcheck. Incoming API requests will be unavailable during that interval. Source backfill is provider-dependent; do not assume every missed reading can be recovered.
 
-The order is: pause automatic updates → preserve rollback images → publish/pull images → stop writers and back up → update Compose → database readiness → schema migration → API → collectors → optional archives.
+The order is: preserve rollback images → publish/pull images → stop writers and
+back up → update Compose → database readiness → schema migration → API →
+collectors → optional archives. Watchtower is configured monitor-only on the
+production host; stopping it during the maintenance window pauses its update
+notifications, not automatic container replacement.
 
-## 1. Establish the existing project and pause Watchtower
+## 1. Establish the existing project and pause the Watchtower monitor
 
 Use the existing deployment directory. Do not create a new Compose project: that can select new empty volumes instead of your existing data.
 
@@ -18,7 +33,10 @@ docker inspect timescaledb --format '{{index .Config.Labels "com.docker.compose.
 
 Keep using the same directory and any existing `-p`, `--env-file`, or override-file options throughout. The commands below assume your existing deployment uses plain `docker compose`.
 
-Pause Watchtower **before publishing the new images**. This change needs updated mounts/environment settings and ordered schema deployment; an automatic image replacement alone is insufficient.
+Optionally stop Watchtower **before publishing the new images** to quiet its
+monitor during the maintenance window. It runs with
+`WATCHTOWER_MONITOR_ONLY=true`, so it does not replace containers. This release
+still needs updated mounts/environment settings and ordered schema deployment.
 
 ```bash
 docker compose stop watchtower

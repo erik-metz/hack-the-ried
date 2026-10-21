@@ -444,9 +444,20 @@ nun denselben Kalendervertrag: `/termine` und der Eventbereich von `/statistik`.
   Die produktive Aufnahme der zusätzlichen Vereinsquellen und die Anwendung
   der neuen Dublettenveröffentlichung müssen am laufenden VPS separat
   bestätigt werden. Erfolgreiche CI-/GHCR-Veröffentlichungen allein ersetzen
-  diesen Nachweis nicht. Der vorhandene Watchtower ist für automatische
-  Image-Aktualisierungen vorgesehen; sein tatsächlicher Laufzustand wurde
-  in dieser Prüfung nicht ermittelt.
+  diesen Nachweis nicht. Zum damaligen Prüfzeitpunkt war vorgesehen, dass
+  Watchtower automatische Image-Aktualisierungen übernimmt; sein tatsächlicher
+  Laufzustand wurde in dieser Prüfung nicht ermittelt.
+
+### Betriebsstand korrigiert — 21.10.2026
+
+Eine spätere read-only Prüfung des VPS ergab, dass Watchtower mit
+`WATCHTOWER_MONITOR_ONLY=true` läuft und Container nicht automatisch ersetzt.
+Der aktive Compose-Stack liegt unter `/root` mit
+`docker-compose.yml` und `docker-compose.override.yml`; der separate
+Repository-Checkout lag auf `d5d0c84`. Eine GHCR-Veröffentlichung allein belegt
+keinen produktiven Vereinsimport. Die offenen Quellen müssen nach einer
+kontrollierten Bereitstellung weiterhin über Quellenstatus, API und Website
+geprüft werden.
 
 ## Ergänzung: produktiven Vereinsimport reparieren
 
