@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel, measurementGroupDescription } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 
@@ -200,7 +200,7 @@ export default function TelemetryCharts({
             const title = grouped ? measurementGroupLabel(groupId) ?? "Messwertgruppe" : metricLabel(cardReadings[0]);
             const isActive = cardReadings.some(reading => seriesKey(reading) === (active && seriesKey(active)));
             const descriptions = [...new Set(cardReadings.map(metricDescription).filter((description): description is string => Boolean(description)))];
-            const groupDescription = groupId === "particulate" ? "Masse und Anzahl der Feinstaubpartikel nach Größenklasse." : descriptions.length === 1 ? descriptions[0] : undefined;
+            const groupDescription = measurementGroupDescription(groupId) ?? (descriptions.length === 1 ? descriptions[0] : undefined);
             const key = cardReadings.map(seriesKey).join("|");
             return <button key={key} type="button" aria-pressed={isActive} onClick={() => {
               const reading = cardReadings.find(item => seriesKey(item) === (active && seriesKey(active))) ?? cardReadings[0];
@@ -236,9 +236,9 @@ export default function TelemetryCharts({
           })}
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">
-          <h4 className="font-semibold">{chartSeries.length > 1 ? measurementGroupLabel(group) ?? "Messwerte" : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
+          <h4 className="font-semibold">{chartReadings.length > 1 ? measurementGroupLabel(group) ?? "Messwerte" : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
           {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)} · {unitLabel(series.reading.unit)}</span>)}</div>}
-          {metricDescription(active) && <p className="mt-1 text-sm text-slate-400">{metricDescription(active)}</p>}
+          {(chartReadings.length > 1 ? measurementGroupDescription(group) : metricDescription(active)) && <p className="mt-1 text-sm text-slate-400">{chartReadings.length > 1 ? measurementGroupDescription(group) : metricDescription(active)}</p>}
           <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : "5-Minuten-Mittelwerte"} · Uhrzeit Europe/Berlin</p>
           {fuelEntity && <p className="mt-2 text-xs text-slate-400">Gemeldete Preise in €/l. Zeitpunkte sind Abrufzeiten, keine exakten Preisänderungszeiten. Historie ab Beginn der Preiserfassung; Datenlücken werden nicht verbunden.</p>}
           {active.metric.startsWith("traffic_") && <p className="mt-2 text-xs text-amber-200">Stunden-/Tagessummen der Quelle, keine einzelnen Verkehrserfassungen. Aufeinanderfolgende Meldungen werden nicht addiert. Exakte Intervallgrenzen meldet die Quelle nicht.</p>}

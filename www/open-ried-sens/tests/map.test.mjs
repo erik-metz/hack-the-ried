@@ -452,6 +452,39 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(telemetry.unitLabel("count"), "Anzahl");
 });
 
+test("related readings are grouped across sensor types that share a chart context", () => {
+  const reading = (metric, unit = "count") => ({ metric, unit });
+  const cases = [
+    [[["parking_free", "count"], ["parking_occupied", "count"], ["parking_capacity", "count"]], "Stellplätze"],
+    [[["bike_available", "count"], ["bike_racks_free", "count"], ["bike_capacity", "count"]], "Leihräder"],
+    [[["pm10", "µg/m³"], ["PM2.5", "µg/m³"], ["particle_number_pm2_5", "#/cm³"]], "Feinstaub"],
+    [[["illuminance", "lx"], ["uv_intensity", "μW/cm²"]], "Licht & UV"],
+    [[["temperature", "°C"], ["relative_humidity", "%"], ["dew_point", "°C"]], "Temperatur & Luftfeuchtigkeit"],
+    [[["soil_moisture_30cm", "%"], ["soil_tension_30cm", "kPa"]], "Bodenfeuchte"],
+    [[["water_surface_distance", "cm"], ["water_level_delta", "m"]], "Wasserstand"],
+    [[["day_ahead_price", "EUR/MWh"], ["total_load", "MW"], ["generation_power", "MW"]], "Energie"],
+    [[["speed", "km/h"], ["free_flow_speed", "km/h"], ["delay", "s"]], "Verkehrsfluss"],
+    [[["altitude_baro", "m"], ["altitude_geom", "m"]], "Flughöhe"],
+    [[["evapotranspiration", "mm"], ["reference_evapotranspiration", "mm"]], "Verdunstung"],
+    [[["ndvi_mean", "index"], ["evi_mean", "index"], ["ndmi_mean", "index"]], "Vegetationsindizes"],
+    [[["fuel_e5", "€/l"], ["fuel_e10", "€/l"], ["fuel_diesel", "€/l"]], "Kraftstoffpreise"],
+  ];
+
+  for (const [metrics, expectedLabel] of cases) {
+    const members = metrics.map(([metric, unit]) => reading(metric, unit));
+    const groups = telemetry.measurementCardGroups(members);
+    assert.equal(groups.length, 1, `${metrics.map(([metric]) => metric).join(", ")} should form one card`);
+    assert.equal(telemetry.measurementGroupLabel(telemetry.measurementGroup(members[0])), expectedLabel);
+    assert.equal(groups[0].length, metrics.length);
+  }
+  assert.equal(telemetry.measurementGroup(reading("ltr390_als_raw", "raw")), undefined);
+  assert.equal(telemetry.measurementGroup(reading("particle_size_typical", "µm")), undefined);
+  assert.equal(telemetry.metricLabel(reading("parking_occupancy_pct", "%")), "Stellplatzbelegung");
+  assert.equal(telemetry.metricLabel(reading("day_ahead_price", "EUR/MWh")), "Börsenstrompreis");
+  assert.equal(telemetry.metricLabel(reading("dew_point", "°C")), "Taupunkt");
+  assert.ok(telemetry.measurementGroupDescription("parking"));
+});
+
 test("weather identity is not overridden by generic parking notes in source descriptions", () => {
   const nodes = model.toStationNodes([sensor([reading("temperature")], {
     entity_type: "WeatherObserved", source_entity_id: "urn:ngsi-ld:WeatherObserved:wettermanufaktur-123",

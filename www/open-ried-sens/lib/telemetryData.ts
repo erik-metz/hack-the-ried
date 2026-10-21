@@ -5,10 +5,20 @@ export const seriesKey = (reading: { metric: string; unit: string }) => JSON.str
 /** Related measurements that are useful to compare over time for one station. */
 export function measurementGroup(reading: { metric: string; unit: string }): string | undefined {
   const metric = reading.metric.toLocaleLowerCase("de-DE").replace(/[.-]/g, "_");
-  if (["temperature", "scd41_temperature", "bme688_temperature", "humidity", "relative_humidity", "scd41_humidity", "bme688_humidity"].includes(metric)) return "temperature-humidity";
-  if (["ambient_light", "ltr390_als_raw", "uv_index", "ltr390_uv_raw"].includes(metric)) return "light-uv";
-  if (["pm0_5", "pm1_0", "pm2_5", "pm4_0", "pm10", "pm25", "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) return "particulate";
-  if (["no2", "o3"].includes(metric)) return "air-pollutants";
+  if (["temperature", "scd41_temperature", "bme688_temperature", "humidity", "relative_humidity", "scd41_humidity", "bme688_humidity", "dew_point"].includes(metric)) return "temperature-humidity";
+  if (["ambient_light", "illuminance", "uv_index", "uv_intensity"].includes(metric)) return "light-uv";
+  if (["pm0_5", "pm1_0", "pm2_5", "pm25", "pm4_0", "pm10", "particle_number_pm0_5", "particle_number_pm1_0", "particle_number_pm2_5", "particle_number_pm4_0", "particle_number_pm10"].includes(metric)) return "particulate";
+  if (["no2", "o3", "so2", "co2"].includes(metric)) return "air-pollutants";
+  if (["sgp41_voc_index", "sgp41_nox_index", "air_quality_index"].includes(metric)) return "air-quality";
+  if (["parking_free", "parking_occupied", "parking_capacity", "parking_occupancy_pct"].includes(metric)) return "parking";
+  if (["bike_available", "bike_racks_free", "bike_capacity", "bike_ebikes"].includes(metric)) return "bikes";
+  if (["soil_moisture", "soil_moisture_30cm", "soil_moisture_60cm", "soil_tension", "soil_tension_30cm", "soil_tension_60cm"].includes(metric)) return "soil-moisture";
+  if (["water_surface_distance", "water_level_delta"].includes(metric)) return "water-level";
+  if (["day_ahead_price", "total_load", "generation_power"].includes(metric)) return "energy";
+  if (["speed", "free_flow_speed", "delay"].includes(metric)) return "traffic-flow";
+  if (["altitude_baro", "altitude_geom", "altitude_ogn"].includes(metric)) return "flight-altitude";
+  if (["evapotranspiration", "reference_evapotranspiration"].includes(metric)) return "evapotranspiration";
+  if (["ndvi_mean", "evi_mean", "ndmi_mean", "ndwi_mean", "savi_mean"].includes(metric)) return "vegetation-indices";
   if (["fuel_e5", "fuel_e10", "fuel_diesel"].includes(metric)) return "fuel-price";
   return undefined;
 }
@@ -17,10 +27,40 @@ const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
   "light-uv": "Licht & UV",
   particulate: "Feinstaub",
   "air-pollutants": "Luftschadstoffe",
+  "air-quality": "Luftqualität",
+  parking: "Stellplätze",
+  bikes: "Leihräder",
+  "soil-moisture": "Bodenfeuchte",
+  "water-level": "Wasserstand",
+  energy: "Energie",
+  "traffic-flow": "Verkehrsfluss",
+  "flight-altitude": "Flughöhe",
+  evapotranspiration: "Verdunstung",
+  "vegetation-indices": "Vegetationsindizes",
   "fuel-price": "Kraftstoffpreise",
+};
+const MEASUREMENT_GROUP_DESCRIPTIONS: Record<string, string> = {
+  "temperature-humidity": "Temperatur, Luftfeuchtigkeit und bei passenden Sensoren der Taupunkt im gemeinsamen zeitlichen Verlauf.",
+  "light-uv": "Helligkeit und UV werden je nach Einheit mit getrennten Skalen verglichen.",
+  particulate: "Masse und Anzahl der Feinstaubpartikel nach Größenklasse.",
+  "air-pollutants": "Konzentrationen verschiedener Luftschadstoffe; unterschiedliche Einheiten haben eigene Skalen.",
+  "air-quality": "Sensorindizes für flüchtige Stoffe und Stickoxide; Indizes sind keine Konzentrationswerte.",
+  parking: "Freie, belegte und insgesamt verfügbare Stellplätze an diesem Standort.",
+  bikes: "Verfügbare Räder, freie Rückgabeplätze und Stationskapazität.",
+  "soil-moisture": "Vergleich von Bodenwassergehalt und Bodensaugspannung, sofern beides erfasst wird.",
+  "water-level": "Abstand zur Wasseroberfläche und Änderung des Wasserstands.",
+  energy: "Energiepreise und Leistung im Zeitverlauf; die Einheiten werden getrennt skaliert.",
+  "traffic-flow": "Geschwindigkeit und Verspätung des Verkehrsabschnitts im gemeinsamen Verlauf.",
+  "flight-altitude": "Barometrische und geometrische Höhenmeldungen; der Höhenbezug kann sich unterscheiden.",
+  evapotranspiration: "Tatsächliche und rechnerische Verdunstung zum Vergleich.",
+  "vegetation-indices": "Satellitengestützte Vegetations- und Feuchteindizes im gemeinsamen Verlauf.",
+  "fuel-price": "Preise für die angebotenen Kraftstoffsorten im gemeinsamen Verlauf.",
 };
 export function measurementGroupLabel(group: string | undefined): string | undefined {
   return group ? MEASUREMENT_GROUP_LABELS[group] : undefined;
+}
+export function measurementGroupDescription(group: string | undefined): string | undefined {
+  return group ? MEASUREMENT_GROUP_DESCRIPTIONS[group] : undefined;
 }
 export function measurementCardGroups<T extends { metric: string; unit: string }>(readings: T[]): T[][] {
   const groups = new Map<string, T[]>();
@@ -56,6 +96,9 @@ const LABELS: Record<string, string> = {
   ltr390_als_raw: "Licht-Rohwert",
   uv_index: "UV-Index",
   ambient_light: "Umgebungslicht",
+  illuminance: "Helligkeit",
+  uv_intensity: "UV-Strahlung",
+  dew_point: "Taupunkt",
   co2: "Kohlendioxid (CO₂)",
   scd41_temperature: "Temperatur",
   scd41_humidity: "Luftfeuchtigkeit",
@@ -79,8 +122,9 @@ const LABELS: Record<string, string> = {
   soil_moisture_30cm: "Bodenfeuchte · 30 cm", soil_moisture_60cm: "Bodenfeuchte · 60 cm",
   soil_tension: "Bodensaugspannung", soil_tension_30cm: "Bodensaugspannung · 30 cm", soil_tension_60cm: "Bodensaugspannung · 60 cm",
   water_surface_distance: "Abstand zur Wasseroberfläche", water_level_delta: "Abweichung vom Referenz-Wasserstand", water_level: "Wasserstand",
-  air_quality_index: "Luftqualitätsindex", NO2: "Stickstoffdioxid (NO₂)", O3: "Ozon (O₃)", PM10: "Feinstaub (PM₁₀)", PM25: "Feinstaub (PM₂,₅)",
+  air_quality_index: "Luftqualitätsindex", NO2: "Stickstoffdioxid (NO₂)", O3: "Ozon (O₃)", SO2: "Schwefeldioxid (SO₂)", PM10: "Feinstaub (PM₁₀)", PM25: "Feinstaub (PM₂,₅)",
   parking_free: "Freie Stellplätze", parking_occupied: "Belegte Stellplätze", parking_capacity: "Stellplätze gesamt",
+  parking_occupancy_pct: "Stellplatzbelegung",
   bike_available: "Verfügbare Leihräder", bike_racks_free: "Freie Docks (Rückgabeplätze)",
   bike_capacity: "Station Kapazität (Docks)", bike_ebikes: "E-Bikes / Pedelecs",
   course: "Kurs über Grund",
@@ -88,6 +132,12 @@ const LABELS: Record<string, string> = {
   altitude_ogn: "Gemeldete Höhe (OGN)", vertical_rate_ogn: "Gemeldete Steigrate (OGN)",
   speed: "Geschwindigkeit", delay: "Verspätung", latitude: "Breitengrad", longitude: "Längengrad",
   crossing_state: "Schrankenzustand", closure_duration: "Schließdauer", crossing_closures: "Schließungen gesamt",
+  precipitation_probability: "Niederschlagswahrscheinlichkeit",
+  day_ahead_price: "Börsenstrompreis", total_load: "Gesamtlast", generation_power: "Erzeugungsleistung",
+  free_flow_speed: "Referenzgeschwindigkeit",
+  ndvi_mean: "Vegetationsindex (NDVI)", evi_mean: "Vegetationsindex (EVI)", ndmi_mean: "Feuchteindex (NDMI)",
+  ndwi_mean: "Wasserindex (NDWI)", savi_mean: "Vegetationsindex (SAVI)",
+  evapotranspiration: "Tatsächliche Verdunstung", reference_evapotranspiration: "Referenzverdunstung",
 };
 
 const COUNT_METRICS = new Set([
@@ -183,6 +233,11 @@ export function metricDescription(reading: { metric: string; unit: string }): st
   if (reading.metric === "bme688_gas_resistance") return "Reaktionssignal auf flüchtige Stoffe; daraus lässt sich keine direkte Konzentration ablesen.";
   if (reading.metric === "sound_level") return "Momentaner Schalldruckpegel; dBFS ist ein relativer digitaler Messwert.";
   if (reading.metric === "ltr390_uv_raw" || reading.metric === "ltr390_als_raw") return "Unskalierter Sensorwert; für die Nutzung ist der berechnete Index aussagekräftiger.";
+  if (reading.metric === "dew_point") return "Temperatur, bei der die Luftfeuchtigkeit durch Abkühlung 100 % erreicht.";
+  if (reading.metric === "uv_intensity") return "Gemessene Stärke der ultravioletten Strahlung.";
+  if (reading.metric === "parking_occupancy_pct") return "Anteil der belegten Stellplätze an der gemeldeten Gesamtkapazität.";
+  if (reading.metric === "day_ahead_price") return "Börsenpreis für Stromlieferungen am Folgetag.";
+  if (reading.metric === "reference_evapotranspiration") return "Vergleichswert für den Wasserbedarf einer gut versorgten Referenzfläche.";
   return undefined;
 }
 export function unitLabel(unit: string) {
