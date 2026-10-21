@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric } from "@/lib/telemetryData";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 
@@ -29,17 +29,24 @@ export default function TelemetryCharts({
 }) {
   const [data, setData] = useState<Telemetry | null>(null);
   const [error, setError] = useState(false);
-  const [selectedSeries, setSelectedSeries] = useState(selectedMetric ?? "");
-
-  useEffect(() => {
-    if (selectedMetric !== undefined && selectedMetric !== selectedSeries) {
-      setSelectedSeries(selectedMetric);
-    }
-  }, [selectedMetric]);
+  const [localSelectedSeries, setLocalSelectedSeries] = useState(selectedMetric ?? "");
+  const selectedSeries = selectedMetric ?? localSelectedSeries;
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const mobilityEntity = node.id.startsWith("movement:") || node.id.startsWith("crossing:");
   const barrierEntity = node.id.startsWith("crossing:");
   const fuelEntity = node.id.startsWith("fuel-");
   const snapshots = fuelEntity || node.categories.some(c => c === "parking" || c === "traffic" || c === "bikes");
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!mobilityEntity) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const update = () => {
+      setNow(Date.now());
+      timer = setTimeout(update, 5000);
+    };
+    timer = setTimeout(update, 0);
+    return () => clearTimeout(timer);
+  }, [mobilityEntity]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -59,7 +66,7 @@ export default function TelemetryCharts({
     return () => { controller.abort(); clearTimeout(timer); };
   }, [node.id, snapshots, mobilityEntity]);
 
-  const readings = mobilityEntity ? (error ? [] : (data?.readings ?? node.readings).filter(r => Date.parse(r.timestamp) + 30000 > Date.now())) : node.isAggregate ? node.readings : mergeReadings(node.readings, data?.readings ?? []);
+  const readings = mobilityEntity ? (error ? [] : (data?.readings ?? node.readings).filter(r => Date.parse(r.timestamp) + 30000 > now)) : node.isAggregate ? node.readings : mergeReadings(node.readings, data?.readings ?? []);
   const parking = parkingSummary(readings);
   const bikes = bikeSummary(readings);
   const active = readings.find(reading => seriesKey(reading) === selectedSeries) ?? (mobilityEntity ? readings.find(r => r.metric === "crossing_state" || r.metric === "speed") : undefined) ?? readings[0] ?? (mobilityEntity && data?.history.length ? { metric: data.history[0].metric, unit: data.history[0].unit, value: 0, timestamp: data.history[0].bucket } : undefined);
@@ -164,10 +171,11 @@ export default function TelemetryCharts({
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {readings.map(reading => <button key={seriesKey(reading)} type="button" aria-pressed={seriesKey(reading) === (active && seriesKey(active))} onClick={() => {
             const k = seriesKey(reading);
-            setSelectedSeries(k);
+            setLocalSelectedSeries(k);
             onSelectMetric?.(k);
           }} className="min-w-0 text-left rounded-xl border border-slate-700 bg-slate-950/60 p-4 aria-pressed:border-emerald-400 focus-visible:outline-2 focus-visible:outline-emerald-400">
             <span className="block text-sm text-slate-400">{metricLabel(reading)}</span>
+            {metricDescription(reading) && <span className="block mt-1 text-xs leading-relaxed text-slate-500">{metricDescription(reading)}</span>}
             <span className="block mt-2 text-2xl font-bold break-words">
               {reading.metric === "crossing_state" ? (
                 crossingStateLabel(reading.value)
@@ -190,13 +198,22 @@ export default function TelemetryCharts({
         </div>
         {active && <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4">
           <h4 className="font-semibold">{metricLabel(active)} · {unitLabel(active.unit)}</h4>
+          {metricDescription(active) && <p className="mt-1 text-sm text-slate-400">{metricDescription(active)}</p>}
           <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : "5-Minuten-Mittelwerte"} · Uhrzeit Europe/Berlin</p>
           {fuelEntity && <p className="mt-2 text-xs text-slate-400">Gemeldete Preise in €/l. Zeitpunkte sind Abrufzeiten, keine exakten Preisänderungszeiten. Historie ab Beginn der Preiserfassung; Datenlücken werden nicht verbunden.</p>}
           {active.metric.startsWith("traffic_") && <p className="mt-2 text-xs text-amber-200">Stunden-/Tagessummen der Quelle, keine einzelnen Verkehrserfassungen. Aufeinanderfolgende Meldungen werden nicht addiert. Exakte Intervallgrenzen meldet die Quelle nicht.</p>}
           {data?.historyUnavailable && <p role="status" className="mt-2 text-sm text-amber-200">Der Zeitverlauf konnte nicht geladen werden. Aktuelle Werte bleiben sichtbar.</p>}
           {data?.historyTruncated && <p className="mt-2 text-sm text-amber-200">Der Verlauf ist auf die neuesten verfügbaren Meldungen dieses Zeitraums begrenzt.</p>}
           {history.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten 24 Stunden.</p> : <>
-            <svg viewBox="0 0 800 210" role="img" aria-label={`${metricLabel(active)} in ${unitLabel(active.unit)}, letzte 24 Stunden`} className="w-full mt-5">
+            <svg viewBox="0 0 800 225" role="img" aria-label={`${metricLabel(active)} in ${unitLabel(active.unit)}, letzte 24 Stunden`} className="w-full mt-5 touch-pan-y"
+              onPointerMove={event => {
+                if (!points.length) return;
+                const bounds = event.currentTarget.getBoundingClientRect();
+                const chartX = ((event.clientX - bounds.left) / bounds.width) * 800;
+                const nearest = points.reduce((best, point, index) => Math.abs(point.x - chartX) < Math.abs(points[best].x - chartX) ? index : best, 0);
+                setHoverIndex(nearest);
+              }}
+              onPointerLeave={() => setHoverIndex(null)}>
               {active.metric === "crossing_state" ? (
                 [0, 1, 2].map((stateVal, idx) => (
                   <g key={idx}>
@@ -214,8 +231,29 @@ export default function TelemetryCharts({
               )}
               {points.length > 1 && <path d={path} fill="none" stroke={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
               {points.map((point, index) => <circle key={`${point.bucket.bucket}-${index}`} cx={point.x} cy={point.y} r="2.5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"}><title>{time(point.bucket.bucket)}: {active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active)} ${unitLabel(active.unit)}`}</title></circle>)}
+              <line x1="130" x2="785" y1="180" y2="180" stroke="#64748b" />
+              {Array.from({ length: 5 }, (_, index) => {
+                const timestamp = start + (end - start) * index / 4;
+                const x = 130 + 655 * index / 4;
+                return <g key={index}>
+                  <line x1={x} x2={x} y1="180" y2="184" stroke="#64748b" />
+                  <text x={x} y="202" textAnchor={index === 0 ? "start" : index === 4 ? "end" : "middle"} fill="#94a3b8" fontSize="11">{new Date(timestamp).toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" })}</text>
+                </g>;
+              })}
+              {hoverIndex !== null && points[hoverIndex] && (() => {
+                const point = points[hoverIndex];
+                const tooltipX = Math.max(132, Math.min(632, point.x + 12));
+                const tooltipY = Math.max(4, point.y - 48);
+                const value = active.metric === "crossing_state" ? crossingStateLabel(point.bucket.avg_value!) : `${number(point.bucket.avg_value!, active)} ${unitLabel(active.unit)}`;
+                return <g pointerEvents="none">
+                  <line x1={point.x} x2={point.x} y1="25" y2="180" stroke="#94a3b8" strokeDasharray="4 4" />
+                  <circle cx={point.x} cy={point.y} r="5" fill={active.metric === "crossing_state" ? "#38bdf8" : "#34d399"} stroke="#ecfdf5" strokeWidth="2" />
+                  <rect x={tooltipX} y={tooltipY} width="156" height="42" rx="6" fill="#0f172a" stroke="#475569" />
+                  <text x={tooltipX + 9} y={tooltipY + 16} fill="#cbd5e1" fontSize="11">{time(point.bucket.bucket)}</text>
+                  <text x={tooltipX + 9} y={tooltipY + 33} fill="#f8fafc" fontSize="12" fontWeight="600">{value}</text>
+                </g>;
+              })()}
             </svg>
-            <div className="flex justify-between text-xs text-slate-500"><span>{time(data!.start)}</span><span>{time(data!.end)}</span></div>
           </>}
         </div>}
       </>}

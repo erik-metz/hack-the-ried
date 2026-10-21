@@ -5,20 +5,31 @@ const LABELS: Record<string, string> = {
   fuel_e5: "Super E5", fuel_e10: "Super E10", fuel_diesel: "Diesel",
   pgv: "Peak-Vibration (PGV)", rms: "RMS-Tremor", waveform: "Wellenform", temperature: "Temperatur",
   humidity: "Luftfeuchtigkeit", relative_humidity: "Luftfeuchtigkeit", precipitation: "Niederschlag",
-  sgp41_voc_index: "Luftqualität: flüchtige Stoffe (VOC)",
-  sgp41_nox_index: "Luftqualität: Stickoxide (NOx)",
-  ltr390_uv_raw: "LTR390 UV-Signal (Rohwert)",
-  ltr390_als_raw: "LTR390 Umgebungslicht (Rohwert)",
-  uv_index: "UV-Index (LTR390)",
-  ambient_light: "Umgebungslicht (LTR390)",
+  sgp41_voc_index: "Luftqualität · flüchtige Stoffe",
+  sgp41_nox_index: "Luftqualität · Stickoxide",
+  ltr390_uv_raw: "UV-Rohwert",
+  ltr390_als_raw: "Licht-Rohwert",
+  uv_index: "UV-Index",
+  ambient_light: "Umgebungslicht",
   co2: "Kohlendioxid (CO₂)",
   scd41_temperature: "Temperatur (SCD41)",
   scd41_humidity: "Luftfeuchtigkeit (SCD41)",
-  bme688_temperature: "Temperatur (BME688)",
-  bme688_humidity: "Luftfeuchtigkeit (BME688)",
-  bme688_gas_resistance: "Gaswiderstand (BME688)",
-  pressure: "Luftdruck (BME688)",
-  sound_level: "Schallpegel (ICS-43434)",
+  bme688_temperature: "Temperatur",
+  bme688_humidity: "Luftfeuchtigkeit",
+  bme688_gas_resistance: "Gasempfindlichkeit",
+  pressure: "Luftdruck",
+  sound_level: "Lautstärke",
+  particle_number_pm0_5: "Ultrafeine Partikel (PM₀,₅)",
+  particle_number_pm1_0: "Partikelanzahl (PM₁)",
+  particle_number_pm2_5: "Partikelanzahl (PM₂,₅)",
+  particle_number_pm4_0: "Partikelanzahl (PM₄)",
+  particle_number_pm10: "Partikelanzahl (PM₁₀)",
+  particle_size_typical: "Typische Partikelgröße",
+  pm0_5: "Feinstaubmasse (PM₀,₅)",
+  pm1_0: "Feinstaubmasse (PM₁)",
+  pm2_5: "Feinstaubmasse (PM₂,₅)",
+  pm4_0: "Feinstaubmasse (PM₄)",
+  pm10: "Feinstaubmasse (PM₁₀)",
   soil_temperature: "Bodentemperatur", soil_moisture: "Bodenfeuchte", soil_moisture_nfk: "Bodenfeuchte (Quellenangabe nFK)",
   soil_moisture_30cm: "Bodenfeuchte · 30 cm", soil_moisture_60cm: "Bodenfeuchte · 60 cm",
   soil_tension: "Bodensaugspannung", soil_tension_30cm: "Bodensaugspannung · 30 cm", soil_tension_60cm: "Bodensaugspannung · 60 cm",
@@ -67,19 +78,19 @@ export function isCountMetric(reading: { metric: string; unit: string }): boolea
 export function chartScale(reading: { metric: string; unit: string }, values: number[], fuel = false): [number, number] {
   if (reading.metric === "crossing_state") return [0, 2];
   if (!values.length) return [0, 1];
-  let min = Math.min(...values);
-  let max = Math.max(...values);
-
-  // Air temperature is shown against a familiar annual Ried range. Extend it
-  // when real values fall outside that reference instead of clipping them.
-  if (reading.metric === "temperature" || reading.metric === "air_temp") {
-    min = Math.min(min, -15);
-    max = Math.max(max, 40);
-  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
 
   const integer = isCountMetric(reading);
   const span = max - min;
-  const padding = span > 0 ? span * 0.1 : fuel ? 0.005 : Math.max(Math.abs(max) * 0.05, integer ? 1 : 0.5);
+  const minimumSpan = reading.unit === "€/l" ? 0.01
+    : ["°C", "celsius", "CEL"].includes(reading.unit) ? 5
+    : reading.unit === "%" ? 10
+    : reading.unit === "ppm" ? 100
+    : reading.unit === "Index" || reading.unit === "index" ? 5
+    : reading.unit === "dBFS" || reading.unit === "dB" ? 10
+    : Math.max(Math.abs((min + max) / 2) * 0.1, integer ? 2 : 1);
+  const padding = Math.max(span * 0.12, minimumSpan * 0.12, fuel ? 0.005 : 0);
   let lower = min - padding;
   let upper = max + padding;
   if (integer) {
@@ -87,7 +98,6 @@ export function chartScale(reading: { metric: string; unit: string }, values: nu
     upper = Math.ceil(upper);
     if (upper - lower < 2) upper = lower + 2;
   } else {
-    const minimumSpan = reading.unit === "€/l" ? 0.01 : 0.1;
     if (upper - lower < minimumSpan) {
       const center = (upper + lower) / 2;
       lower = center - minimumSpan / 2;
@@ -103,7 +113,21 @@ export function metricLabel(reading: { metric: string; unit: string }): string {
     const names: Record<string, string> = { total: "Verkehr gesamt", cars: "PKW", trucks: "LKW", buses: "Busse", bicycles: "Fahrräder", pedestrians: "Passanten", motorcycles: "Motorräder", other: "Sonstiger Verkehr" };
     return `${names[traffic[1]] ?? traffic[1]} · ${traffic[2] === "hourly" ? "Stundensumme" : traffic[2] === "daily_city" ? "Tagessumme Stadt" : "Tagessumme"}`;
   }
-  return LABELS[reading.metric] ?? (reading.metric === "value" ? ({ celsius: "Temperatur", "°C": "Temperatur", dBm: "Signalstärke", mm: "Niederschlag" } as Record<string, string>)[reading.unit] ?? "Messwert" : reading.metric);
+  const known = LABELS[reading.metric];
+  if (known) return known;
+  if (reading.metric === "value") return ({ celsius: "Temperatur", "°C": "Temperatur", dBm: "Signalstärke", mm: "Niederschlag" } as Record<string, string>)[reading.unit] ?? "Messwert";
+  const humanized = reading.metric.replace(/_/g, " ").replace(/\bpm\s?(\d+(?:[._]\d+)?)\b/i, (_, size: string) => `PM${size.replace("_", ",").replace(".", ",")}`).replace(/\b\w/g, letter => letter.toLocaleUpperCase("de-DE"));
+  return humanized || "Messwert";
+}
+export function metricDescription(reading: { metric: string; unit: string }): string | undefined {
+  if (reading.metric === "sgp41_voc_index") return "Hinweis auf flüchtige Stoffe, etwa aus Reinigungsmitteln oder Ausdünstungen. Ein höherer Index bedeutet mehr erkannte Stoffe.";
+  if (reading.metric === "sgp41_nox_index") return "Hinweis auf Stickoxide in der Luft. Der Index zeigt Veränderungen, keine direkte Konzentration.";
+  if (reading.metric.startsWith("particle_number_")) return `Anzahl der Partikel dieser Größenklasse pro ${reading.unit.includes("cm") ? "Kubikzentimeter" : "Volumeneinheit"}.`;
+  if (/^pm(?:0_5|1_0|2_5|4_0|10)$/.test(reading.metric)) return "Masse der Feinstaubpartikel pro Luftvolumen in dieser Größenklasse.";
+  if (reading.metric === "particle_size_typical") return "Typische Größe der erfassten Schwebeteilchen.";
+  if (reading.metric === "sound_level") return "Momentaner Schalldruckpegel; dBFS ist ein relativer digitaler Messwert.";
+  if (reading.metric === "ltr390_uv_raw" || reading.metric === "ltr390_als_raw") return "Unskalierter Sensorwert; für die Nutzung ist der berechnete Index aussagekräftiger.";
+  return undefined;
 }
 export function unitLabel(unit: string) {
   return ({ count: "Anzahl", counts: "Zählwerte", index: "Index", celsius: "°C", CEL: "°C", state: "Zustand", s: "Sekunden", sec: "Sekunden" } as Record<string, string>)[unit] ?? unit;
