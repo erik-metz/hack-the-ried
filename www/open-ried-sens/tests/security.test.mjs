@@ -96,6 +96,29 @@ test("telemetry preserves latest parking metrics when history fails", async () =
   assert.deepEqual(result.readings, readings);
   assert.equal(result.historyUnavailable, true);
 });
+test("telemetry retries aggregate history with coarser buckets when the backend row cap is reached", async () => {
+  const readings = [{ metric: "temperature", value: 20, unit: "°C", timestamp: "2026-09-14T12:00:00Z" }];
+  const historyCalls = [];
+  const route = load("app/api/telemetry/route.ts", { "@/env": { env: { BACKEND_API_URL: "https://backend.example" } } }, {
+    URL, URLSearchParams, Response, AbortSignal,
+    fetch: async url => {
+      if (url.pathname.endsWith("/metrics")) return Response.json(readings);
+      if (url.pathname.endsWith("/window")) return Response.json(null);
+      historyCalls.push(url.searchParams.get("interval"));
+      if (url.searchParams.get("interval") === "5 minutes") {
+        return Response.json({ detail: "Too many results; select a metric or shorten the range." }, { status: 422 });
+      }
+      return Response.json([{ metric: "temperature", unit: "°C", bucket: "2026-09-14T12:00:00Z", avg_value: 20 }]);
+    },
+  });
+  const response = await route.GET(new Request("https://app.example/api/telemetry?sensor_id=rak"));
+  const result = await response.json();
+  assert.deepEqual(historyCalls, ["5 minutes", "1 hour"]);
+  assert.deepEqual(result.readings, readings);
+  assert.equal(result.history.length, 1);
+  assert.equal(result.historyUnavailable, false);
+  assert.equal(result.historyInterval, "1 hour");
+});
 test("telemetry hides unscaled LTR390 values from current readings and history", async () => {
   const raw = { metric: "ltr390_uv_raw", value: 696, unit: "raw", timestamp: "2026-09-14T12:00:00Z" };
   const visible = { metric: "uv_index", value: 2, unit: "index", timestamp: "2026-09-14T12:00:00Z" };
