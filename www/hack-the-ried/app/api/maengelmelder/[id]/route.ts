@@ -1,7 +1,7 @@
 const API_ROOT = "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/";
 const IMAGE_HOST = "td50285-wdw.s3-de.teledata.cloud";
 
-type PublicAttachment = { public?: boolean; content_type?: string; url?: string; thumbnails?: Record<string, unknown> };
+type PublicAttachment = { public?: boolean | number; content_type?: string; url?: string; thumbnails?: Record<string, unknown> };
 
 function publicImageUrl(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -30,7 +30,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!message || String(message.id) !== id) return Response.json({ error: "Meldung nicht gefunden" }, { status: 404 });
 
     const images = (Array.isArray(message.attachments) ? message.attachments as PublicAttachment[] : [])
-      .filter(file => file?.public === true && typeof file.content_type === "string" && file.content_type.startsWith("image/"))
+      .filter(file => (file?.public === true || file?.public === 1) && typeof file.content_type === "string" && file.content_type.startsWith("image/"))
       .map(file => ({
         preview: publicImageUrl(file.thumbnails?.res800) ?? publicImageUrl(file.thumbnails?.w800) ?? publicImageUrl(file.url),
         original: publicImageUrl(file.url),

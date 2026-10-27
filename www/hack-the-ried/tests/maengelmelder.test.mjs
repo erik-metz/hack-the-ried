@@ -25,7 +25,7 @@ test('Mängelmelder detail route returns public text and safe public images only
       id: 123, text: 'Öffentliche Beschreibung', created: '2026-10-27T10:00:00Z', state_german: 'Offen',
       message_type: { name: 'Beleuchtung' }, address: 'do not return', responsible_name: 'do not return',
       attachments: [
-        { public: true, content_type: 'image/jpeg', url: 'https://td50285-wdw.s3-de.teledata.cloud/full.jpg', thumbnails: { res800: 'https://td50285-wdw.s3-de.teledata.cloud/preview.jpg' } },
+        { public: 1, content_type: 'image/jpeg', url: 'https://td50285-wdw.s3-de.teledata.cloud/full.jpg', thumbnails: { res800: 'https://td50285-wdw.s3-de.teledata.cloud/preview.jpg' } },
         { public: false, content_type: 'image/jpeg', url: 'https://td50285-wdw.s3-de.teledata.cloud/private.jpg' },
         { public: true, content_type: 'image/jpeg', url: 'https://attacker.example/image.jpg' },
         { public: true, content_type: 'application/pdf', url: 'https://td50285-wdw.s3-de.teledata.cloud/file.pdf' },
