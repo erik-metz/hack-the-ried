@@ -8,9 +8,8 @@ intentionally discarded.
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
-import httpx
-from psycopg.types.json import Jsonb
 
+from psycopg.types.json import Jsonb
 
 API_URL = "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson"
 DATASET = "civic/maengelmelder"
