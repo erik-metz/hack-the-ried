@@ -7,9 +7,9 @@ intentionally discarded.
 
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from psycopg.types.json import Jsonb
+from publications import publish
 
 API_URL = "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson"
 DATASET = "civic/maengelmelder"
@@ -104,21 +104,21 @@ async def import_maengelmelder(conn, client, source):
         ],
     }
     now = datetime.now(UTC)
-    digest = hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    safe_payload = json.dumps(data, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    digest = hashlib.sha256(safe_payload).hexdigest()
     async with conn.transaction():
+        # Archive only the minimized publication, never the provider's original
+        # response, which may contain free text or street-level personal data.
         await conn.execute(
-            """INSERT INTO collected_dataset_versions(dataset,payload_sha256,source_updated_at,data)
-            VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-            (DATASET, digest, now, Jsonb(data)),
+            """INSERT INTO collected_payloads(sha256,body,content_type)
+            VALUES (%s,%s,'application/geo+json') ON CONFLICT DO NOTHING""",
+            (digest, safe_payload),
         )
         await conn.execute(
-            """INSERT INTO collected_datasets
-            (dataset,source_id,source_url,source_updated_at,fetched_at,expires_at,payload_sha256,data)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT(dataset) DO UPDATE SET source_id=EXCLUDED.source_id,
-            source_url=EXCLUDED.source_url,source_updated_at=EXCLUDED.source_updated_at,
-            fetched_at=EXCLUDED.fetched_at,expires_at=EXCLUDED.expires_at,
-            payload_sha256=EXCLUDED.payload_sha256,data=EXCLUDED.data""",
-            (DATASET, source["id"], API_URL, now, now, now + timedelta(hours=1), digest, Jsonb(data)),
+            """INSERT INTO collection_attempts
+            (source_id,http_status,payload_sha256,status,error,error_stage,item_count,item_count_unit)
+            VALUES (%s,200,%s,'success',NULL,NULL,%s,'reports')""",
+            (source["id"], digest, len(records)),
         )
+        await publish(conn, source, DATASET, data, digest, now, now)
     return f"success ({len(records)} reports)"
