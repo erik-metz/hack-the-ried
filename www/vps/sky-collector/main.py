@@ -41,7 +41,7 @@ def persist(conn: psycopg.Connection, snapshot: dict) -> None:
         for metric, (value, unit) in snapshot["readings"].items():
             cur.execute(
                 """SELECT write_measurement(
-                     %s,%s,%s,%s,'model','{}'::jsonb,%s,%s,%s,%s,
+                     %s,%s,%s,%s,'model','{}'::jsonb,%s,%s::numeric,%s,%s,
                      'valid',NULL,NULL,'instantaneous',FALSE)""",
                 (
                     ENTITY_ID,
