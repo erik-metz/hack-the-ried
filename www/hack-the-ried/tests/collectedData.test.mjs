@@ -80,6 +80,12 @@ test('civic map layers bypass Next cache so new collections appear immediately',
  }
 });
 
+test('Schädlingsradar renderer accepts the 22 currently configured PLZ areas',()=>{
+ const source=fs.readFileSync(new URL('../app/components/MapSchadlingsradarLayer.tsx',import.meta.url),'utf8');
+ assert.match(source,/MAX_POSTCODE_FEATURES\s*=\s*100/);
+ assert.match(source,/body\.features\.length\s*>\s*MAX_POSTCODE_FEATURES/);
+});
+
 test('map renderer has no external tiles, bundled datasets or local simulations',()=>{
  const source=fs.readFileSync(new URL('../app/components/MapComponent.tsx',import.meta.url),'utf8');
  assert.doesNotMatch(source,/calculate\w+Mobility|calculateLocalTraffic|BASELINE_|VERIFIED_|tileLayer\("https?:/);

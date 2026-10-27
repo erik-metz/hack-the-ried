@@ -34,6 +34,8 @@ const SPECIES_LABELS: Record<string, string> = {
   tigermuecke: "Tigermücken",
 };
 
+const MAX_POSTCODE_FEATURES = 100;
+
 function totalForPeriod(reports: Record<string, PeriodCounts>, period: keyof PeriodCounts) {
   return Object.values(reports).reduce((total, counts) => total + counts[period], 0);
 }
@@ -47,7 +49,7 @@ export default function MapSchadlingsradarLayer({ map }: { map: L.Map }) {
     fetch("/api/collected/civic/schaedlingsradar", { signal: controller.signal, cache: "no-store" })
       .then(response => { if (!response.ok) throw new Error("unavailable"); return response.json(); })
       .then((body: Snapshot) => {
-        if (body.type !== "FeatureCollection" || !Array.isArray(body.features) || body.features.length > 20) {
+        if (body.type !== "FeatureCollection" || !Array.isArray(body.features) || body.features.length > MAX_POSTCODE_FEATURES) {
           throw new Error("invalid");
         }
         setSnapshot(body);
