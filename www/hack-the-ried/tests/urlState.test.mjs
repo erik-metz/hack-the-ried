@@ -77,8 +77,9 @@ test("MAP_LAYER_IDS contains all 34 domain layers", () => {
   assert.ok(ids.includes("emf"));
 });
 
-test("DEFAULT_MAP_LAYERS shows Mängelmelder and keeps optional layers disabled by default", () => {
+test("DEFAULT_MAP_LAYERS shows the public map sources and keeps unrelated layers disabled", () => {
   assert.equal(urlState.DEFAULT_MAP_LAYERS.maengelmelder, true);
+  assert.equal(urlState.DEFAULT_MAP_LAYERS.schadlingsradar, true);
   assert.equal(urlState.DEFAULT_MAP_LAYERS.energy, false);
   assert.equal(urlState.DEFAULT_MAP_LAYERS.places, false);
   assert.equal(urlState.DEFAULT_MAP_LAYERS.companies, false);
@@ -187,7 +188,7 @@ test("parseSubpageParams and serializeSubpageParams handle domain page parameter
 
  test("standard map selection contains exactly the requested sensor groups and overlays", () => {
   assert.deepEqual([...mapData.DEFAULT_MAP_CATEGORIES], ["water", "air", "parking", "bikes", "seismic"]);
-  assert.deepEqual(Object.entries(urlState.DEFAULT_MAP_LAYERS).filter(([, enabled]) => enabled).map(([id]) => id).sort(), ["floods", "closures", "traffic", "buses", "waste", "trains", "ships", "aircraft", "crossings", "maengelmelder"].sort());
+  assert.deepEqual(Object.entries(urlState.DEFAULT_MAP_LAYERS).filter(([, enabled]) => enabled).map(([id]) => id).sort(), ["floods", "closures", "traffic", "buses", "waste", "trains", "ships", "aircraft", "crossings", "maengelmelder", "schadlingsradar"].sort());
 });
 
 test("context overlays are opt-in and survive a shared map URL", () => {

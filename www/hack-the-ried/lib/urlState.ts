@@ -42,7 +42,7 @@ export type MapLayerId = (typeof MAP_LAYER_IDS)[number];
 export const DEFAULT_MAP_LAYERS: Record<MapLayerId, boolean> = {
   monitoring: false,
   maengelmelder: true,
-  schadlingsradar: false,
+  schadlingsradar: true,
   warnings: false,
   landcover: false,
   floodrisk: false,

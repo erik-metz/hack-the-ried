@@ -11,6 +11,16 @@
       "description": "Öffentliche Mängelmelder-Punkte im Ried; speichert nur ID, Zeit, Kategorie, Status und Koordinaten gemäß CC BY-SA."
     },
     {
+      "id": "schadlingsradar-ried",
+      "group": "social",
+      "adapter": "schadlingsradar",
+      "enabled": true,
+      "url": "https://www.schaedlingsradar.de/agg/plz/",
+      "interval_seconds": 900,
+      "max_age_seconds": 3600,
+      "description": "Öffentliche, nach PLZ aggregierte Meldungszahlen aus den Radar-JSON-Dateien für acht Ried-PLZ; keine einzelnen Meldungstexte oder Fundkoordinaten."
+    },
+    {
       "id": "lampertheim-district-christmas-markets",
       "group": "social",
       "adapter": "verified-christmas-markets",

@@ -95,7 +95,7 @@ export const LAYER_MIN_ZOOM: Record<MapLayerId, number> = {
 // Collected vectors retain overview styling. Raster and optional context overlays
 // load only at their supported zoom.
 export function isLayerZoomRestricted(id: MapLayerId, zoom: number): boolean {
-  return (["starkregen", "lora", "landcover", "floodrisk", "census", "monitoring", "maengelmelder", "nature", "charging", "warnings"].includes(id)) && zoom < LAYER_MIN_ZOOM[id];
+  return (["starkregen", "lora", "landcover", "floodrisk", "census", "monitoring", "maengelmelder", "schadlingsradar", "nature", "charging", "warnings"].includes(id)) && zoom < LAYER_MIN_ZOOM[id];
 }
 
 export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {

@@ -49,6 +49,7 @@ from regular_offers import (
 )
 from ris_boards import import_ris_boards
 from satellite import import_satellite
+from schadlingsradar import import_schaedlingsradar
 from social_diagnostics import CURRENT
 from social_diagnostics import begin as begin_social_diagnostics
 from social_diagnostics import finish as finish_social_diagnostics
@@ -106,6 +107,7 @@ ADAPTERS = {
     "firms": import_firms,
     "inaturalist": import_inaturalist,
     "maengelmelder": import_maengelmelder,
+    "schadlingsradar": import_schaedlingsradar,
 }
 
 
