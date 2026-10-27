@@ -333,6 +333,16 @@ export const SOURCE_INFO: Record<
     domain: "Umwelt & Gewässer",
     provider: "Copernicus Emergency Management Service",
   },
+  "maengelmelder-ried": {
+    title: "Öffentlicher Mängelmelder · Worms bis Darmstadt",
+    domain: "Soziales & Infrastruktur",
+    provider: "Mängelmelder.de",
+  },
+  "schadlingsradar-ried": {
+    title: "Schädlingsmeldungen nach PLZ · Worms bis Darmstadt",
+    domain: "Umwelt & Gesundheit",
+    provider: "Schädlingsradar.de",
+  },
   "copernicus-sentinel2:raster": {
     title: "Sentinel-2 Rasterverarbeitung",
     domain: "Umwelt & Erdbeobachtung",

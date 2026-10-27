@@ -86,6 +86,14 @@ test('Schädlingsradar renderer accepts the 22 currently configured PLZ areas',(
  assert.match(source,/body\.features\.length\s*>\s*MAX_POSTCODE_FEATURES/);
 });
 
+test('civic sources have human-readable entries in the source catalogue',()=>{
+ const info=load('../app/quellen/sourceInfo.ts').SOURCE_INFO;
+ assert.equal(info['maengelmelder-ried'].provider,'Mängelmelder.de');
+ assert.equal(info['maengelmelder-ried'].domain,'Soziales & Infrastruktur');
+ assert.equal(info['schadlingsradar-ried'].provider,'Schädlingsradar.de');
+ assert.equal(info['schadlingsradar-ried'].domain,'Umwelt & Gesundheit');
+});
+
 test('map renderer has no external tiles, bundled datasets or local simulations',()=>{
  const source=fs.readFileSync(new URL('../app/components/MapComponent.tsx',import.meta.url),'utf8');
  assert.doesNotMatch(source,/calculate\w+Mobility|calculateLocalTraffic|BASELINE_|VERIFIED_|tileLayer\("https?:/);
