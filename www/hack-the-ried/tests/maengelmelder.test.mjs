@@ -49,3 +49,11 @@ test('Mängelmelder detail route rejects a mismatched upstream ID', async () => 
   const response = await route.GET(new Request('https://map.example/api/maengelmelder/123'), { params: Promise.resolve({ id: '123' }) });
   assert.equal(response.status, 404);
 });
+
+test('Content Security Policy permits the official Mängelmelder photo host', async () => {
+  const source = fs.readFileSync(new URL('../next.config.ts', import.meta.url), 'utf8');
+  const context = { exports: {} };
+  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  const headers = await context.exports.default.headers();
+  assert.match(headers[0].headers[0].value, /img-src[^;]*https:\/\/td50285-wdw\.s3-de\.teledata\.cloud/);
+});
