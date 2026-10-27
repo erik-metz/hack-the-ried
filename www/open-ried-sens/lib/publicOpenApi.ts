@@ -1,7 +1,7 @@
 type JsonObject = { [key: string]: unknown };
 
 const PUBLIC_TAGS = new Set(["Sensors Public", "Telemetry Public", "Archives Public", "Downloads Public"]);
-export const PUBLIC_API_URL = "https://open-ried-sens.duckdns.org";
+export const PUBLIC_API_URL = "https://api.hack-the-ried.de";
 
 function object(value: unknown): JsonObject {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid OpenAPI object");
@@ -55,7 +55,7 @@ export function publicOpenApi(input: unknown) {
   return {
     openapi: source.openapi,
     info: {
-      title: "Open Ried Sens – Public API",
+      title: "HackTheRied – Public API",
       version: object(source.info).version,
       description: "Public environmental sensor data. No authentication required. Start with GET /api/v1/sensors, then use a returned id for sensor_id or the station path parameter. Historical queries require start_time in ISO-8601 UTC format.",
     },

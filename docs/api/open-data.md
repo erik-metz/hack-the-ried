@@ -1,6 +1,6 @@
-# Open Ried Sens – öffentliche API
+# HackTheRied – öffentliche API
 
-Die Open Ried Sens API stellt öffentliche Sensor-, Umwelt-, Mobilitäts- und
+Die HackTheRied API stellt öffentliche Sensor-, Umwelt-, Mobilitäts- und
 Regionaldaten bereit. Öffentliche `GET`-Routen benötigen keinen API-Key. Für
 Schreibzugriffe gelten je nach Route getrennte Zugangsschlüssel. Datenquellen
 haben unterschiedliche Aktualisierungsintervalle und Lizenzbedingungen;
@@ -10,13 +10,13 @@ für öffentliche Browserzugriffe.
 ## Basis-URL und aktuelle Referenz
 
 ```text
-https://open-ried-sens.duckdns.org/api/v1
+https://api.hack-the-ried.de/api/v1
 ```
 
 Die produktive, automatisch erzeugte OpenAPI-Beschreibung ist unter
-[`/api/v1/openapi.json`](https://open-ried-sens.duckdns.org/api/v1/openapi.json)
+[`/api/v1/openapi.json`](https://api.hack-the-ried.de/api/v1/openapi.json)
 verfügbar; Swagger UI unter
-[`/docs`](https://open-ried-sens.duckdns.org/docs). Sie ist für vollständige
+[`/docs`](https://api.hack-the-ried.de/docs). Sie ist für vollständige
 Parameter, Antwortmodelle und die aktuelle Routenliste maßgeblich. Diese Datei
 fasst die wichtigsten öffentlichen Abfragen zusammen und ist keine vollständige
 Kopie des OpenAPI-Schemas.
@@ -112,16 +112,16 @@ aufgeführt. Einzelne Antworten, Filter und Lizenzhinweise sind dort spezifizier
 
 ```bash
 curl --fail-with-body \
-  'https://open-ried-sens.duckdns.org/api/v1/sensors'
+  'https://api.hack-the-ried.de/api/v1/sensors'
 
 curl --fail-with-body \
-  'https://open-ried-sens.duckdns.org/api/v1/telemetry/latest/metrics?sensor_id=ttn-rak3112-002'
+  'https://api.hack-the-ried.de/api/v1/telemetry/latest/metrics?sensor_id=ttn-rak3112-002'
 ```
 
 ```python
 import requests
 
-base = "https://open-ried-sens.duckdns.org/api/v1"
+base = "https://api.hack-the-ried.de/api/v1"
 response = requests.get(
     f"{base}/telemetry/latest/metrics",
     params={"sensor_id": "ttn-rak3112-002"},
@@ -132,5 +132,5 @@ for reading in response.json():
     print(reading["metric"], reading["value"], reading["unit"])
 ```
 
-Die API ist außerdem über das [Datenportal](https://open-ried-sens.vercel.app/daten)
-und das [Dashboard](https://open-ried-sens.vercel.app/) erreichbar.
+Die API ist außerdem über das [Datenportal](https://hack-the-ried.de/daten)
+und das [Dashboard](https://hack-the-ried.de/) erreichbar.

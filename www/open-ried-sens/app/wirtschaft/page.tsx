@@ -18,7 +18,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Wirtschaft & Unternehmen | Open Ried Sens",
+  title: "Wirtschaft & Unternehmen | HackTheRied",
   description:
     "Gewerbeanmeldungen, Unternehmensneugründungen, Branchenstruktur, Gewerbesteuer-Hebesätze und Top-Arbeitgeber in Bürstadt, Lampertheim, Biblis und dem Kreis Bergstraße.",
 };

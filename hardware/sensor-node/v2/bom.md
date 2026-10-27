@@ -1,4 +1,4 @@
-# Open Ried Sens – Bill of Materials (BOM) v2
+# HackTheRied – Bill of Materials (BOM) v2
 
 Stückliste, Sensorauswahl und Kostenrahmen für den Bau einer autonomen LoRaWAN-Multisensor-Station (Version v2) im Hessischen Ried (Bürstadt & Lampertheim).
 
@@ -7,7 +7,7 @@ Stückliste, Sensorauswahl und Kostenrahmen für den Bau einer autonomen LoRaWAN
 ## 📊 Komponenten- & Funktionsübersicht
 
 > [!NOTE]
-> **Kostenrahmen:** **ca. 100 € (+/-)** pro Station.  
+> **Kostenrahmen:** **ca. 100 € (+/-)** pro Station.
 > Die Hardware-Preise unterliegen aktuellen Markt- und Bauteilschwankungen. Für unsere gemeinsamen Bau-Workshops im **Kulturzentrum KAMÜ** führen wir Sammelbestellungen (10–30 Bausätze) durch, wodurch Versandkosten und Staffelpreise deutlich günstiger ausfallen.
 
 | Bauteil / Modul | Sensor-Art & Messgröße | Schnittstelle | Messprinzip / Funktion |
@@ -47,5 +47,5 @@ Die Sensoren werden in einem wetterfesten, weiß lackierten oder UV-beständigen
 
 ---
 
-**Open Ried Sens** – Eine Bürgerinitiative mit dem Kulturzentrum **KAMÜ** in Bürstadt.  
-Website: [open-ried.de](https://open-ried.de) • DIY-Portal: [/sensor-bauen](https://open-ried.de/sensor-bauen)
+**HackTheRied** – Eine Bürgerinitiative mit dem Kulturzentrum **KAMÜ** in Bürstadt.
+Website: [hack-the-ried.de](https://hack-the-ried.de) • DIY-Portal: [/sensor-bauen](https://hack-the-ried.de/sensor-bauen)

@@ -117,7 +117,7 @@ export default function AssemblyGuideSection() {
               <Code2 className="w-4 h-4 text-blue-400" /> Flashen &amp; TTN-Registrierung
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Über die Arduino IDE oder PlatformIO laden wir die Open-Ried-Sens-Firmware auf das
+              Über die Arduino IDE oder PlatformIO laden wir die HackTheRied-Firmware auf das
               RAK3113-Board. In den Geräteeinstellungen hinterlegen wir deine eindeutigen{" "}
               <code className="text-emerald-300">DevEUI</code>,{" "}
               <code className="text-emerald-300">AppEUI</code> und{" "}

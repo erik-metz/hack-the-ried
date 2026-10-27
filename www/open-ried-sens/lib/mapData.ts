@@ -692,7 +692,7 @@ export const DEFAULT_FACILITIES_NODES: StationNode[] = [
     id: "fac-kamue-kulturzentrum",
     name: "KAMÜ Kulturzentrum Bürstadt",
     locationName: "Kulturzentrum & Hackathon Hub · Bürstadt",
-    address: "Industriestraße 11, 68642 Bürstadt · Kulturinitiative Open Ried Sens",
+    address: "Industriestraße 11, 68642 Bürstadt · Kulturinitiative HackTheRied",
     lat: 49.6457,
     lng: 8.4582,
     categories: ["culture"],

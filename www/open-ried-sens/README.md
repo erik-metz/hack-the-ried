@@ -1,12 +1,12 @@
-# Open Ried Sens – Digitales Umweltsensornetzwerk Bürstadt & Lampertheim
+# HackTheRied – Digitales Umweltsensornetzwerk Bürstadt & Lampertheim
 
-**Open Ried Sens** ist eine private Initiative zur Digitalisierung der Städte **Bürstadt** und **Lampertheim** sowie der umliegenden Region des Hessischen Rieds. Das Projekt wird von engagierten Bürgerinnen und Bürgern in Kooperation mit dem [Kulturzentrum KAMÜ](https://kamue.me) in Bürstadt getragen.
+**HackTheRied** ist eine private Initiative zur Digitalisierung der Städte **Bürstadt** und **Lampertheim** sowie der umliegenden Region des Hessischen Rieds. Das Projekt wird von engagierten Bürgerinnen und Bürgern in Kooperation mit dem [Kulturzentrum KAMÜ](https://kamue.me) in Bürstadt getragen.
 
 ---
 
 ## 📌 Projektkontext & aktueller Umfang
 
-Open Ried Sens verbindet eigene Sensoren mit öffentlichen und kommunalen
+HackTheRied verbindet eigene Sensoren mit öffentlichen und kommunalen
 Datenquellen für Bürstadt, Lampertheim und das Hessische Ried. Das Portal ist
 damit mehr als ein Dashboard für eine geplante Gruppe von fünf Stationen: Es
 zeigt Umwelt-, Mobilitäts- und Regionaldaten verschiedener Anbieter und

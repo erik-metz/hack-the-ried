@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: satellite-collector/Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-satellite-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-satellite-collector:latest
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/satellite-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<60 else 1)"]
@@ -44,7 +44,7 @@ services:
       - timescale_data:/var/lib/postgresql/data
 
   backend-api:
-    image: ghcr.io/erik-metz/open-ried-sens-api:latest
+    image: ghcr.io/erik-metz/hack-the-ried-api:latest
     container_name: backend_api
     working_dir: /app/v1
     command: uvicorn main:app --host 0.0.0.0 --port 8080 --timeout-graceful-shutdown 600
@@ -72,7 +72,7 @@ services:
         condition: service_healthy
 
   shake-collector:
-    image: ghcr.io/erik-metz/open-ried-sens-shake-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-shake-collector:latest
     container_name: shake_collector
     restart: unless-stopped
     stop_grace_period: 60s
@@ -100,7 +100,7 @@ services:
         condition: service_healthy
 
   smartcity-collector:
-    image: ghcr.io/erik-metz/open-ried-sens-smartcity-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-smartcity-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -127,7 +127,7 @@ services:
     build:
       context: ./nextbike-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-nextbike-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-nextbike-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -150,7 +150,7 @@ services:
   fuel-collector:
     build:
       context: ./fuel-collector
-    image: ghcr.io/erik-metz/open-ried-sens-fuel-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-fuel-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -176,7 +176,7 @@ services:
     build:
       context: ./traffic-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-traffic-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-traffic-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -199,7 +199,7 @@ services:
     build:
       context: .
       dockerfile: environment-collector/Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-environment-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-environment-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -238,7 +238,7 @@ services:
     build:
       context: ./rast-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-rast-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-rast-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -261,7 +261,7 @@ services:
     build:
       context: ./opensensemap-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-opensensemap-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-opensensemap-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -284,7 +284,7 @@ services:
     build:
       context: ./uba-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-uba-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-uba-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -307,7 +307,7 @@ services:
     build:
       context: ./ttnmapper-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-ttnmapper-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-ttnmapper-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     environment:
@@ -332,7 +332,7 @@ services:
     build:
       context: ./emf-collector
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-emf-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-emf-collector:latest
     restart: unless-stopped
     stop_grace_period: 60s
     healthcheck:
@@ -359,7 +359,7 @@ services:
         condition: service_healthy
 
   archive-worker:
-    image: ghcr.io/erik-metz/open-ried-sens-archive-worker:latest
+    image: ghcr.io/erik-metz/hack-the-ried-archive-worker:latest
     profiles: ["archives"]
     stop_grace_period: 60s
     volumes:
@@ -381,7 +381,7 @@ services:
     build:
       context: ./registry-sync-worker
       dockerfile: Dockerfile
-    image: ghcr.io/erik-metz/open-ried-sens-registry-sync-worker:latest
+    image: ghcr.io/erik-metz/hack-the-ried-registry-sync-worker:latest
     restart: unless-stopped
     stop_grace_period: 60s
     healthcheck:
@@ -419,7 +419,7 @@ services:
   aircraft-collector:
     build:
       context: ./aircraft-collector
-    image: ghcr.io/erik-metz/open-ried-sens-aircraft-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-aircraft-collector:latest
     restart: unless-stopped
     environment:
       DB_HOST: timescaledb
@@ -443,7 +443,7 @@ services:
   ais-collector:
     build:
       context: ./ais-collector
-    image: ghcr.io/erik-metz/open-ried-sens-ais-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-ais-collector:latest
     restart: unless-stopped
     environment:
       DB_HOST: timescaledb
@@ -467,7 +467,7 @@ services:
   rhine-map-collector:
     build:
       context: ./ais-collector
-    image: ghcr.io/erik-metz/open-ried-sens-ais-collector:latest
+    image: ghcr.io/erik-metz/hack-the-ried-ais-collector:latest
     command: ["xvfb-run", "-a", "python", "map_collector.py"]
     init: true
     shm_size: 256m

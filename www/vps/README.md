@@ -3,9 +3,9 @@
 Collector structure, CLI, reliability contracts, migration order and testing are documented in [collectors.md](collectors.md).
 
 This directory contains the FastAPI backend, TimescaleDB configuration, and
-independently deployable data collectors for the Open Ried Sens VPS at
+independently deployable data collectors for the HackTheRied VPS at
 `169.58.102.132`. The public API is served over HTTPS through Nginx at
-`open-ried-sens.duckdns.org`. The frontend is a separate Next.js deployment on
+`api.hack-the-ried.de`. The frontend is a separate Next.js deployment on
 Vercel.
 
 ---
@@ -53,7 +53,7 @@ TimescaleDB, Nginx, Watchtower, registry sync, EMF, satellite, AIS, aircraft,
 Rhine map and environment services. The aircraft container reported unhealthy
 during that inspection. This runtime inventory is a dated snapshot, not a
 guarantee that the same set of optional services is active later. The separate
-repository checkout at `/root/kamue-digital-lora-sensor` reported commit
+repository checkout at `/root/hack-the-ried` reported commit
 `d5d0c84`, while the local repository was at `6e1bdfb`; verify the deployed
 release before assuming the VPS has the current `main` revision.
 
@@ -71,7 +71,7 @@ for pull requests and pushes to `main` that change `www/vps/**` or the workflow
 itself. It runs collector/API validation and tests, then builds and publishes
 the individual service images (API and collectors) to GHCR on pushes to `main`.
 The image names and build contexts are defined in the workflow; there is no
-single `kamue-digital-lora-sensor` application image.
+single `hack-the-ried` application image.
 
 Frontend changes use the separate
 [`frontend.yml`](../../.github/workflows/frontend.yml) workflow. Neither
@@ -95,12 +95,12 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=YourSuperSecurePassword123!
 
 # Bearer API Key required for ingesting data (LoRa tracker / TTN webhook)
-API_KEY=open-ried-sens-live-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ADMIN_API_KEY=open_ried_sens_admin_replace_with_separate_random_key
+API_KEY=hack-the-ried-live-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ADMIN_API_KEY=hack_the_ried_admin_replace_with_separate_random_key
 ```
 
 Both API keys are required and must differ. Generate independent random values
-(for example `openssl rand -hex 32`); retain the `open_ried_sens_admin_` prefix
+(for example `openssl rand -hex 32`); retain the `hack_the_ried_admin_` prefix
 for the admin key used by the Next.js frontend. The API fails startup if a key
 is absent or both keys are equal. Set `BACKEND_ADMIN_API_KEY` on the frontend
 to the same admin value. The collector needs the admin key for API-mode metadata
@@ -170,7 +170,7 @@ All routes are prefixed with `/api/v1`. Open Data GET endpoints are completely p
 | `POST` | `/api/v1/telemetry` | Bearer `API_KEY` | Ingest a single sensor reading |
 | `POST` | `/api/v1/telemetry/batch` | Bearer `API_KEY` | Bulk ingest multiple sensor readings in a single transaction |
 
-### Admin Endpoints (Open Ried Sens Next.js Webapp)
+### Admin Endpoints (HackTheRied Next.js Webapp)
 | Method | Endpoint | Auth Required | Description |
 | :--- | :--- | :---: | :--- |
 | `GET` | `/api/v1/admin/sensors` | Bearer `ADMIN_API_KEY` | List all sensors (including hidden stations) |

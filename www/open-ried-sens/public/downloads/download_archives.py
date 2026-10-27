@@ -1,4 +1,4 @@
-"""Download Open Ried Sens public monthly snapshots, with SHA-256 verification.
+"""Download HackTheRied public monthly snapshots, with SHA-256 verification.
 Python 3.9+, standard library only. Files are not automatically extracted.
 """
 import argparse
@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from urllib.request import urlopen
 
-CATALOGUE = "https://open-ried-sens.duckdns.org/api/v1/archives"
+CATALOGUE = "https://api.hack-the-ried.de/api/v1/archives"
 
 
 def checksum(path):
@@ -25,7 +25,7 @@ def main():
     parser.add_argument("--quarter", type=str, help="Only download this quarter (e.g. Q1, Q2, Q3, Q4)")
     parser.add_argument("--month", type=str, help="Only download this specific month (e.g. 2026-04)")
     parser.add_argument("--type", choices=["all", "month", "quarter", "year"], default="all", help="Archive type to download")
-    parser.add_argument("--output", type=Path, default=Path("open-ried-sens-data"))
+    parser.add_argument("--output", type=Path, default=Path("hack-the-ried-data"))
     args = parser.parse_args()
     with urlopen(CATALOGUE, timeout=30) as response:
         catalogue = json.load(response)
@@ -53,7 +53,7 @@ def main():
         directory.mkdir(parents=True, exist_ok=True)
         for file in archive["files"]:
             filename = file["filename"]
-            if not re.fullmatch(r"open-ried-sens-\d{4}(-(0[1-9]|1[0-2])|-Q[1-4])?-part-\d+\.zip", filename):
+            if not re.fullmatch(r"(?:hack-the-ried|open-ried-sens)-\d{4}(-(0[1-9]|1[0-2])|-Q[1-4])?-part-\d+\.zip", filename):
                 raise ValueError(f"Invalid archive filename: {filename}")
             if not file["url"].startswith("https://"):
                 raise ValueError("Archive URL must use HTTPS")

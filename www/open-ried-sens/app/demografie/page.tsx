@@ -113,10 +113,10 @@ export default async function DemographicsPage() {
             <span className="text-slate-500"># Beispiel REST-Abfrage:</span>
             <br />
             <span className="text-emerald-400">GET</span>{" "}
-            <span>https://open-ried-sens.duckdns.org/api/v1/demographics/summary</span>
+            <span>https://api.hack-the-ried.de/api/v1/demographics/summary</span>
             <br />
             <span className="text-emerald-400">GET</span>{" "}
-            <span>https://open-ried-sens.duckdns.org/api/v1/demographics/buerstadt/commuters</span>
+            <span>https://api.hack-the-ried.de/api/v1/demographics/buerstadt/commuters</span>
           </div>
         </section>
       </main>

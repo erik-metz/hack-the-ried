@@ -71,7 +71,7 @@ async def get_public_sensor(id: str, pool: DbPool):
 
 # ==========================================
 # ADMIN SENSOR MANAGEMENT ENDPOINTS
-# (Restricted to Open Ried Sens Next.js Admin)
+# (Restricted to HackTheRied Next.js Admin)
 # ==========================================
 
 @router.get(

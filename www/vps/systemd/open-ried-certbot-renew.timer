@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily check for Open Ried Sens TLS certificate renewal
+Description=Daily check for HackTheRied TLS certificate renewal
 
 [Timer]
 OnCalendar=*-*-* 03:17:00

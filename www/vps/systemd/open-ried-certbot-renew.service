@@ -1,5 +1,5 @@
 [Unit]
-Description=Renew Open Ried Sens TLS certificate and reload nginx
+Description=Renew HackTheRied TLS certificate and reload nginx
 Requires=docker.service
 After=docker.service
 

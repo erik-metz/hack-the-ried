@@ -140,7 +140,7 @@ export default function AdminClientGate({
                 Admin Control Panel
               </h1>
               <p className="text-xs text-emerald-400 font-medium tracking-wide uppercase">
-                Open Ried Sens Management
+                HackTheRied Management
               </p>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function AdminClientGate({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg text-slate-100">
-                  Open Ried Sens
+                  HackTheRied
                 </span>
                 <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Admin Panel

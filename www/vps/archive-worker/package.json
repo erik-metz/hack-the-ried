@@ -1,5 +1,5 @@
 {
-  "name": "open-ried-sens-archive-worker",
+  "name": "hack-the-ried-archive-worker",
   "private": true,
   "type": "module",
   "scripts": {

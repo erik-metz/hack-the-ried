@@ -23,13 +23,13 @@ export async function generateMetadata({
 
   if (!deck) {
     return {
-      title: "Präsentation nicht gefunden · Open Ried Sens",
+      title: "Präsentation nicht gefunden · HackTheRied",
       robots: { index: false, follow: false },
     };
   }
 
   return {
-    title: `${deck.title} · Pitch-Präsentation | Open Ried Sens`,
+    title: `${deck.title} · Pitch-Präsentation | HackTheRied`,
     description: deck.summary,
     robots: {
       index: false,

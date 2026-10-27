@@ -33,7 +33,7 @@ export default function EducationalHubSection() {
           Wie Technik funktioniert: Von der Physik zum digitalen Messwert
         </h2>
         <p className="text-slate-300 text-sm max-w-3xl leading-relaxed">
-          Open Ried Sens ist auch ein Bildungsprojekt für Schulen, Jugendliche und interessierte
+          HackTheRied ist auch ein Bildungsprojekt für Schulen, Jugendliche und interessierte
           Bürger. Hier erklären wir anschaulich, wie LoRaWAN-Funk funktioniert, wie Sensoren
           physikalische Naturphänomene in Zahlen umwandeln und warum viele Messpunkte so wertvoll sind.
         </p>

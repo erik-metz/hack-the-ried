@@ -1,11 +1,11 @@
-# Open Ried Sens – Monorepo
+# HackTheRied – Monorepo
 
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js_16-black)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688)](https://fastapi.tiangolo.com/)
 [![TimescaleDB](https://img.shields.io/badge/Database-TimescaleDB-yellow)](https://www.timescale.com/)
 [![LoRaWAN](https://img.shields.io/badge/IoT-LoRaWAN_/_TTN-blue)](https://www.thethingsnetwork.org/)
 
-Digitales Umweltsensornetzwerk für **Bürstadt**, **Lampertheim** und das **Hessische Ried**. Dieses Repository enthält den gesamten Quellcode der Web-Applikation, die Backend-Infrastruktur, Firmware, Hardware-Baupläne und die Dokumentation des **Open Ried Sens** Projekts.
+Digitales Umweltsensornetzwerk für **Bürstadt**, **Lampertheim** und das **Hessische Ried**. Dieses Repository enthält den gesamten Quellcode der Web-Applikation, die Backend-Infrastruktur, Firmware, Hardware-Baupläne und die Dokumentation des **HackTheRied** Projekts.
 
 ---
 

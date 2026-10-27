@@ -12,7 +12,7 @@ import {
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Datenquellen & Erfassungsstatus | Open Ried Sens",
+  title: "Datenquellen & Erfassungsstatus | HackTheRied",
   description: "Originalquellen, Abruf- und Verarbeitungsstatus sowie bekannte Einschränkungen der Datenangebote im Ried.",
 };
 const BADGES: Record<StatusTone, string> = {

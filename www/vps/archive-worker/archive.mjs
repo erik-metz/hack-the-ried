@@ -64,7 +64,7 @@ export function tableLine(table, row) {
   }).join(',') + '\r\n';
 }
 const header = table => '\uFEFF' + COLUMNS[table].join(',') + '\r\n';
-const readme = `Open Ried Sens – Monthly public three-table snapshot (format 2)
+const readme = `HackTheRied – Monthly public three-table snapshot (format 2)
 
 entities.csv: objects; id is the key.
 measurement_definitions.csv: measurement definitions; entity_id references entities.id.
@@ -78,7 +78,7 @@ Legacy telemetry is transferred without inventing its basis or source certainty.
 Duplicate legacy keys with identical values are represented by one canonical reading.
 Entity metadata reflects export time, not a historical version sequence.
 Current-month snapshots are incomplete. Late arrivals require a refreshed snapshot.
-Sources and licensing: see source_id and https://open-ried-sens.vercel.app/quellen.
+Sources and licensing: see source_id and https://hack-the-ried.de/quellen.
 Text starting with spreadsheet formula characters is protected by an apostrophe.
 manifest.json contains the UTC period, snapshot, part and table counts.
 `;
@@ -94,7 +94,7 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
     if (!output) return;
     output.end(); await completion;
     const part = files.length + 1;
-    const filename = `open-ried-sens-${month}-v2-part-${String(part).padStart(4, '0')}.zip`;
+    const filename = `hack-the-ried-${month}-v2-part-${String(part).padStart(4, '0')}.zip`;
     const zipPath = path.join(directory, filename);
     const zip = new yazl.ZipFile();
     const saving = pipeline(zip.outputStream, createWriteStream(zipPath));

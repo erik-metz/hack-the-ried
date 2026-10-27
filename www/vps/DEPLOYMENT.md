@@ -100,14 +100,14 @@ On your development machine, commit and push the intended changes through your n
 
 Wait for the entire image build/push job to finish, not merely the API image step. It publishes these separate images:
 
-- `ghcr.io/erik-metz/open-ried-sens-api:latest`
-- `ghcr.io/erik-metz/open-ried-sens-shake-collector:latest`
-- `ghcr.io/erik-metz/open-ried-sens-smartcity-collector:latest`
-- `ghcr.io/erik-metz/open-ried-sens-nextbike-collector:latest`
-- `ghcr.io/erik-metz/open-ried-sens-traffic-collector:latest`
-- `ghcr.io/erik-metz/open-ried-sens-environment-collector:latest`
-- `ghcr.io/erik-metz/open-ried-sens-registry-sync-worker:latest`
-- `ghcr.io/erik-metz/open-ried-sens-archive-worker:latest`
+- `ghcr.io/erik-metz/hack-the-ried-api:latest`
+- `ghcr.io/erik-metz/hack-the-ried-shake-collector:latest`
+- `ghcr.io/erik-metz/hack-the-ried-smartcity-collector:latest`
+- `ghcr.io/erik-metz/hack-the-ried-nextbike-collector:latest`
+- `ghcr.io/erik-metz/hack-the-ried-traffic-collector:latest`
+- `ghcr.io/erik-metz/hack-the-ried-environment-collector:latest`
+- `ghcr.io/erik-metz/hack-the-ried-registry-sync-worker:latest`
+- `ghcr.io/erik-metz/hack-the-ried-archive-worker:latest`
 
 Compose references the `erik-metz` namespace. If deploying from a fork, the workflow publishes under the fork owner's namespace; update Compose accordingly.
 
@@ -299,7 +299,7 @@ Expected: `{"status":"healthy"}`.
 Verify the public route using your deployment hostname. The repository's nginx configuration uses:
 
 ```bash
-curl --fail --show-error https://open-ried-sens.duckdns.org/health
+curl --fail --show-error https://api.hack-the-ried.de/health
 ```
 
 If internal health works but nginx returns 502, inspect its logs and reload nginx after validating its configuration:

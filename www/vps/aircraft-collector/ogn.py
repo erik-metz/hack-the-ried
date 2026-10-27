@@ -143,7 +143,7 @@ async def run(db, seconds=None):
             # Refresh before connecting; no stale fallback or raw packet evidence.
             async with await psycopg.AsyncConnection.connect(**db, autocommit=True) as conn, \
                     httpx.AsyncClient(timeout=30, follow_redirects=True,
-                        headers={'User-Agent':'Open-Ried-Sens-aircraft/1.0'}) as client:
+                        headers={'User-Agent':'HackTheRied-aircraft/1.0'}) as client:
                 async def refresh():
                     response = await client.get(DDB)
                     response.raise_for_status()
@@ -169,7 +169,7 @@ async def run(db, seconds=None):
                             await cleanup(conn)
                             await conn.execute("INSERT INTO collection_attempts(source_id,status) VALUES (%s,'success')",(SOURCE,))
                             Path('/tmp/aircraft-heartbeat').touch()
-                            writer.write(b'# Open-Ried-Sens keepalive\r\n')
+                            writer.write(b'# HackTheRied keepalive\r\n')
                             await writer.drain()
                             contact_at = loop.time()+30
                             failures = 0

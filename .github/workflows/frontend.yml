@@ -50,5 +50,5 @@ jobs:
           BACKEND_API_URL: http://127.0.0.1:8080
           ADMIN_PASSWORD: ci-placeholder
           ADMIN_SESSION_SECRET: ci-placeholder-session-secret
-          BACKEND_ADMIN_API_KEY: open_ried_sens_admin_ci-placeholder
+          BACKEND_ADMIN_API_KEY: hack_the_ried_admin_ci-placeholder
 

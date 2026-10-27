@@ -116,7 +116,7 @@ export default function HandoutModal({ deck, onClose }: HandoutModalProps) {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="font-black text-xl tracking-tight text-emerald-600">
-                Open Ried Sens
+                HackTheRied
               </span>
               <span
                 className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
@@ -150,7 +150,7 @@ export default function HandoutModal({ deck, onClose }: HandoutModalProps) {
             <div className="font-bold text-slate-900 dark:text-slate-100">
               Oktober 2026
             </div>
-            <div>open-ried.de/pitch/{deck.slug}</div>
+            <div>hack-the-ried.de/pitch/{deck.slug}</div>
           </div>
         </div>
 
@@ -238,14 +238,14 @@ export default function HandoutModal({ deck, onClose }: HandoutModalProps) {
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-600" />
             <span>
-              <strong>Kulturzentrum KAMÜ</strong> · Bürstadt (Hessen) · E-Mail: info@open-ried.de
+              <strong>Kulturzentrum KAMÜ</strong> · Bürstadt (Hessen) · E-Mail: info@hack-the-ried.de
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
-            <span>Online-Bauanleitung: <strong>open-ried.de/sensor-bauen</strong></span>
+            <span>Online-Bauanleitung: <strong>hack-the-ried.de/sensor-bauen</strong></span>
             <span>•</span>
-            <span>Dashboard: <strong>open-ried.de</strong></span>
+            <span>Dashboard: <strong>hack-the-ried.de</strong></span>
           </div>
         </div>
       </div>

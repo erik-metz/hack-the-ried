@@ -2,7 +2,7 @@
 
 Polls the public Bürstadt/Lampertheim overview, main map, traffic map and
 traffic overview every 60 seconds and stores
-source-timestamped numeric observations in Open Ried Sens TimescaleDB. Runs as
+source-timestamped numeric observations in HackTheRied TimescaleDB. Runs as
 an independent container alongside `shake-collector`; no source credentials or
 browser are needed. This is snapshot polling, not a lossless real-time stream.
 

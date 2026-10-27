@@ -2,7 +2,7 @@
 
 Changes to this collector are committed and pushed to `main`. The repository's
 `.github/workflows/ci.yml` validates the code and builds and publishes
-`ghcr.io/erik-metz/open-ried-sens-shake-collector:latest` after all required
+`ghcr.io/erik-metz/hack-the-ried-shake-collector:latest` after all required
 checks pass.
 
 The VPS Compose service uses that GHCR image. On the inspected production host,

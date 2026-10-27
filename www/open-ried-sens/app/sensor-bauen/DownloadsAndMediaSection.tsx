@@ -50,7 +50,7 @@ export default function DownloadsAndMediaSection() {
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               In diesem ca. 15-minütigen Video zeigen wir dir in Nahaufnahme: das Anlöten der
               I²C-Sensoren an das RAK3113-Board, den Einbau in das Lamellengehäuse und die
-              Live-Überprüfung auf der Open-Ried-Sens Karte.
+              Live-Überprüfung auf der HackTheRied Karte.
             </p>
           </div>
 

@@ -88,7 +88,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Open-Ried-Sens Telemetry API",
+    title="HackTheRied Telemetry API",
     openapi_url="/api/v1/openapi.json",
     docs_url="/docs",
     lifespan=lifespan,

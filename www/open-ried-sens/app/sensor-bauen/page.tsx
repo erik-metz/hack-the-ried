@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Umweltsensor selber bauen (LoRaWAN & Citizen Science) | Open Ried Sens",
+  title: "Umweltsensor selber bauen (LoRaWAN & Citizen Science) | HackTheRied",
   description:
     "Bauanleitung, Stückliste (BOM) & DIY-Workshops im Hessischen Ried (Bürstadt & Lampertheim). Baue deine eigene Wetter- & Klimastation mit RAK3113, Feinstaub, CO2 & LoRaWAN.",
   keywords: [
@@ -41,17 +41,17 @@ export const metadata: Metadata = {
     "Lampertheim Umweltdaten",
   ],
   openGraph: {
-    title: "Umweltsensor selber bauen · Open Ried Sens",
+    title: "Umweltsensor selber bauen · HackTheRied",
     description:
       "Stückliste, 3D-Druck Gehäuse, Bauanleitung und Workshop-Termine im Kulturzentrum KAMÜ in Bürstadt.",
-    url: "https://open-ried.de/sensor-bauen",
-    siteName: "Open Ried Sens",
+    url: "https://hack-the-ried.de/sensor-bauen",
+    siteName: "HackTheRied",
     locale: "de_DE",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Umweltsensor selber bauen · Open Ried Sens",
+    title: "Umweltsensor selber bauen · HackTheRied",
     description:
       "Baue deine eigene LoRaWAN-Multisensor-Station für das Hessische Ried.",
   },
@@ -97,7 +97,7 @@ export default function SensorBauenPage() {
           {
             "@type": "HowToStep",
             "name": "Außenmontage & Inbetriebnahme",
-            "text": "868 MHz Antenne anbringen, 5V USB-C Strom anschließen und Messwerte live auf Open Ried Sens verfolgen.",
+            "text": "868 MHz Antenne anbringen, 5V USB-C Strom anschließen und Messwerte live auf HackTheRied verfolgen.",
           },
         ],
       },
@@ -121,7 +121,7 @@ export default function SensorBauenPage() {
         },
         "organizer": {
           "@type": "Organization",
-          "name": "Open Ried Sens / KAMÜ",
+          "name": "HackTheRied / KAMÜ",
           "url": "https://kamue.me",
         },
       },

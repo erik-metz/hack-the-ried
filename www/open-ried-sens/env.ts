@@ -6,10 +6,10 @@ export const env = createEnv({
     BACKEND_API_URL: z.url(),
     ADMIN_PASSWORD: z.string().min(1),
     ADMIN_SESSION_SECRET: z.string().min(1),
-    BACKEND_ADMIN_API_KEY: z
-      .string()
-      .min(1)
-      .startsWith("open_ried_sens_admin_"),
+    BACKEND_ADMIN_API_KEY: z.string().refine(
+      (key) => key.startsWith("hack_the_ried_admin_") || key.startsWith("open_ried_sens_admin_"),
+      "Use a HackTheRied admin key",
+    ),
   },
   client: {
     // NEXT_PUBLIC_PUBLISHABLE_KEY: z.string().min(1),

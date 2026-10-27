@@ -1,8 +1,8 @@
-# Open Ried Sens – Projektübersicht & Architektur
+# HackTheRied – Projektübersicht & Architektur
 
 ## Zweck und aktueller Umfang
 
-**Open Ried Sens** ist eine von Bürgerinnen und Bürgern getragene Initiative,
+**HackTheRied** ist eine von Bürgerinnen und Bürgern getragene Initiative,
 die vom [Kulturzentrum KAMÜ](https://kamue.me) unterstützt wird. Das Projekt
 stellt Umwelt-, Mobilitäts- und Regionaldaten für **Bürstadt**, **Lampertheim**
 und das Hessische Ried bereit. Der Betrieb ist inzwischen nicht auf fünf eigene

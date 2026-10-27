@@ -72,7 +72,7 @@ def package(tables, *, sample, topic, start, end, generated_at):
         'tables': {name: len(rows) for name, (rows, _) in tables.items()},
         'format': 'UTF-8 BOM CSV; comma delimiter; UTC; JSON in structured columns',
     }
-    readme = """Open Ried Sens – Datenpaket
+    readme = """HackTheRied – Datenpaket
 
 entities.csv: Messpunkte/Objekte. id ist der Schlüssel.
 measurement_definitions.csv: Messgrößen. entity_id verweist auf entities.id.
@@ -273,7 +273,7 @@ async def download_data(
         raise HTTPException(503, 'Der Drei-Tabellen-Export ist auf dem Backend noch nicht eingerichtet.') from None
     except QueryCanceled:
         raise HTTPException(503, 'Die Auswahl dauert zu lange. Bitte den Zeitraum eingrenzen.') from None
-    filename = f'open-ried-sens-{ "sample" if sample else topic + "-" + start.isoformat() + "-" + end.isoformat() }.zip'
+    filename = f'hack-the-ried-{ "sample" if sample else topic + "-" + start.isoformat() + "-" + end.isoformat() }.zip'
     headers = {'Content-Disposition': f'attachment; filename="{filename}"', 'Cache-Control': 'no-store'}
     if sample:
         data = await run_in_threadpool(package, tables, sample=True, topic=topic, start=None, end=None, generated_at=generated_at)

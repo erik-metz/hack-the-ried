@@ -222,7 +222,7 @@ def main() -> int:
         "metric": "per-class ROC AUC over mapped YAMNet score; no threshold tuning",
         "classes": {},
         "limitations": [
-            "candidate coarse label mapping; not a validated Open-Ried-Sens taxonomy mapping",
+            "candidate coarse label mapping; not a validated HackTheRied taxonomy mapping",
             "scores are uncalibrated and one-shard results are not a representative benchmark",
             "classes with fewer than five positives are exploratory only",
         ],

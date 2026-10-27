@@ -320,7 +320,7 @@ export const BASELINE_FACILITIES: RegionalFacility[] = [
     longitude: 8.4582,
     phone: "06206 157980",
     website: "https://kamue.me",
-    description: "Soziokulturelles Zentrum, Initiator von Open Ried Sens, Raum für Konzerte, Theater, Workshops & Hackathons.",
+    description: "Soziokulturelles Zentrum, Initiator von HackTheRied, Raum für Konzerte, Theater, Workshops & Hackathons.",
     opening_hours: { "Di-So": "16:00–22:00" },
     extra_attributes: { is_kamue_hub: true, badge: "KAMÜ Kulturzentrum" },
     is_active: true,
@@ -662,10 +662,10 @@ export const BASELINE_EVENTS: CulturalEvent[] = [
     is_archived: false,
     source: "gross_rohrheim",
   },
-  // 11. Open Ried Sens Hackathon Infoabend (KAMÜ)
+  // 11. HackTheRied Hackathon Infoabend (KAMÜ)
   {
     id: "evt-kamue-hackathon-info",
-    title: "Open Ried Sens & Smart City Hackathon Infoabend",
+    title: "HackTheRied & Smart City Hackathon Infoabend",
     organizer: "KAMÜ Kulturzentrum",
     venue_id: "fac-kamue-kulturzentrum",
     venue_name: "KAMÜ Kulturzentrum Bürstadt",
@@ -1240,11 +1240,11 @@ export function generateIcsCalendar(event: CulturalEvent): string {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Open Ried Sens//Veranstaltungen Hessen-Ried//DE",
+    "PRODID:-//HackTheRied//Veranstaltungen Hessen-Ried//DE",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:${event.id}@open-ried-sens.de`,
+    `UID:${event.id}@hack-the-ried.de`,
     `DTSTAMP:${formatDate(new Date().toISOString())}`,
     `DTSTART:${dtStart}`,
     `DTEND:${dtEnd}`,
@@ -1268,7 +1268,7 @@ export function generateGoogleCalendarUrl(event: CulturalEvent): string {
   const dtStart = formatDate(event.start_time);
   const dtEnd = event.end_time ? formatDate(event.end_time) : dtStart;
   const location = [event.venue_name, event.street_address, `${event.postal_code || ""} ${event.municipality}`].filter(Boolean).join(", ");
-  const details = `${event.description || ""}\n\nVeranstalter: ${event.organizer}\nMehr Infos: ${event.event_url || event.ticket_url || "https://open-ried-sens.de/termine"}`;
+  const details = `${event.description || ""}\n\nVeranstalter: ${event.organizer}\nMehr Infos: ${event.event_url || event.ticket_url || "https://hack-the-ried.de/termine"}`;
 
   const params = new URLSearchParams({
     action: "TEMPLATE",

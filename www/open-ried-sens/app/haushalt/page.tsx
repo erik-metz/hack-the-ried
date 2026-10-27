@@ -14,7 +14,7 @@ import { fetchDevelopmentPlans, fetchConstructionActivity } from "@/lib/realesta
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Kommunalfinanzen & Haushalte | Open Ried Sens",
+  title: "Kommunalfinanzen & Haushalte | HackTheRied",
   description:
     "Transparente Gemeindehaushalte, Steuereinnahmen, Ausgaben für Schulen und Straßen sowie Wahlergebnisse für Bürstadt, Lampertheim, Biblis und Groß-Rohrheim.",
 };

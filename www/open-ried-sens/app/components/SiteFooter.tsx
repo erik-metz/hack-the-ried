@@ -22,7 +22,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
         {/* Bottom Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
-            &copy; {new Date().getFullYear()} Open Ried Sens. Freie Daten und
+            &copy; {new Date().getFullYear()} HackTheRied. Freie Daten und
             offene Schnittstellen für das Hessische Ried.
           </div>
           <div className="flex items-center gap-4 text-slate-400">

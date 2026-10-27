@@ -167,7 +167,7 @@ class TestSocialDailyLife(unittest.IsolatedAsyncioTestCase):
         sample_rows = [
             {
                 "id": "evt-kamue-hackathon-info",
-                "title": "Open Ried Sens Hackathon Infoabend",
+                "title": "HackTheRied Hackathon Infoabend",
                 "organizer": "KAMÜ Kulturzentrum",
                 "venue_id": "fac-kamue-kulturzentrum",
                 "venue_name": "KAMÜ Kulturzentrum Bürstadt",
@@ -190,7 +190,7 @@ class TestSocialDailyLife(unittest.IsolatedAsyncioTestCase):
         pool, _ = mock_pool_with_rows([sample_rows])
         res = await get_cultural_events(pool, municipality="Bürstadt")
         self.assertEqual(len(res), 1)
-        self.assertEqual(res[0].title, "Open Ried Sens Hackathon Infoabend")
+        self.assertEqual(res[0].title, "HackTheRied Hackathon Infoabend")
         self.assertTrue(res[0].is_free)
         self.assertEqual(res[0].status, "scheduled")
         self.assertEqual(res[0].street_address, "Mainstraße 1")

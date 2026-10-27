@@ -12,7 +12,7 @@ export async function GET() {
     return new Response(JSON.stringify(schema, null, 2), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="open-ried-sens-public.openapi.json"',
+        "Content-Disposition": 'attachment; filename="hack-the-ried-public.openapi.json"',
         "Cache-Control": "no-store",
       },
     });

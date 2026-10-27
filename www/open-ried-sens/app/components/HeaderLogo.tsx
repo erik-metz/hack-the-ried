@@ -9,7 +9,7 @@ export default function HeaderLogo() {
       <div className="flex flex-col justify-center min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-bold text-base sm:text-lg text-slate-100 tracking-tight whitespace-nowrap">
-            Open Ried Sens
+            HackTheRied
           </span>
           {/* <span className="hidden sm:inline-flex items-center text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
             Bürstadt &amp; Lampertheim

@@ -154,7 +154,7 @@ async def run_adsb(seconds=None):
     stop_at = asyncio.get_running_loop().time() + seconds if seconds else math.inf
     failures = 0
     async with httpx.AsyncClient(timeout=20, follow_redirects=False, headers={
-            'User-Agent': 'Open-Ried-Sens-aircraft/1.0', 'Accept': 'application/json', 'Accept-Encoding': 'gzip'}) as client:
+            'User-Agent': 'HackTheRied-aircraft/1.0', 'Accept': 'application/json', 'Accept-Encoding': 'gzip'}) as client:
         while asyncio.get_running_loop().time() < stop_at:
             response = None
             delay = interval

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       try {
         const fromSender =
           process.env.RESEND_FROM_EMAIL ||
-          "Open Ried Sens <onboarding@resend.dev>";
+          "HackTheRied <onboarding@resend.dev>";
 
         const emailContent = `
 <!DOCTYPE html>
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #020617; color: #f8fafc; padding: 24px; line-height: 1.6;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px;">
     <div style="display: inline-block; padding: 4px 12px; background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 9999px; color: #34d399; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 16px;">
-      Open Ried Sens · Bürgerforschung
+      HackTheRied · Bürgerforschung
     </div>
     <h1 style="color: #f1f5f9; font-size: 24px; margin-top: 0; margin-bottom: 16px;">
       Vielen Dank für dein Interesse, ${recipientName}!
@@ -65,12 +65,12 @@ export async function POST(request: Request) {
 
     <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">
       Bis dahin kannst du dir auf unserer Website schon die vollständige 
-      <a href="https://open-ried.de/sensor-bauen" style="color: #34d399; text-decoration: underline;">Stückliste und Bauanleitung</a> ansehen.
+      <a href="https://hack-the-ried.de/sensor-bauen" style="color: #34d399; text-decoration: underline;">Stückliste und Bauanleitung</a> ansehen.
     </p>
 
     <div style="border-top: 1px solid #1e293b; padding-top: 20px; font-size: 12px; color: #64748b;">
-      <p style="margin: 0;">Open Ried Sens – Eine Bürgerinitiative in Kooperation mit dem Kulturzentrum KAMÜ Bürstadt.</p>
-      <p style="margin: 4px 0 0 0;"><a href="https://kamue.me" style="color: #34d399; text-decoration: none;">kamue.me</a> · <a href="https://open-ried.de" style="color: #34d399; text-decoration: none;">open-ried.de</a></p>
+      <p style="margin: 0;">HackTheRied – Eine Bürgerinitiative in Kooperation mit dem Kulturzentrum KAMÜ Bürstadt.</p>
+      <p style="margin: 4px 0 0 0;"><a href="https://kamue.me" style="color: #34d399; text-decoration: none;">kamue.me</a> · <a href="https://hack-the-ried.de" style="color: #34d399; text-decoration: none;">hack-the-ried.de</a></p>
     </div>
   </div>
 </body>
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             from: fromSender,
             to: [email],
-            subject: "Deine Vormerkung zum Sensor-Bau-Workshop – Open Ried Sens",
+            subject: "Deine Vormerkung zum Sensor-Bau-Workshop – HackTheRied",
             html: emailContent,
           }),
         });

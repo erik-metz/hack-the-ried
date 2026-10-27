@@ -1,4 +1,4 @@
-# Security review: VPS and Open Ried Sens
+# Security review: VPS and HackTheRied
 
 ## Remediation status — 2026-09-14
 

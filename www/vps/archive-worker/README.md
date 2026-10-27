@@ -36,7 +36,7 @@ service checks on startup and every 24 hours for missing closed months. Failed
 runs retry on the next check; a PostgreSQL advisory lock prevents overlapping
 workers. The current month is normally left to the live API. No external
 scheduler or AWS account is necessary. The service is opt-in and uses
-`ghcr.io/erik-metz/open-ried-sens-archive-worker:latest`, built by GitHub Actions
+`ghcr.io/erik-metz/hack-the-ried-archive-worker:latest`, built by GitHub Actions
 after the validation jobs pass. No source folder or Docker build tools are
 needed on the VPS. Once started, the existing Watchtower service monitors and
 updates it like the other GHCR services. If the new GHCR package is private,

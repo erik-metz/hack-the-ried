@@ -381,21 +381,21 @@ jobs:
           context: ./www/vps
           file: ./www/vps/satellite-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-satellite-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-satellite-collector:latest
 
       - name: Build and Push Docker Image Aircraft Collector
         uses: docker/build-push-action@v6
         with:
           context: ./www/vps/aircraft-collector
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-aircraft-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-aircraft-collector:latest
 
       - name: Build and Push Docker Image AIS Collector
         uses: docker/build-push-action@v6
         with:
           context: ./www/vps/ais-collector
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-ais-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-ais-collector:latest
 
       - name: Build and Push Docker Image API
         uses: docker/build-push-action@v6
@@ -403,7 +403,7 @@ jobs:
           context: ./www/vps/api
           file: ./www/vps/api/v1/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-api:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-api:latest
 
       - name: Build and Push Docker Image Shake Collector
         uses: docker/build-push-action@v6
@@ -411,7 +411,7 @@ jobs:
           context: ./www/vps/shake-collector
           file: ./www/vps/shake-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-shake-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-shake-collector:latest
 
       - name: Build and Push Docker Image Smart City Collector
         uses: docker/build-push-action@v6
@@ -419,7 +419,7 @@ jobs:
           context: ./www/vps/smartcity-collector
           file: ./www/vps/smartcity-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-smartcity-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-smartcity-collector:latest
 
       - name: Build and Push Docker Image Nextbike Collector
         uses: docker/build-push-action@v6
@@ -427,7 +427,7 @@ jobs:
           context: ./www/vps/nextbike-collector
           file: ./www/vps/nextbike-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-nextbike-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-nextbike-collector:latest
 
       - name: Build and Push Docker Image Traffic Collector
         uses: docker/build-push-action@v6
@@ -435,7 +435,7 @@ jobs:
           context: ./www/vps/traffic-collector
           file: ./www/vps/traffic-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-traffic-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-traffic-collector:latest
 
       - name: Build and Push Docker Image Rast Collector
         uses: docker/build-push-action@v6
@@ -443,7 +443,7 @@ jobs:
           context: ./www/vps/rast-collector
           file: ./www/vps/rast-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-rast-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-rast-collector:latest
 
       - name: Build and Push Docker Image OpenSenseMap Collector
         uses: docker/build-push-action@v6
@@ -451,7 +451,7 @@ jobs:
           context: ./www/vps/opensensemap-collector
           file: ./www/vps/opensensemap-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-opensensemap-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-opensensemap-collector:latest
 
       - name: Build and Push Docker Image UBA Collector
         uses: docker/build-push-action@v6
@@ -459,7 +459,7 @@ jobs:
           context: ./www/vps/uba-collector
           file: ./www/vps/uba-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-uba-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-uba-collector:latest
 
       - name: Build and Push Docker Image TTN Mapper Collector
         uses: docker/build-push-action@v6
@@ -467,7 +467,7 @@ jobs:
           context: ./www/vps/ttnmapper-collector
           file: ./www/vps/ttnmapper-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-ttnmapper-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-ttnmapper-collector:latest
 
       - name: Build and Push Docker Image Archive Worker
         uses: docker/build-push-action@v6
@@ -475,7 +475,7 @@ jobs:
           context: ./www/vps/archive-worker
           file: ./www/vps/archive-worker/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-archive-worker:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-archive-worker:latest
 
       - name: Build and Push Docker Image Environment Collector
         uses: docker/build-push-action@v6
@@ -483,7 +483,7 @@ jobs:
           context: ./www/vps
           file: ./www/vps/environment-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-environment-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-environment-collector:latest
 
       - name: Build and Push Docker Image Registry Sync Worker
         uses: docker/build-push-action@v6
@@ -491,7 +491,7 @@ jobs:
           context: ./www/vps/registry-sync-worker
           file: ./www/vps/registry-sync-worker/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-registry-sync-worker:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-registry-sync-worker:latest
 
       - name: Build and push EMF collector image
         uses: docker/build-push-action@v6
@@ -499,11 +499,11 @@ jobs:
           context: ./www/vps/emf-collector
           file: ./www/vps/emf-collector/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-emf-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-emf-collector:latest
 
       - name: Build and push fuel collector image
         uses: docker/build-push-action@v6
         with:
           context: ./www/vps/fuel-collector
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/open-ried-sens-fuel-collector:latest
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-fuel-collector:latest

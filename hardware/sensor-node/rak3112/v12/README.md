@@ -47,7 +47,7 @@ Sources: [ACDNet model/repository](https://github.com/mohaimenz/acdnet),
 [ACDNet paper](https://arxiv.org/abs/2103.03483), and
 [ESC-50 dataset and class mapping](https://github.com/karoldvl/ESC-50).
 
-The taxonomy and contract for eventual multi-label Open-Ried-Sens events are
+The taxonomy and contract for eventual multi-label HackTheRied events are
 in [`../audio-event-ml-plan.md`](../audio-event-ml-plan.md). Format 6 encodes
 the 5-minute event counts as 4-byte TLVs (`tag=3, code=58`); TTN decodes them into
 `sound_events` and the VPS webhook writes them as canonical interval statistics

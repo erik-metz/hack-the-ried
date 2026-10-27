@@ -83,7 +83,7 @@ def main():
     parser.add_argument("--export-json", type=str, help="Path to export dataset JSON manifest")
     args = parser.parse_args()
 
-    print("=== Open Ried Sens: Sentinel-2 EO ML Pipeline ===")
+    print("=== HackTheRied: Sentinel-2 EO ML Pipeline ===")
     dataset = generate_synthetic_historical_dataset()
     print(f"Total dataset samples: {len(dataset)}")
 
