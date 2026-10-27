@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   const latestWindow = new URL("/api/v1/telemetry/latest/window", env.BACKEND_API_URL);
   latestWindow.searchParams.set("sensor_id", sensorId);
   const loadHistory = async () => {
-    const intervals = snapshots ? [null] : ["5 minutes", "1 hour", "1 day"];
+    const intervals = civicDaily ? ["1 day"] : snapshots ? [null] : ["5 minutes", "1 hour", "1 day"];
     for (const interval of intervals) {
       const history = new URL(snapshots ? "/api/v1/telemetry/raw" : "/api/v1/telemetry/aggregates", env.BACKEND_API_URL);
       history.search = new URLSearchParams({ sensor_id: sensorId, start_time: start.toISOString(), end_time: end.toISOString(),
