@@ -10,7 +10,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
             <Link href="/quellen" className="hover:text-emerald-300">Quellen</Link>
             <Link href="/daten" className="hover:text-emerald-300">Daten &amp; API</Link>
             <a href="https://kamue.me" target="_blank" rel="noreferrer" className="hover:text-emerald-300">KAMÜ</a>
-            <a href="https://github.com/erik-metz/kamue-digital-lora-sensor" target="_blank" rel="noreferrer" className="hover:text-emerald-300">GitHub</a>
+            <a href="https://github.com/erik-metz/hack-the-ried" target="_blank" rel="noreferrer" className="hover:text-emerald-300">GitHub</a>
           </nav>
         </div>
       </footer>

@@ -144,7 +144,7 @@ export default function DownloadsAndMediaSection() {
               <div><strong>Status:</strong> Layoutierung für Druckfassung</div>
             </div>
             <a
-              href="https://github.com/erik-metz/kamue-digital-lora-sensor/blob/main/hardware/sensor-node/v2/bom.md"
+              href="https://github.com/erik-metz/hack-the-ried/blob/main/hardware/sensor-node/v2/bom.md"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-emerald-300 font-semibold px-4 py-2.5 text-xs transition-colors border border-slate-700"

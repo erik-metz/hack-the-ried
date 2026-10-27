@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Radio, Star } from "lucide-react";
 
-const repositoryUrl = "https://github.com/erik-metz/kamue-digital-lora-sensor";
+const repositoryUrl = "https://github.com/erik-metz/hack-the-ried";
 
 function SensorGraphic() {
   return (
