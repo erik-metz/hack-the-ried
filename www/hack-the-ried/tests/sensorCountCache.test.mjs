@@ -35,7 +35,7 @@ test("invalid data cannot replace the last successful count", () => {
   cache.saveSensorCount(42);
   for (const value of [undefined, null, -1, 1.5, NaN, Infinity, "7"]) cache.saveSensorCount(value);
   assert.equal(cache.readSensorCount(), 42);
-  storage.set("open-ried:sensor-count:v1", "broken");
+  storage.set("hack-the-ried:sensor-count:v1", "broken");
   assert.equal(cache.readSensorCount(), 42);
   assert.equal(load(storage).readSensorCount(), undefined);
 });
@@ -49,7 +49,7 @@ test("disabled storage keeps count during navigation and notifies subscribers", 
   assert.equal(notifications, 1);
   cache.events.get("storage")({ key: "unrelated" });
   assert.equal(notifications, 1);
-  cache.events.get("storage")({ key: "open-ried:sensor-count:v1" });
+  cache.events.get("storage")({ key: "hack-the-ried:sensor-count:v1" });
   assert.equal(notifications, 2);
   unsubscribe();
   cache.saveSensorCount(13);

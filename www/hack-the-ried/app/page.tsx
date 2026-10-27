@@ -11,7 +11,7 @@ import SiteHeader from "./components/SiteHeader";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Open Ried | Entdecke das Ried in Daten",
+  title: "HackTheRied | Entdecke das Ried in Daten",
   description:
     "Lokale Messwerte und öffentliche Daten für Bürstadt, Lampertheim und das Hessische Ried. Entdecke die Sensorkarte, lerne deine Region kennen und mach mit.",
 };
@@ -71,7 +71,7 @@ export default async function Home() {
             </h1>
             <p className="max-w-2xl text-base sm:text-lg leading-relaxed text-slate-300">
               Wie warm ist es vor deiner Haustür? Was passiert in deiner Region?
-              Open Ried macht lokale Messwerte und öffentliche Daten sichtbar.
+              HackTheRied macht lokale Messwerte und öffentliche Daten sichtbar.
             </p>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-1">
               <a href="#karte" className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
@@ -138,7 +138,7 @@ export default async function Home() {
             </div>
           </div>
           <div id="team" className="space-y-5 scroll-mt-24">
-            <h3 className="text-sm font-semibold text-slate-300">Die Menschen hinter Open Ried</h3>
+            <h3 className="text-sm font-semibold text-slate-300">Die Menschen hinter HackTheRied</h3>
             <div className="space-y-5">
               {CORE_TEAM_MEMBERS.map((member) => (
                 <div key={member.name} className="flex items-center gap-4">

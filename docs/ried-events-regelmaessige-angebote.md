@@ -173,8 +173,8 @@ Implementierung `6c7273d9dc4e386092149927cb46a8f4c3ba22b7` ist auf `main`
 committed und gepusht. Die beiden CI-Läufe für genau diesen Commit sind
 vollständig erfolgreich:
 
-- [Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37771655533)
-- [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37771655489), einschließlich aller 17 Container-Builds und GHCR-Veröffentlichungen.
+- [Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/37771655533)
+- [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37771655489), einschließlich aller 17 Container-Builds und GHCR-Veröffentlichungen.
 
 Der aktuelle GHCR-Registry-Container und anschließend das laufende
 VPS-Manifest wurden auf beide Lauftreff-Quellen geprüft. Die produktive
@@ -184,7 +184,7 @@ Quellen-API bestätigt beide mit `success`: Groß-Rohrheim am 08.10.2026 um
 Bürstadt dienstags 18:00 am TV-Heim in der Wasserwerkstraße, Groß-Rohrheim
 mittwochs 19:00 am Eingang der Bürgerhalle.
 
-Auch die [öffentliche Terminseite](https://open-ried-sens.vercel.app/termine)
+Auch die [öffentliche Terminseite](https://hack-the-ried.de/termine)
 wurde nach der Übernahme geprüft: Beide Vereinsnamen, Wochentage, Uhrzeiten
 und Treffpunkte werden angezeigt, ohne Verfügbarkeitsfehler. Der vorherige
 Groß-Rohrheimer Lauftreff ist erhalten geblieben. Weitere recherchierte
@@ -229,8 +229,8 @@ acht Tanzangebote mit Enduhrzeiten; null erfundene datierte Events.
 ### Veröffentlichungsprüfung und produktive Blockade
 
 Implementierung `745cc27932ed8a53c18b28b84597f8c562955a5f` auf `main` gepusht.
-[Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37807112989)
-und [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37807113195)
+[Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/37807112989)
+und [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37807113195)
 sind für genau diesen Commit vollständig erfolgreich, einschließlich aller
 17 vorgesehenen Container-Builds und Veröffentlichungen auf GHCR.
 
@@ -279,7 +279,7 @@ Zwischenspeichers liefert auch die gewöhnliche öffentliche API-URL
 Je vier Tanzangebote liegen in Biblis und Bürstadt. Keine angenommenen
 Kalenderdaten und keine doppelten IDs.
 
-Die [öffentliche Terminseite](https://open-ried-sens.vercel.app/termine)
+Die [öffentliche Terminseite](https://hack-the-ried.de/termine)
 wurde unter ihrer gewöhnlichen Adresse geprüft: alle zehn Titel sowie
 die veröffentlichten Anfangs- und Enduhrzeiten aller acht Tanzangebote
 sind im ausgelieferten HTML sichtbar. Der INVEKOS-Quellenstatus behält
@@ -335,7 +335,7 @@ Diff-Prüfung bestehen.
 ### Veröffentlichungs- und produktiver Nachweis
 
 Implementierung `a37e93d9765af272a0608874777de49783dad9ac` auf `main` gepusht.
-[FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37849543784)
+[FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37849543784)
 ist für genau diesen Commit vollständig erfolgreich, einschließlich aller
 17 vorgesehenen Container-Builds und GHCR-Veröffentlichungen. Kein
 Frontend-CI-Lauf vorgesehen, da keine Frontenddatei geändert wurde.
@@ -356,7 +356,7 @@ Auch die gewöhnliche öffentliche API-Adresse liefert jetzt **14 eindeutige
 regelmäßige Angebote**: vier Gymnastikgruppen, acht Tanzangebote und zwei
 Lauftreffs. Keine erfundenen datierten Kalenderereignisse.
 
-Die [öffentliche Terminseite](https://open-ried-sens.vercel.app/termine)
+Die [öffentliche Terminseite](https://hack-the-ried.de/termine)
 wurde unter ihrer normalen Adresse geprüft: alle 14 Angebotstitel und bei
 allen vier neuen Gymnastikgruppen die veröffentlichten Anfangs-/Endzeiten,
 Räume und Teilnahmehinweise sind im ausgelieferten HTML sichtbar.
@@ -410,7 +410,7 @@ Diff-Prüfung bestehen.
 ### CI, Serverübernahme und externe Abrufblockade
 
 Implementierung `5bd54f5a78e5dd5646aa10fd5b91669f6c7fd93b` auf `main` gepusht.
-[FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37851586493)
+[FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37851586493)
 ist für genau diesen Commit vollständig erfolgreich, einschließlich aller
 17 vorgesehenen Container-Builds und GHCR-Veröffentlichungen. Keine
 Frontenddatei geändert, daher kein Frontend-CI-Lauf vorgesehen.
@@ -455,7 +455,7 @@ blockiert die Veröffentlichung nicht mehr; keine zusätzliche Codeänderung
 oder erneuter Container-Build war erforderlich.
 
 Die gewöhnliche öffentliche API-Adresse und die
-[Terminseite](https://open-ried-sens.vercel.app/termine) wurden geprüft:
+[Terminseite](https://hack-the-ried.de/termine) wurden geprüft:
 **17 eindeutige Angebote**, davon drei TVL-Angebote; alle bisherigen 14
 Angebote erhalten. Alle drei TVL-Titel, Treffpunkte, Teilnahmehinweise und
 Anfangszeiten sind im ausgelieferten HTML sichtbar. Beide Freitags-Endzeiten

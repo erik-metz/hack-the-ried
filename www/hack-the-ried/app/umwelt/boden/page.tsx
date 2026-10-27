@@ -5,7 +5,7 @@ import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Boden & Verdunstung | Open Ried" };
+export const metadata = { title: "Boden & Verdunstung | HackTheRied" };
 
 const number = (value: number | null, digits = 1) => value === null ? "–" : value.toLocaleString("de-DE", { maximumFractionDigits: digits });
 

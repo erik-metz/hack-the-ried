@@ -33,7 +33,7 @@ VPS 169.58.102.132: Docker Compose, FastAPI, TimescaleDB, Sammler
              └──────────────────────► öffentliche Open-Data-API
 ```
 
-- **Frontend (`www/open-ried-sens/`)**: Next.js 16, React 19 und Tailwind CSS 4;
+- **Frontend (`www/hack-the-ried/`)**: Next.js 16, React 19 und Tailwind CSS 4;
   Karten, Messwerte, Datenportal und regionale Inhalte werden über Vercel
   bereitgestellt.
 - **Backend (`www/vps/`)**: FastAPI und TimescaleDB laufen als Compose-Stack auf

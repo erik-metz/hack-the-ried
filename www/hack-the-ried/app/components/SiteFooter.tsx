@@ -5,7 +5,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
     return (
       <footer className="mt-auto border-t border-slate-800/80 py-7 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-          <p>Open Ried · Ehrenamtlich. Offen. Für die Region.</p>
+          <p>HackTheRied · Ehrenamtlich. Offen. Für die Region.</p>
           <nav aria-label="Weiterführende Links" className="flex flex-wrap gap-x-5 gap-y-3">
             <Link href="/quellen" className="hover:text-emerald-300">Quellen</Link>
             <Link href="/daten" className="hover:text-emerald-300">Daten &amp; API</Link>

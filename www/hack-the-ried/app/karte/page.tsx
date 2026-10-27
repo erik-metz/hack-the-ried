@@ -8,7 +8,7 @@ import { Compass, Satellite } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Sensorkarte & Satelliten-Layer | Open Ried",
+  title: "Sensorkarte & Satelliten-Layer | HackTheRied",
   description:
     "Interaktive Karte für Bürstadt, Lampertheim und das Hessische Ried: Live-Sensordaten, Mobilität, Kommunallayer sowie Copernicus Sentinel-2 Satellitenbilder (Echtfarben RGB & NDVI Vegetationsgesundheit).",
 };

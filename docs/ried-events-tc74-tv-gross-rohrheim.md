@@ -114,7 +114,7 @@ Originalquellen wurde zusätzlich bis zur Veröffentlichung in einem eigenen
 Testschema geprüft: ein Termin, drei archivierte Originalantworten und ein
 archivierter Zuordnungsbeleg.
 
-Der [CI-Lauf für genau diesen Commit](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37741715342)
+Der [CI-Lauf für genau diesen Commit](https://github.com/erik-metz/hack-the-ried/actions/runs/37741715342)
 ist vollständig erfolgreich, einschließlich aller 17 Container-Builds und
 GHCR-Veröffentlichungen. Die öffentliche Quellen-API meldet `success` mit
 Abrufzeit 08.10.2026, 07:26:56 UTC. Der produktive Eventbestand bestätigt
@@ -162,8 +162,8 @@ Implementierung `7d3d690ce6632e7877b276081168b1f9b6b443c3` ist auf `main`
 committed und gepusht. Die beiden Läufe für genau diesen Commit sind
 vollständig erfolgreich:
 
-- [Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37768425130)
-- [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37768424982), einschließlich aller 17 Container-Builds und GHCR-Veröffentlichungen.
+- [Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/37768425130)
+- [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37768424982), einschließlich aller 17 Container-Builds und GHCR-Veröffentlichungen.
 
 Die produktive Quellen-API bestätigt `tv-gross-rohrheim-lauftreff` mit
 `success`, HTTP 200 und Abrufzeit **08.10.2026, 11:22:20 UTC**. Der öffentliche
@@ -171,7 +171,7 @@ Datensatz `social/regular-offers` enthält genau das geprüfte Angebot,
 Mittwoch 19:00 Uhr, Eingang Bürgerhalle Groß-Rohrheim, Originalquelle und
 Hinweise auf unbekannte Endzeit, Kosten und Ausfälle.
 
-Die [öffentliche Terminseite](https://open-ried-sens.vercel.app/termine) wurde
+Die [öffentliche Terminseite](https://hack-the-ried.de/termine) wurde
 nach der produktiven Übernahme erneut abgerufen: Der neue Abschnitt enthält
 TV-Lauftreff, Mittwoch, 19:00, Treffpunkt und den Original-Vereinslink;
 die Verfügbarkeitsmeldung ist verschwunden. Es werden keine erfundenen

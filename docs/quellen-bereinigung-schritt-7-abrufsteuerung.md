@@ -56,8 +56,8 @@ Auf `main` veröffentlicht:
 
 73 Collector-Tests mit PostgreSQL und neun Subtests erfolgreich, keine
 übersprungenen Tests. Ruff und Diff-Prüfung erfolgreich. Beide eigenen
-[CI-Läufe zur Abrufsteuerung](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37742028045)
-und [zum finalen Zyklusbudget](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37767467989)
+[CI-Läufe zur Abrufsteuerung](https://github.com/erik-metz/hack-the-ried/actions/runs/37742028045)
+und [zum finalen Zyklusbudget](https://github.com/erik-metz/hack-the-ried/actions/runs/37767467989)
 sind erfolgreich, jeweils einschließlich aller 17 GHCR-Builds samt
 Veröffentlichung. Kein Frontend-Pfad wurde verändert; Frontend CI ist für diesen
 Schritt durch seine Pfadfilter nicht vorgesehen.

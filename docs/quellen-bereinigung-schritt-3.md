@@ -18,8 +18,8 @@ fehlende Host-Portfreigabe wurde nicht als Anbieterausfall gewertet.
 
 Nachweise:
 
-- [Quellenstatus](https://open-ried-sens.duckdns.org/api/v1/collection/status)
-- [Veröffentlichte Veranstaltungen einschließlich Archiv](https://open-ried-sens.duckdns.org/api/v1/collected/social/events?include_past=true)
+- [Quellenstatus](https://api.hack-the-ried.de/api/v1/collection/status)
+- [Veröffentlichte Veranstaltungen einschließlich Archiv](https://api.hack-the-ried.de/api/v1/collected/social/events?include_past=true)
 - [Bereits umgesetzte Vereinsimport-Reparatur](ried-events-plan.md#ergänzung-produktiven-vereinsimport-reparieren)
 
 ## Veröffentlichter Bestand

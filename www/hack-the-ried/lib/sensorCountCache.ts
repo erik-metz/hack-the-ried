@@ -1,5 +1,5 @@
 // Only successful map loads write this versioned cache. No network requests.
-const STORAGE_KEY = "open-ried:sensor-count:v1";
+const STORAGE_KEY = "hack-the-ried:sensor-count:v1";
 let memoryCount: number | undefined;
 const listeners = new Set<() => void>();
 

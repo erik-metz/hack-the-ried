@@ -28,7 +28,7 @@ containers, nginx configuration loading and live database timeouts still require
 deployment verification. The additional frontend ingress verification and
 documented archive publication policy below remain operational considerations.
 
-Reviewed 2026-09-13. Scope: `www/vps/` and `www/open-ried-sens/`, including FastAPI endpoints, Next.js actions and routes, map rendering, Compose/nginx deployment, collector, and archive handling.
+Reviewed 2026-09-13. Scope: `www/vps/` and `www/hack-the-ried/`, including FastAPI endpoints, Next.js actions and routes, map rendering, Compose/nginx deployment, collector, and archive handling.
 
 ## Executive summary
 
@@ -41,7 +41,7 @@ Review used source inspection and isolated local execution with synthetic creden
 ### 1. Development login accepts any nonempty password
 
 - **Rule:** authentication bypass / CWE-287.
-- **Location:** `www/open-ried-sens/app/admin/actions.ts:102–112` (`loginAction`).
+- **Location:** `www/hack-the-ried/app/admin/actions.ts:102–112` (`loginAction`).
 - **Evidence:** password mismatch is rejected only when `process.env.NODE_ENV === "production"`; other modes issue a normally signed admin cookie.
 - **Impact:** anyone able to reach a development/preview instance can list hidden sensors, create or edit metadata, and change visibility using its configured backend credentials. Permanent deletion still separately checks the password. If development and production share the password, the resulting cookie is also cryptographically valid in production.
 - **Validation:** transpiled and invoked the actual action with mocked Next.js headers/cookies and a wrong synthetic password: development returned success and issued a cookie; production rejected it.
@@ -61,7 +61,7 @@ Review used source inspection and isolated local execution with synthetic creden
 ### 3. Sensor IDs reach a raw HTML map marker
 
 - **Rule:** stored XSS / CWE-79.
-- **Locations:** `www/open-ried-sens/app/components/MapComponent.tsx:102–108`; `www/open-ried-sens/app/page.tsx:45–54`; `www/vps/api/v1/schemas.py:5`.
+- **Locations:** `www/hack-the-ried/app/components/MapComponent.tsx:102–108`; `www/hack-the-ried/app/page.tsx:45–54`; `www/vps/api/v1/schemas.py:5`.
 - **Evidence:** `${node.id.split("-")[1] || node.id}` is interpolated into HTML passed to `L.divIcon`. The API accepts sensor IDs based on length alone. The installed Leaflet implementation assigns this string to `innerHTML` (`node_modules/leaflet/dist/leaflet-src.js:11086`). Leaflet documents this option as [custom HTML](https://leafletjs.com/reference#divicon).
 - **Impact:** an attacker able to create a sensor ID and arrange public coordinates can persist executable markup affecting dashboard visitors. Execution occurs on the application origin, including in an administrator's browser; HttpOnly cookies do not prevent scripts from making authenticated same-origin requests.
 - **Validation:** the benign demonstration string `<img src=x onerror=alert(1)>` fits the 64-character metadata limit and survives the exact split expression unchanged. Source tracing confirms it reaches the HTML sink. No payload was saved to a database or executed in a live browser.
@@ -92,7 +92,7 @@ Review used source inspection and isolated local execution with synthetic creden
 ### 6. Session signatures expose an offline password verifier
 
 - **Rule:** inappropriate use of password as signing key / CWE-321-related key management weakness.
-- **Locations:** `www/open-ried-sens/lib/adminAuth.ts:15–21,41–44`; `www/open-ried-sens/env.ts:8`.
+- **Locations:** `www/hack-the-ried/lib/adminAuth.ts:15–21,41–44`; `www/hack-the-ried/env.ts:8`.
 - **Evidence:** a cookie contains a known timestamp and `HMAC-SHA256(ADMIN_PASSWORD, "admin-session:" + timestamp)`. Password validation accepts any nonempty configured password.
 - **Impact:** someone who obtains a session token can test password guesses offline with fast HMAC operations, bypassing login throttling. Recovery of a weak password grants lasting login and cookie-forging ability. Finding 1 can supply a token if an accessible development instance shares that password.
 - **Validation:** generated a token with the actual transpiled helper and a synthetic password, then successfully checked the password using only its timestamp/signature and an independent HMAC calculation.

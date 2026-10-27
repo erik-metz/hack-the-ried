@@ -58,7 +58,7 @@ folgt keine vollständige räumliche Abdeckung des Rieds.
 
 Die Korrektur wurde als `a3aef12e47aeee06386d6495fdf08e96fe518ba4` auf `main`
 veröffentlicht. Der zugehörige
-[FastAPI-&-Docker-CI/CD-Lauf](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37663137460)
+[FastAPI-&-Docker-CI/CD-Lauf](https://github.com/erik-metz/hack-the-ried/actions/runs/37663137460)
 ist vollständig erfolgreich: alle Prüfungen und alle **17 vorgesehenen
 Container-Builds samt GHCR-Veröffentlichung**.
 
@@ -67,7 +67,7 @@ geladen. Deshalb wurde ausschließlich der Umweltcollector über die zusätzlich
 VPS-Datei `/root/docker-compose.dwd-fix-a3aef12.yml` auf den eindeutigen Digest
 des geprüften CI-Laufs festgelegt:
 
-`ghcr.io/erik-metz/open-ried-sens-environment-collector@sha256:ab5d13aed4d25808db6cb88223abd05bdccd4b6eb57f5edcaa98a9bb0e4d5259`
+`ghcr.io/erik-metz/hack-the-ried-environment-collector@sha256:ab5d13aed4d25808db6cb88223abd05bdccd4b6eb57f5edcaa98a9bb0e4d5259`
 
 Diese Datei ergänzt die vorhandenen `/root/docker-compose.yml` und
 `/root/docker-compose.override.yml`. Beim nächsten beabsichtigten Update des
@@ -78,7 +78,7 @@ erfassen den auf einen Digest festgelegten Collector nicht.
 Die SHA-256-Prüfung der drei geänderten produktiven Dateien `main.py`,
 `normalize.py` und `storage.py` stimmt mit dem veröffentlichten Commit überein.
 Die Produktionsdatenbank und die
-[öffentliche Quellenstatus-API](https://open-ried-sens.duckdns.org/api/v1/collection/status)
+[öffentliche Quellenstatus-API](https://api.hack-the-ried.de/api/v1/collection/status)
 bestätigen am **7. Oktober 2026 um 20:09 Uhr Europe/Berlin**:
 
 - RADOLAN: `success`, **1 Messwert**, HTTP 200, bestätigter Abschluss, kein Fehler.

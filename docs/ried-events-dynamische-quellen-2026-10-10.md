@@ -67,7 +67,7 @@ Veröffentlichung ergänzt.
 ## Veröffentlichung und Produktionsnachweis
 
 Implementierungscommit: `cdc760b3bee4728fb65d43bace3870c458165943`, nach `main`
-gepusht. Der [zugehörige CI-Lauf](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/38030443689)
+gepusht. Der [zugehörige CI-Lauf](https://github.com/erik-metz/hack-the-ried/actions/runs/38030443689)
 ist erfolgreich; alle 17 vorgesehenen Container-Builds einschließlich ihrer
 Veröffentlichung auf GHCR sind erfolgreich.
 

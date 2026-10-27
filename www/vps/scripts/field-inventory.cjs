@@ -1,8 +1,8 @@
 // Regenerate with: node www/vps/scripts/field-inventory.cjs
 const fs = require('node:fs');
 const path = require('node:path');
-const ts = require('../../open-ried-sens/node_modules/typescript');
-const root = path.resolve(__dirname, '../../open-ried-sens');
+const ts = require('../../hack-the-ried/node_modules/typescript');
+const root = path.resolve(__dirname, '../../hack-the-ried');
 const files = ['demographicsData','financeData','realestateData','economyData','electionsData','infrastructureData','regionalStats','mapData','telemetryData'];
 const result = [];
 for (const name of files) {

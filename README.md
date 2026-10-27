@@ -11,11 +11,11 @@ Digitales Umweltsensornetzwerk für **Bürstadt**, **Lampertheim** und das **Hes
 
 ## 🚀 Schnellstart
 
-### 1. Web Frontend (`/www/open-ried-sens`)
+### 1. Web Frontend (`/www/hack-the-ried`)
 
 Das Web-Dashboard dient zur Visualisierung der Messwerte auf einer interaktiven Karte.
 
-cd www/open-ried-sens
+cd www/hack-the-ried
 npm install
 npm run dev
 

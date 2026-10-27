@@ -11,9 +11,9 @@
 
 24 lokale Formular-, Pipeline- und PostgreSQL-Tests erfolgreich. Sie prüfen insbesondere Ortsteilzuordnung, abweichende Bestätigung, Mehrdeutigkeit, Wiederverwendung validierter Checkpoints und Rücknahme ungeprüfter Kalender. Ruff und `git diff --check` erfolgreich.
 
-Implementierung `2c3358f`, korrigierte Abwesenheitsabfrage im zusätzlichen Test `39df76ce43192ca763260b1b0a7dbc407aa412b7`, beide auf `main` gepusht. [CI für den korrigierten Commit](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37772978446) vollständig erfolgreich, einschließlich TimescaleDB-Verträgen und aller 17 Container-Builds samt GHCR-Veröffentlichung.
+Implementierung `2c3358f`, korrigierte Abwesenheitsabfrage im zusätzlichen Test `39df76ce43192ca763260b1b0a7dbc407aa412b7`, beide auf `main` gepusht. [CI für den korrigierten Commit](https://github.com/erik-metz/hack-the-ried/actions/runs/37772978446) vollständig erfolgreich, einschließlich TimescaleDB-Verträgen und aller 17 Container-Builds samt GHCR-Veröffentlichung.
 
-Registry-Worker auf dem VPS mit `ghcr.io/erik-metz/open-ried-sens-registry-sync-worker@sha256:9a8ef4dd9d98b933eeedb17ee6ac40ccc2aee6ab0b6c7afdd2ba998666b8d709`. Die vorhandene Image-Pin-Datei `/root/docker-compose.invekos.yml` wurde gezielt aktualisiert; vorherige Fassung als `/root/docker-compose.invekos.pre-zakb.yml` erhalten. SHA-256 von `zakb.py` stimmt mit geprüftem Code überein.
+Registry-Worker auf dem VPS mit `ghcr.io/erik-metz/hack-the-ried-registry-sync-worker@sha256:9a8ef4dd9d98b933eeedb17ee6ac40ccc2aee6ab0b6c7afdd2ba998666b8d709`. Die vorhandene Image-Pin-Datei `/root/docker-compose.invekos.yml` wurde gezielt aktualisiert; vorherige Fassung als `/root/docker-compose.invekos.pre-zakb.yml` erhalten. SHA-256 von `zakb.py` stimmt mit geprüftem Code überein.
 
 ## Erneute Validierung
 
@@ -25,9 +25,9 @@ Die Vorprüfung bestätigte 665 Kalender; 38 weitere waren nicht eindeutig beleg
 
 ## Abschlussprüfung
 
-Eine zusätzliche Live-Prüfung zeigte einen Sitzungseffekt: Nach dem Lesen mehrerer Ortsteillisten war serverseitig noch der zuletzt abgefragte Ortsteil ausgewählt. Die passende Auswahl wird daher vor dem Weitergehen erneut bestätigt. Regressionstest berücksichtigt diese serverseitige Sitzung. Korrektur `dba6013120ec823c16fdbb638b24d23a08b35b5f` gepusht; erneut 24 lokale Tests erfolgreich. [CI für genau diesen letzten Code-Commit](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37806977709) vollständig erfolgreich, einschließlich aller 17 GHCR-Builds und Veröffentlichungen.
+Eine zusätzliche Live-Prüfung zeigte einen Sitzungseffekt: Nach dem Lesen mehrerer Ortsteillisten war serverseitig noch der zuletzt abgefragte Ortsteil ausgewählt. Die passende Auswahl wird daher vor dem Weitergehen erneut bestätigt. Regressionstest berücksichtigt diese serverseitige Sitzung. Korrektur `dba6013120ec823c16fdbb638b24d23a08b35b5f` gepusht; erneut 24 lokale Tests erfolgreich. [CI für genau diesen letzten Code-Commit](https://github.com/erik-metz/hack-the-ried/actions/runs/37806977709) vollständig erfolgreich, einschließlich aller 17 GHCR-Builds und Veröffentlichungen.
 
-Finale produktive Registry-Version: `ghcr.io/erik-metz/open-ried-sens-registry-sync-worker@sha256:8f63542ddea2f7f5b88c7625340caba11b95f373ea92891a2ff656a661b62699`. SHA-256 von `zakb.py`: `3b6eabb2b7c549bfa96f2a719d56dffbcd5637ac20743d363e903b1f4e01fcdb`.
+Finale produktive Registry-Version: `ghcr.io/erik-metz/hack-the-ried-registry-sync-worker@sha256:8f63542ddea2f7f5b88c7625340caba11b95f373ea92891a2ff656a661b62699`. SHA-256 von `zakb.py`: `3b6eabb2b7c549bfa96f2a719d56dffbcd5637ac20743d363e903b1f4e01fcdb`.
 
 Die Archivmigration hat 665 Checkpoints eindeutig nachvalidiert, mit unveränderter ursprünglicher Abrufzeit. Vollständiger Nachweis in `collected_payloads`, SHA-256 `b3d32c4f151633748e2845eedf0fcb950bb3a5924f3c0a5384639ade328f267b`; enthält Checkpoint-Schlüssel sowie Empfangs- und Adressbestätigungsbelege. Drei Fehlermarkierungen zu diesen bewiesenen Checkpoints wurden gelöscht. Nicht belegbare Antworten wurden nicht übernommen.
 

@@ -93,9 +93,9 @@ Für ein Taxonomie-Release werden stabile Slugs/IDs vergeben, Elternbeziehungen,
 Ein erster Offline-Auswerter liegt in [`tools/yamnet_baseline.py`](tools/yamnet_baseline.py). Er akzeptiert nur mono 16-kHz-WAV, liest Audio in den Arbeitsspeicher, meldet die über Modellframes gemittelten YAMNet-Scores und speichert keine Audiodaten oder Ergebnisdatei. Die Scores sind unkalibriert und werden nicht automatisch in HackTheRied-Klassen umetikettiert. Nutzung in einer isolierten Umgebung:
 
 ```sh
-python3 -m venv /tmp/open-ried-audio-venv
-/tmp/open-ried-audio-venv/bin/pip install -r hardware/sensor-node/rak3112/tools/audio-baseline-requirements.txt
-/tmp/open-ried-audio-venv/bin/python hardware/sensor-node/rak3112/tools/yamnet_baseline.py --top-k 20 /pfad/zu/freigegebenem-testclip.wav
+python3 -m venv /tmp/hack-the-ried-audio-venv
+/tmp/hack-the-ried-audio-venv/bin/pip install -r hardware/sensor-node/rak3112/tools/audio-baseline-requirements.txt
+/tmp/hack-the-ried-audio-venv/bin/python hardware/sensor-node/rak3112/tools/yamnet_baseline.py --top-k 20 /pfad/zu/freigegebenem-testclip.wav
 ```
 
 Der Lauf lädt das vortrainierte Modell von TensorFlow Hub; nur Modellartefakte werden abgerufen, der WAV-Inhalt wird nicht hochgeladen. Für belastbare Auswertungen sollen Modell-URL, Paketversionen, Clip-ID/Hash statt personenbezogener Dateipfade und Testsplit protokolliert werden. Dieser PC-Prototyp ist noch kein RAK-Echtzeitbenchmark.

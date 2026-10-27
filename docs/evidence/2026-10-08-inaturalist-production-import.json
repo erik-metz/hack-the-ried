@@ -225,15 +225,15 @@
   },
   "deployed_images_verified": {
     "archive-worker": {
-      "image": "ghcr.io/erik-metz/open-ried-sens-archive-worker@sha256:fb3b12aff42cd0aadbe2b2cbb2141ee3c8738c9250965dfc8772a872cafa6374",
+      "image": "ghcr.io/erik-metz/hack-the-ried-archive-worker@sha256:fb3b12aff42cd0aadbe2b2cbb2141ee3c8738c9250965dfc8772a872cafa6374",
       "file_sha256": "daa32b4ffce806ad6ac0da275f6292712090ecb977f1772a460f7006192fd24e"
     },
     "backend-api": {
-      "image": "ghcr.io/erik-metz/open-ried-sens-api@sha256:f8ae7549b240e9f4c2882175c0f4a2318235f64251f6932331f8451b3e98bcfb",
+      "image": "ghcr.io/erik-metz/hack-the-ried-api@sha256:f8ae7549b240e9f4c2882175c0f4a2318235f64251f6932331f8451b3e98bcfb",
       "file_sha256": "ae2490ea71e7efacf09b635f8bbb31158ff5bac5f4887fe03231d503d47763d7"
     },
     "registry-sync-worker": {
-      "image": "ghcr.io/erik-metz/open-ried-sens-registry-sync-worker@sha256:c31016992c09851a50af70a2c334709e72ac0d409211eb07642dc1a13261f4fd",
+      "image": "ghcr.io/erik-metz/hack-the-ried-registry-sync-worker@sha256:c31016992c09851a50af70a2c334709e72ac0d409211eb07642dc1a13261f4fd",
       "file_sha256": "e3e83fe0f95ca80a3f3c55989aef0107be8f9dbaf9d65838ca4a7823d8ab60e6"
     }
   },
@@ -246,7 +246,7 @@
     "regular_worker_running": true
   },
   "ui_acceptance": {
-    "url": "https://open-ried-sens.vercel.app/umwelt/biodiversitaet#inaturalist",
+    "url": "https://hack-the-ried.de/umwelt/biodiversitaet#inaturalist",
     "default_table_rows": 100,
     "displayed_accepted_count": 1726,
     "displayed_proven_gbif_overlap": 47,
@@ -274,7 +274,7 @@
       "run_id": 37847044564,
       "status": "completed",
       "conclusion": "success",
-      "url": "https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37847044564"
+      "url": "https://github.com/erik-metz/hack-the-ried/actions/runs/37847044564"
     },
     "backend_latest": {
       "sha": "13dc42a8f55cd90cdc2b52aae81d22f23b3e2d4a",
@@ -286,7 +286,7 @@
       "total_jobs": 16,
       "successful_container_publications": 17,
       "intended_container_publications": 17,
-      "url": "https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37848560316"
+      "url": "https://github.com/erik-metz/hack-the-ried/actions/runs/37848560316"
     }
   },
   "limits": [

@@ -1,6 +1,6 @@
 # Storyline und Überarbeitungsplan für die vier Zielgruppen-Pitches
 
-Stand: 5. Oktober 2026. Redaktionelle Prüfung aller 28 Folien einschließlich Referentennotizen in `www/open-ried-sens/lib/pitchData.ts`, der Pitch-Übersicht und der Darstellung in `PitchDeckClient.tsx`. Keine Änderung an den Präsentationen. Grundlage ist der lokale Projektstand, keine visuelle Abnahme der veröffentlichten Website. Angaben aus dem bisherigen Deck sind keine unabhängig verifizierten Tatsachen.
+Stand: 5. Oktober 2026. Redaktionelle Prüfung aller 28 Folien einschließlich Referentennotizen in `www/hack-the-ried/lib/pitchData.ts`, der Pitch-Übersicht und der Darstellung in `PitchDeckClient.tsx`. Keine Änderung an den Präsentationen. Grundlage ist der lokale Projektstand, keine visuelle Abnahme der veröffentlichten Website. Angaben aus dem bisherigen Deck sind keine unabhängig verifizierten Tatsachen.
 
 ## Empfehlung
 
@@ -182,7 +182,7 @@ Alle vier Decks wurden umgebaut. Die gemeinsame vierte Folie zeigt die bereits �
 
 ## Überarbeitung nach Folienfeedback vom 5. Oktober 2026
 
-Die Politik-Präsentation umfasst acht Folien: Team, Hackathon und regionaler Mehrwert, vorhandenes Smart-City-Dashboard, Entstehung und Datenbasis von Open Ried Sens, Schülerprojekt zum Sensorbau, konkreter Projekttag, alle vier politischen Anliegen gemeinsam und abschließend echte Rohmesswerte seit Vortragsbeginn. Schülerprojekt und Ablauf sind getrennt; die Ortsliste wird durch das gesamte Ried ersetzt. Die Unterstützung des Hackathons erfordert keinen finanziellen Beitrag der Politik.
+Die Politik-Präsentation umfasst acht Folien: Team, Hackathon und regionaler Mehrwert, vorhandenes Smart-City-Dashboard, Entstehung und Datenbasis von HackTheRied, Schülerprojekt zum Sensorbau, konkreter Projekttag, alle vier politischen Anliegen gemeinsam und abschließend echte Rohmesswerte seit Vortragsbeginn. Schülerprojekt und Ablauf sind getrennt; die Ortsliste wird durch das gesamte Ried ersetzt. Die Unterstützung des Hackathons erfordert keinen finanziellen Beitrag der Politik.
 
 Die anderen drei Präsentationen übernehmen den gemeinsamen Einstieg, die Website-Ansichten, den Schülerprojekt-Gedanken und die abschließende Bonusfolie. Ihre spezifischen Anliegen bleiben jeweils auf einer gemeinsamen Folie. Tonspur und interaktive Ask-Checkboxen entfallen. Die One-Pager-Handouts sind direkt auf der Pitch-Übersicht erreichbar.
 

@@ -38,7 +38,7 @@ Bei der Betriebsprüfung wurde eine Umgehung über allgemeine Messwert-/ZIP-Endp
 
 ## Veröffentlichung und produktive Nachprüfung
 
-Implementierungscommit `f14668c11a69bc236fbeee413c1e0bbe3e7c9542` ist auf `main` gepusht. [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37852178584) ist erfolgreich: alle 16 Jobs und alle 17 vorgesehenen Build-/Push-Schritte auf GHCR. Keine Frontendänderung, daher kein Frontend-CI-Lauf vorgesehen.
+Implementierungscommit `f14668c11a69bc236fbeee413c1e0bbe3e7c9542` ist auf `main` gepusht. [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37852178584) ist erfolgreich: alle 16 Jobs und alle 17 vorgesehenen Build-/Push-Schritte auf GHCR. Keine Frontendänderung, daher kein Frontend-CI-Lauf vorgesehen.
 
 Das veröffentlichte API-Image wurde vor und nach dem Start über die SHA-256-Hashes beider geänderten Dateien geprüft. Die vorhandenen drei Compose-Dateien wurden beibehalten; nur die API wurde aktualisiert. Der eigene iNaturalist-Download liefert produktiv weiter 1.679 Meldungen, die allgemeine Messwertabfrage derselben öffentlichen Beobachtung keine. Die öffentliche ZIP-Stichprobe enthält 298 Entitäten und keine iNaturalist-Entität. FIRMS-Abfrage und Download stimmen überein. Ein echter ECOSTRESS-Crop-Download stimmt mit dem archivierten Hash überein und führt die Einheit `degC`; sein vollständig maskierter Ausschnitt hat keinen Temperaturmittelwert.
 

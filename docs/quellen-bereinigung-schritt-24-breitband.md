@@ -59,9 +59,9 @@ Jahre ab Bezugsmonat, nicht ab erneutem Download.
 ## Veröffentlichung und Live-Nachweis
 
 Codecommit `e69703e95f06ceb8ce16be13d0e1c31bf1f70036` auf `main` gepusht.
-[Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/38032701731)
+[Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/38032701731)
 erfolgreich.
-[FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/38032701710)
+[FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/38032701710)
 erfolgreich: alle 15 Prüfjobs und alle 17 vorgesehenen Container-Builds samt
 GHCR-Veröffentlichungen. Die Datenbankprüfungen mit TimescaleDB sind erfolgreich.
 

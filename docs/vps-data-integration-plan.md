@@ -1,7 +1,7 @@
 # Implementierungsplan: Externe Datenquellen & VPS-Kollektoren (Phase 1)
 ## Streng nach dem Three-Table Core Schema (`entities`, `measurement_definitions`, `readings`)
 
-Dieser Plan beschreibt die Anbindung, Normalisierung und Speicherung externer Datenquellen auf dem **Contabo VPS** (`/www/vps`) von **Open Ried Sens**.
+Dieser Plan beschreibt die Anbindung, Normalisierung und Speicherung externer Datenquellen auf dem **Contabo VPS** (`/www/vps`) von **HackTheRied**.
 
 > **Architektur-Vorgabe:**  
 > Alle Messdaten und skalaren Beobachtungen werden **ausschließlich** in die drei bestehenden Kern-Tabellen von TimescaleDB geschrieben:
@@ -196,7 +196,7 @@ Dieser Plan beschreibt die Anbindung, Normalisierung und Speicherung externer Da
 
 ## 4. Frontend: Integration in die Datenquellen-Seite (`/quellen`)
 
-Sobald neue Quellen im VPS angebunden sind, müssen diese transparent und nachvollziehbar für die Bürgerinnen und Bürger auf der Datenquellen-Seite (`www/open-ried-sens/app/quellen/`) aufgeführt werden:
+Sobald neue Quellen im VPS angebunden sind, müssen diese transparent und nachvollziehbar für die Bürgerinnen und Bürger auf der Datenquellen-Seite (`www/hack-the-ried/app/quellen/`) aufgeführt werden:
 
 1. **Backend-Status-Endpunkt (`/api/v1/collection/status`):**
    * Die neuen Quellen (`dwd-radolan`, `dwd-mosmix`, `hlnug-groundwater`, `traffic-flow`, `blitzortung`, `invekos-agriculture`) melden ihre Status-Snapshots (letzter Abruf, Erfolg, Intervall, Fehler) an den Status-Endpunkt.

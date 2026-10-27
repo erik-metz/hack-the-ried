@@ -35,21 +35,21 @@ performed. Existing unrelated working-tree changes were left untouched.
 | Finance / elections | Seed data; registry job projects budgets, no budget or election source fetch | Fetch helpers fall back to local budgets, spending and elections; map uses bundled district geometry. |
 | Social indicators / waste statistics / facilities | Seed data; social job copies previous-year waste data; Cross-7 is its only external request | Fetch helpers fall back to bundled social, waste and facility data. |
 | OpenStreetMap basemap / BKG heavy-rain layer | No VPS ingestion/storage path used by these layers | Leaflet requests external tiles/WMS directly from the browser. |
-| OSRM route geometry | `open-ried-sens/scripts/generate-road-routes.mjs` fetches OSRM and generates local route assets | Geometry is bundled with frontend rather than read from DB. This is a tooling-time external fetch, not a browser runtime request. |
+| OSRM route geometry | `hack-the-ried/scripts/generate-road-routes.mjs` fetches OSRM and generates local route assets | Geometry is bundled with frontend rather than read from DB. This is a tooling-time external fetch, not a browser runtime request. |
 
 ## Priority findings and evidence
 
 1. **Frontend data remains independent of the database.**
-   `open-ried-sens/app/components/MapComponent.tsx:755`, `:874`, and `:1111`
+   `hack-the-ried/app/components/MapComponent.tsx:755`, `:874`, and `:1111`
    invoke rail, truck, and bus simulations directly. Changing Next.js routes
    alone will not fix these layers. The same component initializes local
    infrastructure/company data at lines 134–147 and draws local environment,
    BORIS, development-plan and election overlays starting at line 1827.
-   `open-ried-sens/lib/mapBackend.ts:18` also merges default crossings,
+   `hack-the-ried/lib/mapBackend.ts:18` also merges default crossings,
    education and facilities into otherwise database-backed map data.
 
 2. **Failure and empty-result behavior invents or substitutes data.**
-   `open-ried-sens/app/api/traffic/route.ts:63` only replaces local incidents
+   `hack-the-ried/app/api/traffic/route.ts:63` only replaces local incidents
    when the DB array is nonempty. Therefore zero real incidents can display
    simulated congestion. Bus and truck routes merge onto local fleets and can
    label the result `database_timescaledb` even while unmatched simulated
@@ -77,7 +77,7 @@ performed. Existing unrelated working-tree changes were left untouched.
    and capacity instead of reading stored production observations.
 
 5. **External map resources bypass the VPS.**
-   `open-ried-sens/app/components/MapComponent.tsx:252` loads OSM tiles and
+   `hack-the-ried/app/components/MapComponent.tsx:252` loads OSM tiles and
    line 353 loads BKG WMS directly. Storing a service URL in the database would
    not make the downloaded imagery database-backed. Ordinary attribution and
    source hyperlinks were not counted as automatic external data fetches.

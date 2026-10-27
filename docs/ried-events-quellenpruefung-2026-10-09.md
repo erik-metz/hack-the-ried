@@ -127,9 +127,9 @@ festlegen; nicht mit einer festen Jahresfreigabe verwechseln.
 
 ## Quellen und Validierung
 
-- [Öffentlicher Abrufstatus](https://open-ried-sens.duckdns.org/api/v1/collection/status)
-- [Veranstaltungsdaten](https://open-ried-sens.duckdns.org/api/v1/collected/social/events)
-- [Regelmäßige Angebote](https://open-ried-sens.duckdns.org/api/v1/collected/social/regular-offers)
+- [Öffentlicher Abrufstatus](https://api.hack-the-ried.de/api/v1/collection/status)
+- [Veranstaltungsdaten](https://api.hack-the-ried.de/api/v1/collected/social/events)
+- [Regelmäßige Angebote](https://api.hack-the-ried.de/api/v1/collected/social/regular-offers)
 - [SG Hüttenfeld: Events-Menü](https://www.sg-huettenfeld.de/)
 - [Groß-Rohrheim: langfristige Termine](https://www.gross-rohrheim.de/freizeit-kultur/veranstaltungen/veranstaltungskalender/langfristige-termine)
 

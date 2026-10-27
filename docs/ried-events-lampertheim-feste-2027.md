@@ -61,7 +61,7 @@ Ruff und `git diff --check` erfolgreich.
 ## Veröffentlichung und konkrete Live-Blockade
 
 Implementierung `9c1fde2596f4c4b2d675c6ad16c07bb88eb9177e` auf `main`
-committet und gepusht. Der [zugehörige Backend-CI-Lauf](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37892965299)
+committet und gepusht. Der [zugehörige Backend-CI-Lauf](https://github.com/erik-metz/hack-the-ried/actions/runs/37892965299)
 ist für genau diesen Commit vollständig erfolgreich abgeschlossen,
 einschließlich aller 17 vorgesehenen Container-Builds und GHCR-Veröffentlichungen.
 Keine Frontenddatei geändert; kein Frontend-CI-Lauf vorgesehen.

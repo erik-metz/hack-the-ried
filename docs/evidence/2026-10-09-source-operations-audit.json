@@ -419,7 +419,7 @@
   },
   "ci": {
     "commit": "f14668c11a69bc236fbeee413c1e0bbe3e7c9542",
-    "url": "https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37852178584",
+    "url": "https://github.com/erik-metz/hack-the-ried/actions/runs/37852178584",
     "status": "completed",
     "conclusion": "success",
     "jobs": 16,

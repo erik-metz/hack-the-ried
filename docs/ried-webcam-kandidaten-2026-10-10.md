@@ -60,7 +60,7 @@ Dies ist eine Quellenprüfung der veröffentlichten Hinweise, keine abschließen
 
 ## Vorschlag für die Betreiberanfrage – nicht versandt
 
-Betreff: Webcam-Bilder für regionales Wetterdatenprojekt Open Ried
+Betreff: Webcam-Bilder für regionales Wetterdatenprojekt HackTheRied
 
 Wir möchten die öffentlich bereitgestellte Webcam am Golfpark Biblis-Wattenheim für ein regionales Datenprojekt nutzen: zunächst höchstens ein Bild pro Minute, Speicherung auf unserem VPS für einen Pilotzeitraum von 30 Tagen und interne Auswertung von Wetter-/Sichtveränderungen. Eine öffentliche Bilddarstellung würden wir gesondert abstimmen. Können Sie diese Nutzung erlauben und uns das tatsächliche Aktualisierungsintervall, zulässige Abruflimits, Anforderungen an Quellenangaben und die Zuständigkeit für die Bildrechte bestätigen? Falls ein anderer Bildausschnitt oder ein bereitgestellter Zugang besser geeignet ist, richten wir uns danach.
 

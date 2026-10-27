@@ -38,7 +38,7 @@ Vollständiger Worker-Testlauf mit temporärer TimescaleDB: **459 Tests bestande
 ## Veröffentlichung und produktiver Nachweis
 
 - Implementierungscommit `1975a78c34c4df37068c571e1a0e30903830fe8a` auf `main` gepusht.
-- [FastAPI & Docker CI/CD, Lauf 37931491568](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37931491568) für genau diesen Commit vollständig erfolgreich. Job „Build & Push Docker Image to GHCR“ sowie alle 17 vorgesehenen Container-Builds und Veröffentlichungen erfolgreich. Kein Frontend-Workflow erforderlich.
+- [FastAPI & Docker CI/CD, Lauf 37931491568](https://github.com/erik-metz/hack-the-ried/actions/runs/37931491568) für genau diesen Commit vollständig erfolgreich. Job „Build & Push Docker Image to GHCR“ sowie alle 17 vorgesehenen Container-Builds und Veröffentlichungen erfolgreich. Kein Frontend-Workflow erforderlich.
 - Produktives Worker-Image: `sha256:ec6619c7ec4c6bc50ef53751feb19a6917cf11126ff0839951f24a4b6de44361`. Inhalte aller drei geänderten Module und der eigenen Quellkonfiguration vor Aktivierung exakt abgeglichen; übrige Quellkonfigurationen unverändert übernommen.
 - Compose-Sicherung: `/root/docker-compose.invekos.yml.before-christmas-correction-20261009`. Ausschließlich Registry-Sync-Worker neu gestartet.
 - Worker-Start: 09.10.2026, 12:49:18 UTC. Anschließend `running`, Neustartzähler 0.

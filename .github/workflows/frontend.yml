@@ -4,12 +4,12 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "www/open-ried-sens/**"
+      - "www/hack-the-ried/**"
       - ".github/workflows/frontend.yml"
   pull_request:
     branches: ["main"]
     paths:
-      - "www/open-ried-sens/**"
+      - "www/hack-the-ried/**"
       - ".github/workflows/frontend.yml"
 
 permissions:
@@ -25,27 +25,27 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: www/open-ried-sens/package-lock.json
+          cache-dependency-path: www/hack-the-ried/package-lock.json
       - run: npm ci
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npm run test:security
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npm run test:map
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npm run test:sources
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npx eslint app/quellen/page.tsx app/quellen/sourceInfo.ts app/quellen/sourceStatus.ts
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npm run test:regional
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npm run test:events
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: node --test tests/mapPresets.test.mjs tests/urlState.test.mjs tests/satelliteData.test.mjs
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npx eslint app/components/MapSatelliteLayer.tsx lib/satelliteData.ts app/api/satellites
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
       - run: npm run build
-        working-directory: www/open-ried-sens
+        working-directory: www/hack-the-ried
         env:
           BACKEND_API_URL: http://127.0.0.1:8080
           ADMIN_PASSWORD: ci-placeholder

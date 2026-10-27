@@ -2,7 +2,7 @@ import { env } from "@/env";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 
-const COOKIE_NAME = "open_ried_admin_session";
+const COOKIE_NAME = "hack_the_ried_admin_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
 export function getBackendUrl(): string {

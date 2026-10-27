@@ -55,7 +55,7 @@ Scheduled traffic can provide context for environmental signals, but a predicted
 
 ## Architecture fitted to this repository
 
-Existing deployment: Python FastAPI under `www/vps/api/v1`, PostgreSQL/TimescaleDB, Docker Compose, and a Next.js/Leaflet map in `www/open-ried-sens/app/components/MapComponent.tsx`. Existing numeric `sensor_data` and fixed-location `sensor_metadata` are unsuitable for complete moving-trip records.
+Existing deployment: Python FastAPI under `www/vps/api/v1`, PostgreSQL/TimescaleDB, Docker Compose, and a Next.js/Leaflet map in `www/hack-the-ried/app/components/MapComponent.tsx`. Existing numeric `sensor_data` and fixed-location `sensor_metadata` are unsuitable for complete moving-trip records.
 
 Add an independent `www/vps/mobility-collector/` Python service, following shake-collector's deployment/logging conventions. Use separate ordinary PostgreSQL tables; PostGIS and Redis are optional later optimizations, not MVP requirements.
 

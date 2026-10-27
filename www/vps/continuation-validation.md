@@ -4,7 +4,7 @@
 
 ## Public deployment observations
 
-Read-only checks of `https://open-ried-sens.duckdns.org` returned:
+Read-only checks of `https://api.hack-the-ried.de` returned:
 
 - `/health`: HTTP 200, `{"status":"healthy"}`.
 - `/api/v1/collection/status`: HTTP 404.
@@ -14,7 +14,7 @@ Read-only checks of `https://open-ried-sens.duckdns.org` returned:
 
 This indicates the checked origin is serving an older API or a different backend. It does not identify which deployment step failed. Verify the pulled API image and reverse-proxy destination, not just container health. The frontend URL was requested and has not yet been provided, so a browser network audit of the deployed frontend is still pending.
 
-`python3 www/vps/scripts/check-deployment.py https://open-ried-sens.duckdns.org` provides read-only checks. The new health response includes schema version and capabilities. This increment requires schema **20260928** for durable collection checkpoints; migrate before deploying its worker image. No SSH session or production mutation was performed.
+`python3 www/vps/scripts/check-deployment.py https://api.hack-the-ried.de` provides read-only checks. The new health response includes schema version and capabilities. This increment requires schema **20260928** for durable collection checkpoints; migrate before deploying its worker image. No SSH session or production mutation was performed.
 
 ## Acquisition improvements
 

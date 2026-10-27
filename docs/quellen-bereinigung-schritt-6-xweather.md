@@ -31,8 +31,8 @@ Subtests sowie neun Quellen-Frontend-Tests erfolgreich. Ruff, ESLint,
 Diff-Prüfung und Frontend-Build erfolgreich. Auch ein realer Abruf mit dem
 neuen Adapter und absoluten Zeitgrenzen war erfolgreich.
 
-- [Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37740359247): erfolgreich.
-- [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37740359986): erfolgreich, einschließlich aller 17 GHCR-Builds samt Veröffentlichung.
+- [Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/37740359247): erfolgreich.
+- [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37740359986): erfolgreich, einschließlich aller 17 GHCR-Builds samt Veröffentlichung.
 - Vercel bestätigt das erfolgreiche Frontend-Deployment für denselben Commit.
 
 Der Umweltcollector läuft über `/root/docker-compose.xweather.yml` zusätzlich

@@ -270,5 +270,5 @@
       ]
     }
   ],
-  "baseUrl": "https://open-ried-sens.duckdns.org/api/v1/"
+  "baseUrl": "https://api.hack-the-ried.de/api/v1/"
 }

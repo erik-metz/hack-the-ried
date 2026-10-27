@@ -19,7 +19,7 @@ Gezielte Tests prüfen Formularfelder, abweichende Adressbestätigungen, getrenn
 ## Veröffentlichung und VPS-Nachweis (9. Oktober 2026)
 
 - Implementierung: Commit `6f6413947c989433de662346c10b2c62c1900bb3`, auf `main` gepusht.
-- [FastAPI & Docker CI/CD, Lauf 37934320361](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37934320361): vollständig erfolgreich, alle 15 Prüfjobs und alle 17 Container-Builds mit GHCR-Veröffentlichung erfolgreich.
+- [FastAPI & Docker CI/CD, Lauf 37934320361](https://github.com/erik-metz/hack-the-ried/actions/runs/37934320361): vollständig erfolgreich, alle 15 Prüfjobs und alle 17 Container-Builds mit GHCR-Veröffentlichung erfolgreich.
 - Laufendes Registry-Image: `sha256:88a87fe627e4e4e95021d8d9046be3982ca794faccd43a556d0c02ea3728bd36`. Laufzeit-Hashes von `zakb.py` und `osm_addresses.py` entsprechen den geprüften Dateien.
 - Echter erneuter OSM-Import, Inventarversion 2: abgeschlossen am 09.10.2026 um 15:25 Uhr MESZ. Die SSH-Verbindung wurde während des langen Imports unterbrochen; der erfolgreiche Abschluss wurde anschließend anhand gespeicherter Daten und öffentlicher API nachgewiesen.
 - `An den Rebenäckern 8A`, Biblis: OSM-Way `1106765386`; eigener Gebäude-Mittelpunkt **49.68200135, 8.4340795**. ZAKB-Nachweis vom 09.10.2026 um 15:25 Uhr MESZ mit **15 Terminen**, öffentlich abrufbar. Die Veröffentlichung bleibt auf diese tatsächlich bestätigte Adresse begrenzt.
@@ -31,6 +31,6 @@ Vorher **821 von 844 Straßen**, 14.807 Termine. Nachher **822 von 845 Straßen*
 
 Damit bleiben **23 Straßen ohne validierten Kalendernachweis**: 21 Straßen mit `MissingStreet` und die beiden oben genannten Adressen mit `AddressNotAccepted`. Das sind Inventar-/Adresszuordnungsprobleme, kein Beleg für einen vollständigen Ausfall des ZAKB-Datenabrufs. `remaining_streets` in der Laufstatistik zählt nur unbearbeitete bzw. zurückgestellte Straßen; für die Gesamtzahl offener Straßen wurden Inventar und tatsächlich veröffentlichte Kalender abgeglichen.
 
-Öffentliche Nachweise: [Abdeckung](https://open-ried-sens.duckdns.org/api/v1/collected/waste/coverage), [Kalender](https://open-ried-sens.duckdns.org/api/v1/collected/waste/calendar), [Quellenstatus](https://open-ried-sens.duckdns.org/api/v1/collection/status). OSM meldet `success`, ZAKB bleibt aufgrund der offenen Straßen korrekt `partial`.
+Öffentliche Nachweise: [Abdeckung](https://api.hack-the-ried.de/api/v1/collected/waste/coverage), [Kalender](https://api.hack-the-ried.de/api/v1/collected/waste/calendar), [Quellenstatus](https://api.hack-the-ried.de/api/v1/collection/status). OSM meldet `success`, ZAKB bleibt aufgrund der offenen Straßen korrekt `partial`.
 
 Als nächster begrenzter Schritt bietet sich die Prüfung der fehlenden Straßennamen einschließlich `Berliner Weg` auf belegbare Anbieter-Schreibweisen und Ortsteilzuordnungen an. Deutsche-Bahn-Quellen bleiben gemäß Nutzerwunsch übersprungen.

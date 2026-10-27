@@ -5,7 +5,7 @@ import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Abflussprognosen | Open Ried" };
+export const metadata = { title: "Abflussprognosen | HackTheRied" };
 const number = (value: number | null) => value === null ? "fehlend" : value.toLocaleString("de-DE", { maximumFractionDigits: 1 });
 
 export default async function DischargePage() {

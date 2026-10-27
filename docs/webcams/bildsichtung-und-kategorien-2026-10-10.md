@@ -10,7 +10,7 @@ gesammelten Produktionszeitreihe.** Lokal sind nur die verkleinerten Ansichten
 der Übersicht verfügbar, keine sechs archivierten Originaldateien.
 Die vier ausgewählten Snapshot-Quellen sind im Laufzeitmanifest weiterhin
 deaktiviert. Die am Sichtungszeitpunkt abgefragte öffentliche
-[Quellenstatus-API](https://open-ried-sens.duckdns.org/api/v1/collection/status)
+[Quellenstatus-API](https://api.hack-the-ried.de/api/v1/collection/status)
 führt die Autobahn-Webcam-Metadatenabfragen A5/A6/A67, aber keine der vier
 regionalen Snapshot-Quellen. Das belegt keinen vollständigen VPS-Dateibestand:
 ein direkter Blick in das VPS-Volume und die Snapshot-Tabellen erfolgte nicht.

@@ -402,9 +402,9 @@ success and partial failures remain recorded separately in
 `collection_attempts` or each worker's status output; a `healthy` heartbeat does
 not assert that every upstream source returned data.
 
-Install the repository's `systemd/open-ried-certbot-renew.service` and
-`systemd/open-ried-certbot-renew.timer` under `/etc/systemd/system/`, then run
-`systemctl daemon-reload && systemctl enable --now open-ried-certbot-renew.timer`.
+Install the repository's `systemd/hack-the-ried-certbot-renew.service` and
+`systemd/hack-the-ried-certbot-renew.timer` under `/etc/systemd/system/`, then run
+`systemctl daemon-reload && systemctl enable --now hack-the-ried-certbot-renew.timer`.
 Certbot is a one-shot renewal job and should not be kept running as a daemon. The
 timer uses the existing Compose files and certificate volumes with the Webroot
 challenge, then reloads Nginx after a successful renewal. Install

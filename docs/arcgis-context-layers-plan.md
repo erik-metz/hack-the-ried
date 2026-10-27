@@ -1,4 +1,4 @@
-# ArcGIS-Kontextebenen für Open Ried Sens
+# ArcGIS-Kontextebenen für HackTheRied
 
 ## Ziel und Umsetzungsschritte
 

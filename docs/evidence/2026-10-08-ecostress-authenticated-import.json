@@ -122,7 +122,7 @@
   "worker_memory_mib_snapshot": 355.5,
   "worker_peak_memory_measured": false,
   "code_commit": "6ac3f17f2c362e7b785a2ec87f8a7aef43554a12",
-  "ci_run": "https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37769558893",
+  "ci_run": "https://github.com/erik-metz/hack-the-ried/actions/runs/37769558893",
   "required_jobs_success": 16,
   "ghcr_builds_published": 17,
   "regular_worker_import_status": "success",

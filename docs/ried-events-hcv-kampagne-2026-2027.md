@@ -54,7 +54,7 @@ Ruff und `git diff --check` erfolgreich.
 ## Veröffentlichung und produktiver Nachweis
 
 Implementierung `840c889434dbf3868101002c0016b222dabf7c5c` auf main
-committet und gepusht. Der [zugehörige CI-Lauf](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37899334478)
+committet und gepusht. Der [zugehörige CI-Lauf](https://github.com/erik-metz/hack-the-ried/actions/runs/37899334478)
 ist für genau diesen Commit vollständig erfolgreich abgeschlossen,
 einschließlich aller 17 Container-Builds und GHCR-Veröffentlichungen.
 Keine Frontenddatei geändert; kein Frontend-CI-Lauf vorgesehen.

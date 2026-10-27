@@ -165,7 +165,7 @@ async def download_satellite_data(
                 json.dumps(manifest, ensure_ascii=False).encode(),
                 media_type="application/json",
                 headers={
-                    "Content-Disposition": f'attachment; filename="open-ried-sentinel2-{start}-to-{end}.json"',
+                    "Content-Disposition": f'attachment; filename="hack-the-ried-sentinel2-{start}-to-{end}.json"',
                     "Cache-Control": "no-store",
                 },
             )
@@ -203,7 +203,7 @@ async def download_satellite_data(
         buf.getvalue(),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="open-ried-sentinel2-{layer}-{start}-to-{end}.zip"',
+            "Content-Disposition": f'attachment; filename="hack-the-ried-sentinel2-{layer}-{start}-to-{end}.zip"',
             "Cache-Control": "no-store",
         },
     )

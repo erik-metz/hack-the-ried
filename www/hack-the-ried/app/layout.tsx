@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "Open Ried | Das offene Daten- & Smart-Region-Portal für das Hessische Ried",
+  title: "HackTheRied | Das offene Daten- & Smart-Region-Portal für das Hessische Ried",
   description: "Zentrales Regional- und Datenportal für Bürstadt, Lampertheim & das Hessische Ried: Echtzeit-Umweltsensorik, vernetzte Mobilität, Demografie, Kommunalhaushalt, Bauen, Wohnen & freie Open-Data-APIs.",
 };
 

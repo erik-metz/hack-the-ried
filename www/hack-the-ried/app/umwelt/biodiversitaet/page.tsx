@@ -5,7 +5,7 @@ import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Biodiversität im Ried | Open Ried" };
+export const metadata = { title: "Biodiversität im Ried | HackTheRied" };
 type Occurrence = { entity_id: string; event_day: string; provenance: {
   gbif_id: number; scientificName: string; basisOfRecord: string; datasetKey: string;
   license: string; issues: string[] | null; informationWithheld: string | null; dataGeneralizations: string | null;

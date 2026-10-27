@@ -199,7 +199,7 @@ are safe to rerun without restoring fixtures.
 
 ## 4. Phase 2: define DB-only API and frontend behavior
 
-Primary files: `api/v1/endpoints/*`, `open-ried-sens/lib/*Data.ts`,
+Primary files: `api/v1/endpoints/*`, `hack-the-ried/lib/*Data.ts`,
 `lib/regionalStats.ts`, `lib/mapBackend.ts`, `app/api/**/route.ts`,
 `app/components/MapComponent.tsx`, page/widget consumers.
 

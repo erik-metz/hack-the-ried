@@ -35,7 +35,7 @@ geografische Definition des Hessischen Rieds.
    einen aggregierten Datensatz `social/events`.
 3. `api/v1/endpoints/collected.py` liefert den gespeicherten Datensatz.
    Daneben existiert der Tabellen-Endpunkt in `social_daily_life.py`.
-4. `www/open-ried-sens/lib/regionalStats.ts` fordert `/api/v1/social/events` an;
+4. `www/hack-the-ried/lib/regionalStats.ts` fordert `/api/v1/social/events` an;
    der dort als `fetch` importierte Wrapper `collectedBackend.ts` schreibt
    den Pfad jedoch zu `/api/v1/collected/social/events` um.
    `app/statistik/page.tsx` lädt die Events einmal für die Seite;
@@ -419,7 +419,7 @@ nun denselben Kalendervertrag: `/termine` und der Eventbereich von `/statistik`.
   bestätigte Vorkommen**, davon 29 bevorstehend. Für die Simulation werden
   echte öffentliche Abrufe, aber simulierte Datenbankoperationen verwendet.
 - Der produktive öffentliche Endpunkt
-  [social/events mit Archiv](https://open-ried-sens.duckdns.org/api/v1/collected/social/events?include_past=true)
+  [social/events mit Archiv](https://api.hack-the-ried.de/api/v1/collected/social/events?include_past=true)
   lieferte beim ersten Abruf 1.394 Einträge: Bürstadt 479, Lampertheim 489,
   Groß-Rohrheim 110, Bürgerstiftung Biblis 302 und Neuschloß 14. Die sechs
   weiteren Vereinsquellen fehlten dabei; `source_events` war ebenfalls noch
@@ -462,7 +462,7 @@ geprüft werden.
 ## Ergänzung: produktiven Vereinsimport reparieren
 
 Der inzwischen erreichbare öffentliche
-[Importstatus](https://open-ried-sens.duckdns.org/api/v1/collection/status)
+[Importstatus](https://api.hack-the-ried.de/api/v1/collection/status)
 zeigt am 07.10.2026 bei TV Bürstadt, KKM Bürstadt, SG Hüttenfeld, DLRG
 Lampertheim und Hofheimer Volkslauf `ForeignKeyViolation` in der Speicherphase.
 TV Hofheim meldete beim älteren Versuch einen Verarbeitungsfehler.
@@ -504,7 +504,7 @@ Nachweise:
 
 Die Korrektur wurde als `13d129fd12ffd02f1f1ae8aba27955cc4b38c71b` auf
 `main` veröffentlicht. Der zugehörige
-[FastAPI-&-Docker-CI/CD-Lauf](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37590226471)
+[FastAPI-&-Docker-CI/CD-Lauf](https://github.com/erik-metz/hack-the-ried/actions/runs/37590226471)
 ist erfolgreich abgeschlossen, einschließlich aller 16 Container-Builds und
 GHCR-Veröffentlichungen.
 

@@ -28,7 +28,7 @@ Die zwei betroffenen Straßen verwenden den gesonderten Checkpoint-Vertrag `zakb
 
 ## Validierung
 
-73 relevante lokale Formular-, Adressvertrags-, Wiederaufnahme- und Datenbankprüfungen erfolgreich. Die 20 neuen Prüfungen umfassen Bereichsgrenzen, falsche Gemeinde/Straße, unbekannte Bereiche, Hausnummernzusätze, unterschiedliche Checkpoints pro Einzelhausnummer und den gesperrten Download bei einer Hausnummer außerhalb des bestätigten Bereichs. Ruff für die eigenen Python-Dateien und `git diff --check` erfolgreich. Der [CI-Lauf für Code-Commit `7475808b88e66c9fa0ed05fbb3c99672bee9e46b`](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37931352099) ist vollständig erfolgreich: alle 15 Prüfjobs und alle 17 Container-Builds einschließlich GHCR-Veröffentlichung.
+73 relevante lokale Formular-, Adressvertrags-, Wiederaufnahme- und Datenbankprüfungen erfolgreich. Die 20 neuen Prüfungen umfassen Bereichsgrenzen, falsche Gemeinde/Straße, unbekannte Bereiche, Hausnummernzusätze, unterschiedliche Checkpoints pro Einzelhausnummer und den gesperrten Download bei einer Hausnummer außerhalb des bestätigten Bereichs. Ruff für die eigenen Python-Dateien und `git diff --check` erfolgreich. Der [CI-Lauf für Code-Commit `7475808b88e66c9fa0ed05fbb3c99672bee9e46b`](https://github.com/erik-metz/hack-the-ried/actions/runs/37931352099) ist vollständig erfolgreich: alle 15 Prüfjobs und alle 17 Container-Builds einschließlich GHCR-Veröffentlichung.
 
 Deutsche-Bahn-Quellen bleiben übersprungen.
 

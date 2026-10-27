@@ -107,7 +107,7 @@ konkreten Blockaden der gemeinsamen Container-Veröffentlichung.
 
 Die neue Quelle ist als `8544adc` auf `main` veröffentlicht. Nach den gezielten
 CI-Korrekturen ist der Lauf für `1ea5c07e66b3351bf97abe638768c345708193e3`
-[vollständig erfolgreich](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37663098141),
+[vollständig erfolgreich](https://github.com/erik-metz/hack-the-ried/actions/runs/37663098141),
 einschließlich aller 17 vorgesehenen Container-Builds und GHCR-Veröffentlichungen.
 
 Der öffentliche Importstatus meldet für `musikkiste-gross-rohrheim-events`
@@ -142,7 +142,7 @@ Implementierung: `425478807c1a098f7f879f3347f550ac7eb70e12`; gezielte
 Korrektur eines datumsabhängigen Abfluss-Tests:
 `792971a6cd8f75cac5589c791406be3906a78821`.
 Lokal: 225 Worker-Tests und acht Abfluss-Tests erfolgreich, Ruff erfolgreich.
-Der [CI-Lauf für den abschließenden Code-Commit](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37735354692)
+Der [CI-Lauf für den abschließenden Code-Commit](https://github.com/erik-metz/hack-the-ried/actions/runs/37735354692)
 ist vollständig erfolgreich, einschließlich aller 17 GHCR-Veröffentlichungen.
 
 Die öffentliche API bestätigt am 08.10.2026 den erfolgreichen Quellenabruf
@@ -189,7 +189,7 @@ unabhängiger Arbeiten zusätzlich in einem isolierten Stand ausschließlich
 dieser Änderungen geprüft: **235 bestanden**, einschließlich der echten
 Datenbanktests. Ruff und Diff-Prüfung sind erfolgreich.
 
-Der [CI-Lauf für genau diesen Commit](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37737882421)
+Der [CI-Lauf für genau diesen Commit](https://github.com/erik-metz/hack-the-ried/actions/runs/37737882421)
 ist vollständig erfolgreich, einschließlich aller 17 Container-Builds und
 GHCR-Veröffentlichungen. Die öffentliche Quellen-API bestätigt `success`
 mit Abrufzeit 08.10.2026, 06:46:23 UTC. Die öffentliche Event-API bestätigt

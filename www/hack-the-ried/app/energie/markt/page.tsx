@@ -4,7 +4,7 @@ import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Strommarkt Deutschland | Open Ried" };
+export const metadata = { title: "Strommarkt Deutschland | HackTheRied" };
 const PRODUCTS = { price: "Day-ahead-Preise", load: "Veröffentlichte Gesamtlast", generation: "Erzeugung nach Energieträger" };
 type Product = keyof typeof PRODUCTS;
 type Reading = { entity_id: string; metric: string; unit: string; value: number | null; quality: string; period_start: string; period_end: string;

@@ -4,7 +4,7 @@ Stand: 10. Oktober 2026, rund 19:15–19:18 MESZ. Deutsche-Bahn-Quellen ausgelas
 Öffentliche Nachweise: `/api/v1/collection/status`,
 `/api/v1/collected/waste/coverage` und
 `/api/v1/collected/finance/budget-review/biblis` unter
-https://open-ried-sens.duckdns.org.
+https://api.hack-the-ried.de.
 
 ## Aktueller Status
 

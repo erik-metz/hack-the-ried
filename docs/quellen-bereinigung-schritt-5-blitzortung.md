@@ -18,7 +18,7 @@ keine Blitzortung- oder Lightning-Einstellungen gefunden; dabei wurden nur
 Schlüsselnamen und das Vorhandensein von Werten geprüft, keine Geheimnisse
 ausgegeben.
 
-Die [öffentliche Quellenstatus-API](https://open-ried-sens.duckdns.org/api/v1/collection/status)
+Die [öffentliche Quellenstatus-API](https://api.hack-the-ried.de/api/v1/collection/status)
 meldet entsprechend:
 
 - Quelle `environment-blitzortung`, aktiviert;

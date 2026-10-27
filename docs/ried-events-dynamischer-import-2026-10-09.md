@@ -35,7 +35,7 @@ Terminen ohne Ortsangabe.
 ## Veröffentlichung
 
 Implementierung: `a41b59d6eda2f7b0f99cbd6b42ab3f8a27478c1d`, auf `main` gepusht.
-[FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37934210585)
+[FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37934210585)
 für genau diesen Commit vollständig erfolgreich, einschließlich aller 17
 Container-Builds und Veröffentlichungen auf GHCR.
 Der VPS-Importdienst wurde auf das geprüfte Image

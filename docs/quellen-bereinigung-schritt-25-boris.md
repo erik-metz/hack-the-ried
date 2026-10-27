@@ -71,8 +71,8 @@ Datenabrufe, stabile IDs, native Details-Bedienung und beschriftete Tabellenspal
 ## Veröffentlichung und Live-Nachweis
 
 Codecommit `c709f05bc3526a94e7a9f4aca45bf4c41e1511f6` auf `main` gepusht.
-[Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/38048473009)
-erfolgreich. [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/38048473059)
+[Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/38048473009)
+erfolgreich. [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/38048473059)
 erfolgreich: alle 15 Prüfjobs einschließlich TimescaleDB und alle 17 vorgesehenen
 Container-Builds mit GHCR-Veröffentlichung.
 
@@ -105,7 +105,7 @@ Eine öffentlich gehostete Frontend-Instanz wurde nicht gesondert nachgewiesen;
 Frontend-Code, gerenderte Komponenten und Produktionsbuild werden geprüft.
 
 Abschließender Karten-Commit `6d02cab5cd5dacf692cbfd70b605323418f96537` gepusht;
-[Frontend CI](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/38049256523)
+[Frontend CI](https://github.com/erik-metz/hack-the-ried/actions/runs/38049256523)
 erfolgreich. ESLint und erneuter Produktionsbuild ebenfalls erfolgreich.
 Alle 210 Preise sind ohne Rundungsverlust mit zwei Nachkommastellen darstellbar.
 Dieser abschließende Dokumentationsnachweis löst nach den Pfadfiltern keine

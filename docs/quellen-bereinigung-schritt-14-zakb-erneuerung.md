@@ -22,9 +22,9 @@ Deutsche-Bahn-Quellen bleiben übersprungen.
 
 34 relevante lokale PostgreSQL-, Formular-, Scheduling- und Vertragstests erfolgreich. Die neuen Prüfungen belegen die Wiederverwendung einer bewährten Ersatzhausnummer nach Ablauf, älteste Erneuerung vor alphabetischer Reihenfolge, Fortschritt im nächsten Lauf und den Erhalt eines frischen Kalenders bei fehlgeschlagener Erneuerung. Ruff für die eigenen geänderten Python-Dateien und `git diff --check` erfolgreich.
 
-Commit `1a1f3a8fe09e1cfcdac1e585fa00983abdcb4d57` ist auf `main` gepusht. [FastAPI & Docker CI/CD](https://github.com/erik-metz/kamue-digital-lora-sensor/actions/runs/37891836185) ist für exakt diesen Commit vollständig erfolgreich abgeschlossen: alle 15 Prüfjobs und alle 17 vorgesehenen GHCR-Builds einschließlich Veröffentlichung.
+Commit `1a1f3a8fe09e1cfcdac1e585fa00983abdcb4d57` ist auf `main` gepusht. [FastAPI & Docker CI/CD](https://github.com/erik-metz/hack-the-ried/actions/runs/37891836185) ist für exakt diesen Commit vollständig erfolgreich abgeschlossen: alle 15 Prüfjobs und alle 17 vorgesehenen GHCR-Builds einschließlich Veröffentlichung.
 
-Registry-Image für das gezielte Deployment: `ghcr.io/erik-metz/open-ried-sens-registry-sync-worker@sha256:10863e3dbc2e8db4be7ee59a6e37a80bcb22c8ad9ce2948fa14d780f7f49684f`. Code-SHA-256 der neuen `zakb.py`: `8968e61c373d721a073e45b46496c470c3973749204b0d24ea4077ec706c54a4`.
+Registry-Image für das gezielte Deployment: `ghcr.io/erik-metz/hack-the-ried-registry-sync-worker@sha256:10863e3dbc2e8db4be7ee59a6e37a80bcb22c8ad9ce2948fa14d780f7f49684f`. Code-SHA-256 der neuen `zakb.py`: `8968e61c373d721a073e45b46496c470c3973749204b0d24ea4077ec706c54a4`.
 
 ## Deployment und produktive Prüfung
 

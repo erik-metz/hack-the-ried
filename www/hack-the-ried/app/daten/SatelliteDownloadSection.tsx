@@ -65,7 +65,7 @@ export default function SatelliteDownloadSection() {
       // Read blob and trigger browser file download
       const blob = await response.blob();
       const contentDisposition = response.headers.get("Content-Disposition");
-      let filename = `open-ried-sentinel2-${selectedLayer}-${startDate}-to-${endDate}.${selectedFormat}`;
+      let filename = `hack-the-ried-sentinel2-${selectedLayer}-${startDate}-to-${endDate}.${selectedFormat}`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/);
         if (match && match[1]) filename = match[1];
