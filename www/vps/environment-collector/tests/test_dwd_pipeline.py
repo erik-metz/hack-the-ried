@@ -101,5 +101,11 @@ def test_current_odim_hdf5_radolan_composite():
     assert result.timestamp == datetime(2026, 10, 27, 17, tzinfo=UTC)
 
 
+def test_environment_default_url_uses_current_radolan_format():
+    with patch.dict("os.environ", {}, clear=True):
+        settings = Settings.from_env()
+    assert settings.radolan_url.endswith("raa01-rw_10000-latest-dwd---bin.hdf5")
+
+
 def test_missing_lightning_download_does_not_create_zero_strikes():
     assert normalize({}, Settings(db={})).lightning is None

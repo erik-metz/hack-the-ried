@@ -103,7 +103,7 @@ class Settings:
             ),
             radolan_url=os.getenv(
                 "DWD_RADOLAN_URL",
-                "https://opendata.dwd.de/weather/radar/radolan/rw/raa01-rw_10000-latest-dwd---bin.bz2",
+                "https://opendata.dwd.de/weather/radar/radolan/rw/raa01-rw_10000-latest-dwd---bin.hdf5",
             ),
             mosmix_url=os.getenv(
                 "DWD_MOSMIX_URL",
