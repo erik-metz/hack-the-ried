@@ -12,7 +12,7 @@ type Reading = { metric: string; unit: string; value: number; timestamp: string 
 type Bucket = { metric: string; unit: string; bucket: string; avg_value: number | null };
 type WindowMetric = { metric: string; unit: string; min_value: number | null; mean_value: number; max_value: number | null; sample_count: number };
 type SensorWindow = { window_start: string; window_end: string; window_seconds: number; metrics: WindowMetric[] };
-type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyInterval?: string | null; historyUnavailable?: boolean; historyTruncated?: boolean };
+type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyInterval?: string | null; historyDays?: number; historyUnavailable?: boolean; historyTruncated?: boolean };
 const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
 const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const seriesColors = ["#34d399", "#38bdf8", "#fbbf24", "#c084fc", "#fb7185", "#a3e635", "#22d3ee", "#f97316"];
@@ -233,12 +233,12 @@ export default function TelemetryCharts({
           <h4 className="font-semibold">{chartReadings.length > 1 ? measurementGroupLabel(group) ?? "Messwerte" : `${metricLabel(active)} · ${unitLabel(active.unit)}`}</h4>
           {chartSeries.length > 1 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{chartSeries.map((series, index) => <span key={seriesKey(series.reading)} className="inline-flex items-center gap-1.5 text-xs text-slate-300"><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: seriesColors[index % seriesColors.length] }} />{metricLabel(series.reading)}</span>)}</div>}
           {(chartReadings.length > 1 ? measurementGroupDescription(group) : metricDescription(active)) && <p className="mt-1 text-sm text-slate-400">{chartReadings.length > 1 ? measurementGroupDescription(group) : metricDescription(active)}</p>}
-          <p className="text-xs text-slate-400 mt-1">Letzte 24 Stunden · {barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : historyIntervalLabels[data?.historyInterval ?? "5 minutes"] ?? "Aggregierte Messwerte"} · Uhrzeit Europe/Berlin</p>
+          <p className="text-xs text-slate-400 mt-1">Letzte {data?.historyDays === 30 ? "30 Tage" : "24 Stunden"} · {node.id.startsWith("civic-") ? "Gespeicherte Meldungsstände" : barrierEntity ? "Gespeicherte Zustandsprognosen" : snapshots && !mobilityEntity ? "Gespeicherte Quellmeldungen" : historyIntervalLabels[data?.historyInterval ?? "5 minutes"] ?? "Aggregierte Messwerte"} · {data?.historyDays === 30 ? "Datum Europe/Berlin" : "Uhrzeit Europe/Berlin"}</p>
           {fuelEntity && <p className="mt-2 text-xs text-slate-400">Gemeldete Preise in €/l. Zeitpunkte sind Abrufzeiten, keine exakten Preisänderungszeiten. Historie ab Beginn der Preiserfassung; Datenlücken werden nicht verbunden.</p>}
           {active.metric.startsWith("traffic_") && <p className="mt-2 text-xs text-amber-200">Stunden-/Tagessummen der Quelle, keine einzelnen Verkehrserfassungen. Aufeinanderfolgende Meldungen werden nicht addiert. Exakte Intervallgrenzen meldet die Quelle nicht.</p>}
           {data?.historyUnavailable && <p role="status" className="mt-2 text-sm text-amber-200">Der Zeitverlauf konnte nicht geladen werden. Aktuelle Werte bleiben sichtbar.</p>}
           {data?.historyTruncated && <p className="mt-2 text-sm text-amber-200">Der Verlauf ist auf die neuesten verfügbaren Meldungen dieses Zeitraums begrenzt.</p>}
-          {chartData.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten 24 Stunden.</p> : <>
+          {chartData.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten {data?.historyDays === 30 ? "30 Tagen" : "24 Stunden"}.</p> : <>
             <ChartContainer className="mt-5 h-[320px] sm:h-[360px]">
               <AreaChart data={chartData} margin={{ top: 8, right: units.length > 1 ? 8 : 18, bottom: 4, left: 0 }}>
                 <defs>
@@ -258,7 +258,7 @@ export default function TelemetryCharts({
                   tickLine={false}
                   tickMargin={10}
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickFormatter={axisDate}
+                  tickFormatter={value => data?.historyDays === 30 ? new Date(value).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" }) : axisDate(value)}
                   minTickGap={28}
                 />
                 {units.map((unit, index) => {

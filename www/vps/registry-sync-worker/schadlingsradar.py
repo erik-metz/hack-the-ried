@@ -3,8 +3,9 @@
 import asyncio
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from civic_measurements import write_civic_measurement, write_dashboard_snapshot
 from publications import publish
 
 DATASET = "civic/schaedlingsradar"
@@ -28,6 +29,10 @@ SPECIES = (
 # Representative municipal coordinates let the existing map show area-level
 # counts. They are explicitly not report locations or PLZ boundary centroids.
 RIED_POSTCODES = (
+    {"postcode": "67547", "name": "Worms-Mitte", "coordinates": [8.359, 49.632]},
+    {"postcode": "67549", "name": "Worms-West", "coordinates": [8.325, 49.637]},
+    {"postcode": "67550", "name": "Worms-Nord", "coordinates": [8.357, 49.675]},
+    {"postcode": "67551", "name": "Worms-Süd", "coordinates": [8.366, 49.602]},
     {"postcode": "68623", "name": "Lampertheim", "coordinates": [8.472, 49.597]},
     {"postcode": "68642", "name": "Bürstadt", "coordinates": [8.452, 49.643]},
     {"postcode": "68647", "name": "Biblis", "coordinates": [8.458, 49.691]},
@@ -40,6 +45,12 @@ RIED_POSTCODES = (
     {"postcode": "64579", "name": "Gernsheim", "coordinates": [8.49, 49.75]},
     {"postcode": "64584", "name": "Biebesheim am Rhein", "coordinates": [8.47, 49.78]},
     {"postcode": "64589", "name": "Stockstadt am Rhein", "coordinates": [8.47, 49.81]},
+    {"postcode": "64331", "name": "Weiterstadt", "coordinates": [8.593, 49.904]},
+    {"postcode": "64291", "name": "Darmstadt-Arheilgen", "coordinates": [8.656, 49.916]},
+    {"postcode": "64293", "name": "Darmstadt-Nord", "coordinates": [8.650, 49.885]},
+    {"postcode": "64289", "name": "Darmstadt-Ost", "coordinates": [8.678, 49.879]},
+    {"postcode": "64347", "name": "Griesheim", "coordinates": [8.555, 49.861]},
+    {"postcode": "64319", "name": "Pfungstadt", "coordinates": [8.603, 49.806]},
 )
 
 
@@ -126,4 +137,32 @@ async def import_schaedlingsradar(conn, client, source):
             (source["id"], digest, len(features)),
         )
         await publish(conn, source, DATASET, data, digest, generated, now)
+        day_offsets = {"d7": 7, "d30": 30, "d90": 90, "d365": 365}
+        dashboard_totals = {}
+        for postcode, aggregate in results:
+            for species, counts in aggregate["reports"].items():
+                for period, count in counts.items():
+                    dashboard_metric = f"reports_{period}"
+                    dashboard_totals[dashboard_metric] = dashboard_totals.get(dashboard_metric, 0) + count
+                    end = aggregate["generated"]
+                    start = end - timedelta(days=day_offsets[period]) if period in day_offsets else None
+                    await write_civic_measurement(
+                        conn, entity_id=f"civic:schadlingsradar:{postcode['postcode']}",
+                        entity_name=f"Schädlingsradar · {postcode['name']} ({postcode['postcode']})",
+                        source_id="schadlingsradar-ried", metric="reports", unit="reports",
+                        value=count, observed_at=end, collected_at=now,
+                        dimensions={"postcode": postcode["postcode"], "species": species, "period": period},
+                        provenance={"dataset": DATASET, "payload_sha256": digest,
+                                    "source_url": f"{BASE_URL}{postcode['postcode']}.json"},
+                        semantics="period_total" if period in day_offsets else "state",
+                        period_start=start, period_end=end if start else None,
+                        metadata={"postcode": postcode["postcode"], "area": postcode["name"]},
+                    )
+        await write_dashboard_snapshot(
+            conn, sensor_id="civic-schaedlingsradar-ried",
+            name="Schädlingsradar · Worms bis Darmstadt",
+            description="Tägliche, nach PLZ und Schädlingsart aggregierte Meldungszahlen · Marker zeigen PLZ-Gebiete",
+            readings=[(metric, value, "reports") for metric, value in dashboard_totals.items()],
+            timestamp=generated,
+        )
     return "success"

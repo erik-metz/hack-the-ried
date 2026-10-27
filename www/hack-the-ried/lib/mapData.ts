@@ -86,7 +86,7 @@ export function categoriesFor(sensor: ApiMapSensor): Category[] {
     else if (sensor.id.startsWith("fac-apo-") || sensor.id.startsWith("fac-doc-")) categories.add("healthcare");
     else if (sensor.id.startsWith("fac-kamue-") || sensor.id.startsWith("fac-bst-sport") || sensor.id.startsWith("fac-la-alt") || sensor.id.startsWith("fac-la-kanu") || sensor.id.startsWith("fac-bst-buerger") || sensor.id.startsWith("fac-bst-vfr")) categories.add("culture");
     else if (sensor.id.startsWith("fac-tour-")) categories.add("tourism");
-    else if (sensor.id.startsWith("ttn-gw-") || sensor.id.startsWith("bnetza:emf:")) categories.add("other");
+    else if (sensor.id.startsWith("ttn-gw-") || sensor.id.startsWith("bnetza:emf:") || sensor.id.startsWith("civic-")) categories.add("other");
     else if (sensor.id.startsWith("ttn-rak")) categories.add("weather");
     else if (type === "radio_tower") categories.add("other");
     else if (type === "WeatherObserved" || type === "environmental_sensor") categories.add(soil ? "soil" : "weather");

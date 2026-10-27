@@ -9,17 +9,20 @@ import hashlib
 import json
 from datetime import UTC, datetime
 
+from civic_measurements import write_civic_measurement, write_dashboard_snapshot
 from publications import publish
 
 API_URL = "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson"
 DATASET = "civic/maengelmelder"
-# Four overlapping map requests avoid the provider's 200-feature viewport cap.
-# The union covers the same broad Ried extent used by the public map.
+# Six map requests keep each viewport below the provider's 200-feature cap.
+# The region runs from Worms through Bensheim to north of Darmstadt.
 BOUNDS = (
-    (8.15, 49.45, 8.49, 49.68),
-    (8.46, 49.45, 8.80, 49.68),
-    (8.15, 49.65, 8.49, 49.90),
-    (8.46, 49.65, 8.80, 49.90),
+    (8.15, 49.45, 8.48, 49.66),
+    (8.47, 49.45, 8.80, 49.66),
+    (8.15, 49.65, 8.48, 49.86),
+    (8.47, 49.65, 8.80, 49.86),
+    (8.15, 49.85, 8.48, 50.05),
+    (8.47, 49.85, 8.80, 50.05),
 )
 
 
@@ -121,4 +124,19 @@ async def import_maengelmelder(conn, client, source):
             (source["id"], digest, len(records)),
         )
         await publish(conn, source, DATASET, data, digest, now, now)
+        await write_civic_measurement(
+            conn, entity_id="civic:maengelmelder:region",
+            entity_name="Mängelmelder · Worms bis nördlich Darmstadt",
+            source_id="maengelmelder-ried", metric="reported_items", unit="reports",
+            value=len(records), observed_at=now, collected_at=now,
+            dimensions={"coverage": "worms-darmstadt"},
+            provenance={"dataset": DATASET, "payload_sha256": digest},
+            semantics="state", metadata={"coverage": "Worms bis nördlich Darmstadt"},
+        )
+        await write_dashboard_snapshot(
+            conn, sensor_id="civic-maengelmelder-ried",
+            name="Mängelmelder · Worms bis nördlich Darmstadt",
+            description="Erfasste öffentliche Meldungen im Kartenausschnitt · keine Texte oder Fotos",
+            readings=[("reported_items", len(records), "reports")], timestamp=now,
+        )
     return "success"

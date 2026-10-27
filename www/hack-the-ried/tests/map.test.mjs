@@ -423,6 +423,9 @@ test("all measurements remain visible from inventory when history or latest requ
   assert.equal(merged.length, 3);
   assert.equal(merged.find(r => r.metric === "parking_free").value, 4);
   assert.equal(telemetry.metricLabel(reading("traffic_cars_hourly", 2, "count")), "PKW · Stundensumme");
+  assert.equal(telemetry.metricLabel(reading("reports_d7", 2, "reports")), "Schädlingsmeldungen · 7 Tage");
+  assert.equal(telemetry.metricLabel(reading("reported_items", 20, "reports")), "Erfasste Mängelmeldungen");
+  assert.equal(telemetry.isCountMetric(reading("reports_d7", 2, "reports")), true);
   assert.equal(telemetry.metricLabel(reading("sgp41_voc_index", 120, "index")), "Luftqualität · flüchtige Stoffe");
   assert.equal(telemetry.metricLabel(reading("sgp41_nox_index", 120, "index")), "Luftqualität · Stickoxide");
   assert.equal(telemetry.metricLabel(reading("uv_index", 7.25, "index")), "UV-Index");
@@ -497,6 +500,8 @@ test("related readings are grouped across sensor types that share a chart contex
     assert.equal(groups[0].length, metrics.length);
   }
   assert.equal(telemetry.measurementGroup(reading("ltr390_als_raw", "raw")), undefined);
+  assert.equal(telemetry.measurementGroupLabel(telemetry.measurementGroup(reading("reports_d7", "reports"))), "Schädlingsmeldungen · alle erfassten Arten");
+  assert.equal(telemetry.measurementCardGroups(["d7", "d30", "d90", "d365", "dalle"].map(period => reading(`reports_${period}`, "reports"))).length, 1);
   assert.equal(telemetry.measurementGroupLabel(telemetry.measurementGroup(reading("particle_size_typical", "µm"))), "Feinstaub · Partikelgröße");
   assert.equal(telemetry.metricLabel(reading("parking_occupancy_pct", "%")), "Stellplatzbelegung");
   assert.equal(telemetry.metricLabel(reading("day_ahead_price", "EUR/MWh")), "Börsenstrompreis");

@@ -106,7 +106,7 @@ export default function MapComponent(props: MapProps) {
       center: callbacks.current.initialCenter ?? DEFAULT_MAP_CENTER,
       zoom: callbacks.current.initialZoom ?? DEFAULT_MAP_ZOOM,
       minZoom: 8,
-      maxBounds: [[49.45, 8.15], [49.90, 8.80]],
+      maxBounds: [[49.45, 8.15], [50.05, 8.80]],
       maxBoundsViscosity: 0.8,
     });
     map.current = instance;

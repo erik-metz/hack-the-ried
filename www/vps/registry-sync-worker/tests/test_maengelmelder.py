@@ -19,6 +19,16 @@ class MaengelmelderTests(unittest.TestCase):
                 f"Mängelmelder bounds do not cover {town}",
             )
 
+    def test_collection_bounds_extend_from_worms_to_north_darmstadt(self):
+        for town, longitude, latitude in (
+            ("Worms", 8.359, 49.632),
+            ("Darmstadt-Arheilgen", 8.656, 49.916),
+        ):
+            self.assertTrue(
+                any(west <= longitude <= east and south <= latitude <= north for west, south, east, north in BOUNDS),
+                f"Mängelmelder bounds do not cover {town}",
+            )
+
     def test_parse_keeps_minimal_fields_and_filters_to_ried(self):
         payload = {
             "type": "FeatureCollection",
@@ -113,6 +123,8 @@ class MaengelmelderTests(unittest.TestCase):
         self.assertTrue(any("INSERT INTO collected_datasets" in q for q, _ in conn.calls))
         self.assertIn("application/geo+json", payload_query)
         self.assertEqual(result, "success")
+        self.assertTrue(any("write_measurement" in query for query, _ in conn.calls))
+        self.assertTrue(any("INSERT INTO sensor_data" in query for query, _ in conn.calls))
 
 
 if __name__ == "__main__":

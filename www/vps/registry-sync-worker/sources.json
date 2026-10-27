@@ -8,7 +8,7 @@
       "url": "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson",
       "interval_seconds": 900,
       "max_age_seconds": 3600,
-      "description": "Öffentliche Mängelmelder-Punkte im Ried einschließlich Lorsch, Einhausen, Bensheim und Heppenheim; speichert nur ID, Zeit, Kategorie, Status und Koordinaten gemäß CC BY-SA."
+      "Öffentliche Mängelmelder-Punkte von Worms über das Hessische Ried bis nördlich Darmstadt; speichert nur ID, Zeit, Kategorie, Status und Koordinaten gemäß CC BY-SA."
     },
     {
       "id": "schadlingsradar-ried",
@@ -18,7 +18,7 @@
       "url": "https://www.schaedlingsradar.de/agg/plz/",
       "interval_seconds": 86400,
       "max_age_seconds": 172800,
-      "description": "Öffentliche, nach PLZ aggregierte Meldungszahlen aus den Radar-JSON-Dateien für das Hessische Ried einschließlich Lorsch, Einhausen, Bensheim und Heppenheim; keine einzelnen Meldungstexte oder Fundkoordinaten."
+      "Öffentliche, nach PLZ aggregierte Meldungszahlen von Worms über das Hessische Ried bis Darmstadt; keine einzelnen Meldungstexte oder Fundkoordinaten."
     },
     {
       "id": "lampertheim-district-christmas-markets",

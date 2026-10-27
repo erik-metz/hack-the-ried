@@ -24,7 +24,9 @@ export async function GET(request: Request) {
   }
   const snapshots = params.get("history_mode") === "snapshots";
   const end = new Date();
-  const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+  const civicDaily = sensorId.startsWith("civic-");
+  const historyDays = civicDaily ? 30 : 1;
+  const start = new Date(end.getTime() - historyDays * 24 * 60 * 60 * 1000);
   const latest = new URL("/api/v1/telemetry/latest/metrics", env.BACKEND_API_URL);
   latest.searchParams.set("sensor_id", sensorId);
   const latestWindow = new URL("/api/v1/telemetry/latest/window", env.BACKEND_API_URL);
@@ -65,6 +67,6 @@ export async function GET(request: Request) {
     history: Array.isArray(filteredHistory) ? filteredHistory.filter((r: RawReading) => !HIDDEN_METRICS.has(r.metric)) : filteredHistory,
     historyMode: snapshots ? "snapshots" : "averages", historyUnavailable: results[1].status === "rejected",
     historyInterval,
-    historyTruncated: snapshots && buckets.length >= 5000, start: start.toISOString(), end: end.toISOString(),
+    historyTruncated: snapshots && buckets.length >= 5000, historyDays, start: start.toISOString(), end: end.toISOString(),
   });
 }

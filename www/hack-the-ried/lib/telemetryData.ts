@@ -22,6 +22,7 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
   if (["evapotranspiration", "reference_evapotranspiration"].includes(metric)) return "evapotranspiration";
   if (["ndvi_mean", "evi_mean", "ndmi_mean", "ndwi_mean", "savi_mean"].includes(metric)) return "vegetation-indices";
   if (["fuel_e5", "fuel_e10", "fuel_diesel"].includes(metric)) return "fuel-price";
+  if (/^reports_(d7|d30|d90|d365|dalle)$/.test(metric)) return "civic-pest-periods";
   return undefined;
 }
 const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
@@ -42,6 +43,7 @@ const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
   evapotranspiration: "Verdunstung",
   "vegetation-indices": "Vegetationsindizes",
   "fuel-price": "Kraftstoffpreise",
+  "civic-pest-periods": "Schädlingsmeldungen · alle erfassten Arten",
 };
 const MEASUREMENT_GROUP_DESCRIPTIONS: Record<string, string> = {
   "temperature-humidity": "Temperatur, Luftfeuchtigkeit und bei passenden Sensoren der Taupunkt im gemeinsamen zeitlichen Verlauf.",
@@ -61,6 +63,7 @@ const MEASUREMENT_GROUP_DESCRIPTIONS: Record<string, string> = {
   evapotranspiration: "Tatsächliche und rechnerische Verdunstung zum Vergleich.",
   "vegetation-indices": "Satellitengestützte Vegetations- und Feuchteindizes im gemeinsamen Verlauf.",
   "fuel-price": "Preise für die angebotenen Kraftstoffsorten im gemeinsamen Verlauf.",
+  "civic-pest-periods": "Summen der nach PLZ erfassten Meldungen für rollierende Zeiträume. Die Gesamtzahl wird zusätzlich separat ausgewiesen.",
 };
 export function measurementGroupLabel(group: string | undefined): string | undefined {
   return group ? MEASUREMENT_GROUP_LABELS[group] : undefined;
@@ -175,7 +178,7 @@ export function metricPrecision(reading: { metric: string; unit: string }): numb
 
 export function isCountMetric(reading: { metric: string; unit: string }): boolean {
   return COUNT_METRICS.has(reading.metric) || reading.metric.startsWith("traffic_") ||
-    ["count", "counts"].includes(reading.unit);
+    ["count", "counts", "reports"].includes(reading.unit);
 }
 
 export function chartScale(reading: { metric: string; unit: string }, values: number[], fuel = false): [number, number] {
@@ -220,6 +223,23 @@ export function measurementRange(
 }
 
 export function metricLabel(reading: { metric: string; unit: string }): string {
+  const civicPeriod = reading.metric.match(/^reports_(d7|d30|d90|d365|dalle)$/);
+  if (civicPeriod) {
+    const periods: Record<string, string> = { d7: "7 Tage", d30: "30 Tage", d90: "90 Tage", d365: "12 Monate", dalle: "gesamt" };
+    return `Schädlingsmeldungen · ${periods[civicPeriod[1]]}`;
+  }
+  const civicPest = reading.metric.match(/^([a-z-]+)_(d7|d30|d90|d365|dalle)$/);
+  if (civicPest) {
+    const species: Record<string, string> = {
+      ratten: "Ratten", maeuse: "Mäuse", wespen: "Wespen", hornissen: "Hornissen",
+      "asiatische-hornisse": "Asiatische Hornissen", schaben: "Schaben", bettwanzen: "Bettwanzen",
+      tauben: "Tauben", ameisen: "Ameisen", marder: "Marder",
+      eichenprozessionsspinner: "Eichenprozessionsspinner", tigermuecke: "Tigermücken",
+    };
+    const periods: Record<string, string> = { d7: "7 Tage", d30: "30 Tage", d90: "90 Tage", d365: "12 Monate", dalle: "gesamt" };
+    return `${species[civicPest[1]] ?? civicPest[1]} · ${periods[civicPest[2]]}`;
+  }
+  if (reading.metric === "reported_items") return "Erfasste Mängelmeldungen";
   const traffic = reading.metric.match(/^traffic_(.+)_(hourly|daily_city|daily)$/);
   if (traffic) {
     const names: Record<string, string> = { total: "Verkehr gesamt", cars: "PKW", trucks: "LKW", buses: "Busse", bicycles: "Fahrräder", pedestrians: "Passanten", motorcycles: "Motorräder", other: "Sonstiger Verkehr" };
@@ -233,6 +253,8 @@ export function metricLabel(reading: { metric: string; unit: string }): string {
   return humanized || "Messwert";
 }
 export function metricDescription(reading: { metric: string; unit: string }): string | undefined {
+  if (reading.metric === "reported_items") return "Anzahl der öffentlichen Mängelmeldungen im gesamten erfassten Kartenausschnitt je Abruf.";
+  if (/^reports_(d7|d30|d90|d365|dalle)$/.test(reading.metric)) return "Summe der beim Schädlingsradar je Postleitzahl und Art gemeldeten Fälle. Meldungen sind keine Tierzahlen.";
   if (reading.metric === "sgp41_voc_index") return "Hinweis auf flüchtige Stoffe, etwa aus Reinigungsmitteln oder Ausdünstungen. Ein höherer Index bedeutet mehr erkannte Stoffe.";
   if (reading.metric === "sgp41_nox_index") return "Hinweis auf Stickoxide in der Luft. Der Index zeigt Veränderungen, keine direkte Konzentration.";
   if (reading.metric.startsWith("particle_number_")) return `Anzahl der Partikel dieser Größenklasse pro ${reading.unit.includes("cm") ? "Kubikzentimeter" : "Volumeneinheit"}.`;
@@ -251,7 +273,7 @@ export function metricDescription(reading: { metric: string; unit: string }): st
   return undefined;
 }
 export function unitLabel(unit: string) {
-  return ({ count: "Anzahl", counts: "Zählwerte", index: "Index", celsius: "°C", CEL: "°C", state: "Zustand", s: "Sekunden", sec: "Sekunden" } as Record<string, string>)[unit] ?? unit;
+  return ({ count: "Anzahl", counts: "Zählwerte", reports: "Meldungen", index: "Index", celsius: "°C", CEL: "°C", state: "Zustand", s: "Sekunden", sec: "Sekunden" } as Record<string, string>)[unit] ?? unit;
 }
 
 export function formatMeasurement(value: number, reading: { metric: string; unit: string }): string {
