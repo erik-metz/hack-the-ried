@@ -5,6 +5,7 @@ import { corridorLabel, trafficFeatureVisible } from "@/lib/trafficPresentation"
 import { updateMarkerDialogs } from "@/lib/mapDialogs";
 import MapContextLayer from "./MapContextLayer";
 import MapSupplementaryLayer from "./MapSupplementaryLayer";
+import MapMaengelmelderLayer from "./MapMaengelmelderLayer";
 import MapRestAreaLayer from "./MapRestAreaLayer";
 import MapFuelLayer from "./MapFuelLayer";
 import MapEarthObservationLayer from "./MapEarthObservationLayer";
@@ -466,7 +467,7 @@ export default function MapComponent(props: MapProps) {
     const requests = new Set<AbortController>();
     for (const [id, geometry] of Object.entries(publication.layers)) {
       const layerId = id as MapLayerId;
-      if (!layers[layerId] || id === "crossings" || id === "nature" || id === "charging") continue;
+      if (!layers[layerId] || id === "crossings" || id === "nature" || id === "charging" || id === "maengelmelder") continue;
       const overview = zoom < LAYER_MIN_ZOOM[layerId];
       const pointGroups = new Map<string, L.LayerGroup>();
       function pointGroupFor(kind: string) {
@@ -610,7 +611,7 @@ export default function MapComponent(props: MapProps) {
     .filter(f => f.properties?.kind === "corridor" && trafficFeatureVisible(f.properties, "all"))
     .map(f => f.properties as { id: string; road_name: string; name: string; status: string; delay_minutes: number | null; description: string });
 
-  const missing = publication.unavailable.filter(id => id !== "nature" && id !== "charging" && layers[id as MapLayerId]);
+  const missing = publication.unavailable.filter(id => id !== "nature" && id !== "charging" && id !== "maengelmelder" && layers[id as MapLayerId]);
   return <div className="w-full space-y-3">
     <div ref={container} className="sensor-map h-[500px] w-full" aria-label="Karte mit aktuellen Quelldaten" />
     {layers.traffic && trafficCorridors.length > 0 && (
@@ -649,6 +650,7 @@ export default function MapComponent(props: MapProps) {
         {props.categories.includes("parking") ? <MapRestAreaLayer map={mapInstance} nodes={props.nodes} /> : null}
         {layers.nature ? <MapSupplementaryLayer map={mapInstance} id="protected" /> : null}
         {layers.monitoring ? <MapSupplementaryLayer map={mapInstance} id="monitoring" /> : null}
+        {layers.maengelmelder ? <MapMaengelmelderLayer map={mapInstance} /> : null}
         {layers.warnings ? <MapSupplementaryLayer map={mapInstance} id="warnings" /> : null}
         {layers.charging ? <MapSupplementaryLayer map={mapInstance} id="chargers" primary={publication.layers.charging} /> : null}
         {layers.landcover ? <MapContextLayer map={mapInstance} id="landcover" /> : null}

@@ -53,6 +53,7 @@ export const LAYER_CATEGORIES: Record<
 export const LAYER_MIN_ZOOM: Record<MapLayerId, number> = {
   // Regional (Zoom 8-11)
   monitoring: 12,
+  maengelmelder: 8,
   warnings: 8,
   landcover: 12,
   floodrisk: 10,
@@ -93,11 +94,12 @@ export const LAYER_MIN_ZOOM: Record<MapLayerId, number> = {
 // Collected vectors retain overview styling. Raster and optional context overlays
 // load only at their supported zoom.
 export function isLayerZoomRestricted(id: MapLayerId, zoom: number): boolean {
-  return (["starkregen", "lora", "landcover", "floodrisk", "census", "monitoring", "nature", "charging", "warnings"].includes(id)) && zoom < LAYER_MIN_ZOOM[id];
+  return (["starkregen", "lora", "landcover", "floodrisk", "census", "monitoring", "maengelmelder", "nature", "charging", "warnings"].includes(id)) && zoom < LAYER_MIN_ZOOM[id];
 }
 
 export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {
   monitoring: { id: "monitoring", label: "Gewässermessstellen", icon: "💧", category: "environment", description: "BfG-Verzeichnis: Grundwasser- und Oberflächenwassermessstellen · keine Live-Messwerte", minZoom: 12 },
+  maengelmelder: { id: "maengelmelder", label: "Mängelmelder", icon: "🛠️", category: "planning", description: "Öffentliche Mängelmeldungen im Ried · Status und Kategorie, ohne Beschreibung, Adresse oder Foto", minZoom: 8 },
   warnings: { id: "warnings", label: "DWD-Wetterwarnungen", icon: "⚠️", category: "environment", description: "Warnpolygone über Esri · etwa 30 Minuten verzögert · mit Quellenaktualität", minZoom: 8 },
   landcover: { id: "landcover", label: "Landbedeckung 2021", icon: "🌱", category: "environment", description: "BKG-Landbedeckung im Ried · historischer Flächenkontext, Mindestkartierfläche 1 ha", minZoom: 12 },
   floodrisk: { id: "floodrisk", label: "Hochwasserrisikoflächen", icon: "🌊", category: "environment", description: "BfG-Szenarien 2016–2021, Bearbeitung 2024 · keine aktuelle Überflutung oder Starkregenprognose", minZoom: 10 },
@@ -392,6 +394,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
     description: "Maximaler Fokus auf IoT-Messwerte ohne Geodaten-Overlays",
     layers: {
       monitoring: false,
+      maengelmelder: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
@@ -434,6 +437,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
       "Sperrungen, Staus, Live-Busse, Haltestellen, Züge & Ladesäulen",
     layers: {
       monitoring: false,
+      maengelmelder: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
@@ -476,6 +480,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
       "Naturschutzgebiete, Flusspegel, Starkregen-WMS & Agrarkulturen",
     layers: {
       monitoring: false,
+      maengelmelder: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
@@ -518,6 +523,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
       "Bodenrichtwerte (BORIS), Bau-Pläne, Glasfaser, Gewerbe & ZAKB",
     layers: {
       monitoring: false,
+      maengelmelder: false,
       warnings: false,
       landcover: false,
       floodrisk: false,

@@ -1,6 +1,16 @@
 {
   "sources": [
     {
+      "id": "maengelmelder-ried",
+      "group": "social",
+      "adapter": "maengelmelder",
+      "enabled": true,
+      "url": "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson",
+      "interval_seconds": 900,
+      "max_age_seconds": 3600,
+      "description": "Öffentliche Mängelmelder-Punkte im Ried; speichert nur ID, Zeit, Kategorie, Status und Koordinaten gemäß CC BY-SA."
+    },
+    {
       "id": "lampertheim-district-christmas-markets",
       "group": "social",
       "adapter": "verified-christmas-markets",

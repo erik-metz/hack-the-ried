@@ -31,6 +31,7 @@ from hessen import import_hessen
 from inaturalist import import_inaturalist
 from invekos import import_invekos
 from long_term_events import import_long_term_events
+from maengelmelder import import_maengelmelder
 from map_tiles import import_wms
 from municipal_festival_notices import import_municipal_festival_notice
 from municipal_notice_events import import_municipal_notice_events
@@ -104,6 +105,7 @@ ADAPTERS = {
     "ecostress": import_ecostress,
     "firms": import_firms,
     "inaturalist": import_inaturalist,
+    "maengelmelder": import_maengelmelder,
 }
 
 

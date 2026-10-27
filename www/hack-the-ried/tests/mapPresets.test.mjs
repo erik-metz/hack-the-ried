@@ -69,8 +69,8 @@ vm.runInNewContext(
 );
 const mapPresets = mapPresetsContext.exports;
 
-test("mapPresets covers all 32 MAP_LAYER_IDS with definitions and categories", () => {
-  assert.equal(urlState.MAP_LAYER_IDS.length, 32);
+test("mapPresets covers all 33 MAP_LAYER_IDS with definitions and categories", () => {
+  assert.equal(urlState.MAP_LAYER_IDS.length, 33);
   for (const layerId of urlState.MAP_LAYER_IDS) {
     const def = mapPresets.LAYER_DEFINITIONS[layerId];
     assert.ok(def, `Layer definition missing for ${layerId}`);
@@ -91,8 +91,8 @@ test("mapPresets covers 4 categories with valid items", () => {
   assert.equal(mobility.length, 11);
   assert.equal(environment.length, 8);
   assert.equal(infrastructure.length, 6);
-  assert.equal(planning.length, 7);
-  assert.equal(mobility.length + environment.length + infrastructure.length + planning.length, 32);
+  assert.equal(planning.length, 8);
+  assert.equal(mobility.length + environment.length + infrastructure.length + planning.length, 33);
 });
 
 test("mapPresets defines all presets with full layer dictionaries", () => {
@@ -122,7 +122,7 @@ test("detectActivePreset identifies default and custom states", () => {
 
 test("countActiveLayers and countCategoryActiveLayers compute accurate numbers", () => {
   const allActive = Object.fromEntries(urlState.MAP_LAYER_IDS.map((id) => [id, true]));
-  assert.equal(mapPresets.countActiveLayers(allActive), 32);
+  assert.equal(mapPresets.countActiveLayers(allActive), 33);
 
   const noneActive = Object.fromEntries(urlState.MAP_LAYER_IDS.map((id) => [id, false]));
   assert.equal(mapPresets.countActiveLayers(noneActive), 0);
