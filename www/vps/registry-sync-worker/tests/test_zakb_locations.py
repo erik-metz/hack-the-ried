@@ -17,6 +17,14 @@ from zakb import (
 )
 
 
+def test_missing_street_failure_gets_long_catalog_retry_window():
+    from datetime import timedelta
+    from zakb import item_failure_retry_delay
+
+    assert item_failure_retry_delay(MissingStreet("not listed")) == timedelta(days=7)
+    assert item_failure_retry_delay(ValueError("temporary parse issue")) == timedelta(minutes=30)
+
+
 @pytest.mark.parametrize('key,destination', list(REVIEWED_PROVIDER_LOCATIONS.items()))
 @pytest.mark.parametrize('substituted,direct', [(False, False), (True, False), (False, True)])
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@
 import asyncio
 import bz2
 import struct
+import io
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
@@ -64,6 +65,40 @@ def test_live_radolan_header_accepts_adjacent_metadata_tokens():
     result = parse_radolan_rw(bz2.compress(raw), 49.6425, 8.4552)
     assert result.precipitation_mm == 0
     assert result.timestamp == datetime(2026, 10, 7, 17, 20, tzinfo=UTC)
+
+
+def test_current_odim_hdf5_radolan_composite():
+    h5py = __import__("pytest").importorskip("h5py")
+    np = __import__("pytest").importorskip("numpy")
+    Transformer = __import__("pytest").importorskip("pyproj").Transformer
+
+    lat, lon = 49.6425, 8.4552
+    projection = "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=10 +datum=WGS84 +units=m +no_defs"
+    forward = Transformer.from_crs("EPSG:4326", projection, always_xy=True)
+    inverse = Transformer.from_crs(projection, "EPSG:4326", always_xy=True)
+    x, y = forward.transform(lon, lat)
+    ul_lon, ul_lat = inverse.transform(x - 1000, y + 1000)
+    stream = io.BytesIO()
+    with h5py.File(stream, "w") as radar:
+        radar.attrs["Conventions"] = "ODIM_H5/V2_3"
+        dataset = radar.create_group("dataset1")
+        what = dataset.create_group("what")
+        what.attrs["enddate"] = "20261027"
+        what.attrs["endtime"] = "170000"
+        data = dataset.create_group("data1")
+        data.create_dataset("data", data=np.array([[99, 99, 99], [99, 250, 99], [99, 99, 99]], dtype="u2"))
+        info = data.create_group("what")
+        for key, value in {"quantity": "ACRR", "gain": 0.01, "offset": 0,
+                           "nodata": 65535, "undetect": 0}.items():
+            info.attrs[key] = value
+        where = radar.create_group("where")
+        for key, value in {"UL_lat": ul_lat, "UL_lon": ul_lon, "xscale": 1000,
+                           "yscale": 1000, "xsize": 3, "ysize": 3,
+                           "projdef": projection}.items():
+            where.attrs[key] = value
+    result = parse_radolan_rw(stream.getvalue(), lat, lon)
+    assert result.precipitation_mm == 2.5
+    assert result.timestamp == datetime(2026, 10, 27, 17, tzinfo=UTC)
 
 
 def test_missing_lightning_download_does_not_create_zero_strikes():

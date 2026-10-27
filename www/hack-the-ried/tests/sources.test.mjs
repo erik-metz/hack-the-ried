@@ -105,7 +105,10 @@ test("Freshness follows the configured interval with a grace period", () => {
   assert.equal(exported.isSourceStale(report({ interval_seconds: null }), now), false);
   assert.equal(exported.isSourceStale(report({ received_at: "invalid" }), now), false);
   const rows = [report(), report({ status: "failed" }), report({ status: "received" }), report({ enabled: false })];
-  assert.deepEqual(JSON.parse(JSON.stringify(exported.summarizeSources(rows, now))), { success: 1, attention: 1, unknown: 1, inactive: 1 });
+  assert.deepEqual(JSON.parse(JSON.stringify(exported.summarizeSources(rows, now))), {
+    success: 1, attention: 1, unknown: 1, inactive: 1,
+    attentionReasons: { failed: 1, partial: 0, noEntries: 0, stale: 0, missingProof: 0 },
+  });
 });
 
 test("Invalid responses and unsafe provider links are rejected", () => {

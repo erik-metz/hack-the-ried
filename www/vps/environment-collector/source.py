@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -33,6 +34,14 @@ async def fetch(client, settings, conn=None):
     for name, url, required, enabled in endpoints:
         if not enabled or not url:
             continue
+        if name == 'xweather' and conn:
+            previous = await (await conn.execute(
+                """SELECT error FROM collection_attempts WHERE source_id='environment-xweather'
+                AND status='failed' ORDER BY received_at DESC LIMIT 1"""
+            )).fetchone()
+            retry_at = _xweather_retry_at(previous[0] if previous else None)
+            if retry_at and retry_at > datetime.now(UTC):
+                continue
         try:
             params = None
             if name == 'xweather':
@@ -89,6 +98,15 @@ async def fetch(client, settings, conn=None):
                 ),
             )
             payload[name + "_attempt_id"] = (await receipt.fetchone())[0]
+            if name == 'xweather' and response.status_code == 429:
+                error_code = None
+                try:
+                    error_code = response.json().get('error', {}).get('code')
+                except (ValueError, AttributeError):
+                    pass
+                retry_at = _xweather_reset(response.headers, datetime.now(UTC), error_code)
+                error = f"HTTP 429 {error_code or 'rate_limited'}; retry_after={retry_at.isoformat()}"
+                await conn.execute("UPDATE collection_attempts SET error=%s WHERE id=%s", (error, payload[name + '_attempt_id']))
             await conn.commit()
 
         if not response.is_success:
@@ -122,6 +140,35 @@ async def fetch(client, settings, conn=None):
             continue
         payload[name + "_sha256"] = digest
     return payload
+
+
+def _xweather_retry_at(error):
+    if not isinstance(error, str) or 'HTTP 429' not in error:
+        return None
+    quota_exhausted = 'maxhits' in error
+    marker = 'retry_after='
+    try:
+        value = datetime.fromisoformat(error.split(marker, 1)[1].split()[0])
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    except (IndexError, ValueError):
+        # Quota resets are period-based; avoid another request every five minutes.
+        return datetime.now(UTC) + timedelta(hours=24 if quota_exhausted else 0, minutes=0 if quota_exhausted else 15)
+
+
+def _xweather_reset(headers, now, error_code):
+    if error_code == 'maxhits':
+        value = headers.get('X-RateLimit-Reset-Period') or headers.get('Retry-After')
+        if value:
+            try:
+                stamp = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                return stamp.replace(tzinfo=UTC) if stamp.tzinfo is None else stamp.astimezone(UTC)
+            except ValueError:
+                try:
+                    return parsedate_to_datetime(value).astimezone(UTC)
+                except (TypeError, ValueError, OverflowError):
+                    pass
+        return now + timedelta(hours=24)
+    return now + timedelta(minutes=15)
 
 
 async def interrupt_receipts(conn, payload):

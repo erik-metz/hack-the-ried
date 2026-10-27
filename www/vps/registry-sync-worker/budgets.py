@@ -52,6 +52,23 @@ def parse_pdf(body, year):
     return parse_summary(cover, summary, year)
 
 
+def validation_error(issues, values):
+    details = []
+    for issue in issues:
+        if issue == 'ordinary_totals_do_not_reconcile':
+            required = ('ordinary_revenue_eur', 'ordinary_expense_eur', 'ordinary_balance_eur')
+            if all(key in values for key in required):
+                calculated = values['ordinary_revenue_eur'] - values['ordinary_expense_eur']
+                reported = values['ordinary_balance_eur']
+                difference = reported - calculated
+                details.append(f'{issue} (reported balance differs by {difference:,.0f} EUR)')
+            else:
+                details.append(issue)
+        else:
+            details.append(issue)
+    return ','.join(details) or None
+
+
 async def import_biblis_budget(conn, client, source):
     listing, _, _ = await acquire(conn,client,source)
     links = re.findall(r'href=["\']([^"\']+haushaltsplan-(20\d{2})\.pdf(?:\?[^"\']*)?)["\']',listing.text)
@@ -81,6 +98,6 @@ async def import_biblis_budget(conn, client, source):
             report['net_result_eur'] = values['ordinary_balance_eur'] + values['extraordinary_balance_eur']
             await publish(conn,source,'finance/adopted-budget/biblis',report,digest,adopted)
         await conn.execute("UPDATE collection_attempts SET status=%s,error=%s WHERE id=%s",
-                           ('partial' if issues else 'success',','.join(issues) or None,attempt))
+                           ('partial' if issues else 'success',validation_error(issues,values),attempt))
     await conn.commit()
     return 'partial' if issues else 'success'

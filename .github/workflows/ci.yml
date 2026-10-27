@@ -222,7 +222,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install -r www/vps/api/requirements.txt -r www/vps/shake-collector/requirements.txt -r www/vps/registry-sync-worker/requirements.txt -r www/vps/rast-collector/requirements.txt -r www/vps/opensensemap-collector/requirements.txt -r www/vps/uba-collector/requirements.txt -r www/vps/ttnmapper-collector/requirements.txt -r www/vps/emf-collector/requirements.txt pytest
+      - run: pip install -r www/vps/api/requirements.txt -r www/vps/shake-collector/requirements.txt -r www/vps/registry-sync-worker/requirements.txt -r www/vps/environment-collector/requirements.txt -r www/vps/rast-collector/requirements.txt -r www/vps/opensensemap-collector/requirements.txt -r www/vps/uba-collector/requirements.txt -r www/vps/ttnmapper-collector/requirements.txt -r www/vps/emf-collector/requirements.txt pytest
       - name: Test independent persistence contracts
         run: |
           for service in nextbike traffic shake environment rast opensensemap uba ttnmapper emf; do

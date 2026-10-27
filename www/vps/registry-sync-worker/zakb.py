@@ -121,6 +121,12 @@ class MissingStreet(ValueError):
     pass
 
 
+def item_failure_retry_delay(exc):
+    # Provider street catalogs change infrequently; retrying a known missing
+    # street every half hour adds load without improving representative coverage.
+    return timedelta(days=7) if isinstance(exc, MissingStreet) else timedelta(minutes=30)
+
+
 class AmbiguousStreet(ValueError):
     pass
 
@@ -549,9 +555,9 @@ async def import_zakb(conn, client, source):
                         await conn.rollback()
                         await conn.execute(
                             """INSERT INTO collection_item_failures(source_id,item_key,retry_after,error)
-                            VALUES (%s,%s,NOW()+INTERVAL '30 minutes',%s) ON CONFLICT(source_id,item_key)
+                            VALUES (%s,%s,NOW()+%s,%s) ON CONFLICT(source_id,item_key)
                             DO UPDATE SET retry_after=EXCLUDED.retry_after,error=EXCLUDED.error""",
-                            (source["id"], address_key(source, candidate), type(exc).__name__),
+                            (source["id"], address_key(source, candidate), item_failure_retry_delay(exc), type(exc).__name__),
                         )
                         await conn.commit()
                         if not isinstance(exc, (AddressNotAccepted, AddressMismatch)) or index + 1 == len(probes[key]):
@@ -564,9 +570,9 @@ async def import_zakb(conn, client, source):
             await conn.rollback()
             await conn.execute(
                 """INSERT INTO collection_item_failures(source_id,item_key,retry_after,error)
-                VALUES (%s,%s,NOW()+INTERVAL '30 minutes',%s) ON CONFLICT(source_id,item_key)
+                VALUES (%s,%s,NOW()+%s,%s) ON CONFLICT(source_id,item_key)
                 DO UPDATE SET retry_after=EXCLUDED.retry_after,error=EXCLUDED.error""",
-                (source["id"],address_key(source,failed_address),type(exc).__name__),
+                (source["id"],address_key(source,failed_address),item_failure_retry_delay(exc),type(exc).__name__),
             )
             await conn.commit()
             failure = {"municipality": address["municipality"], "street": address["street"], "error": type(exc).__name__}
@@ -657,6 +663,8 @@ async def publish_calendar(conn, source, events, digest, source_time, now, incom
             source["id"],
             digest,
             "partial" if incomplete else "success",
-            f"{len(failures)} street samples rejected; address sample coverage only",
+            (f"{len(failures)} street samples rejected; "
+             f"{sum(item['error'] == 'MissingStreet' for item in failures)} streets not offered by provider; "
+             "address sample coverage only"),
         ),
     )

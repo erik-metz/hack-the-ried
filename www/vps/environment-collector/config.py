@@ -13,7 +13,7 @@ class Settings:
     state_dir: Path = Path("/data")
     pegelonline_url: str = "https://pegelonline.wsv.de/webservices/rest-api/v2/stations/WORMS.json?includeTimeseries=true&includeCurrentMeasurement=true"
     weather_url: str = "https://api.open-meteo.com/v1/dwd-icon?latitude=49.6425&longitude=8.4552&current=temperature_2m,relative_humidity_2m,precipitation&timezone=UTC"
-    radolan_url: str = "https://opendata.dwd.de/weather/radar/radolan/rw/raa01-rw_10000-latest-dwd---bin.bz2"
+    radolan_url: str = "https://opendata.dwd.de/weather/radar/radolan/rw/raa01-rw_10000-latest-dwd---bin.hdf5"
     mosmix_url: str = "https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/single_stations/10729/kml/MOSMIX_L_LATEST_10729.kmz"
     blitzortung_url: str = "https://data.blitzortung.org/Data/Protected/last_strikes.php"
     enable_xweather: bool = False

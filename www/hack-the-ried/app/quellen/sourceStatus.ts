@@ -82,6 +82,8 @@ export function errorStage(source: SourceItem) {
 export function failureDescription(source: SourceItem) {
   const error = source.error ?? "";
   if (error.includes("ordinary_totals_do_not_reconcile")) return "Die ausgelesenen Haushaltssummen stimmen rechnerisch nicht überein.";
+  if (error.includes("maxhits")) return "Das Abrufkontingent des Xweather-Abos für diesen Zeitraum ist ausgeschöpft. Der nächste Abruf erfolgt nach dem vom Anbieter gemeldeten Reset.";
+  if (error.includes("streets not offered by provider")) return "Der Anbieter führt einige geprüfte Straßen nicht. Diese Einzelfälle werden seltener erneut geprüft; die Straßenabdeckung bleibt unvollständig.";
   const rejected = error.match(/(\d+) street samples rejected/);
   if (rejected) return `${NUMBER.format(Number(rejected[1]))} Straßenstichproben wurden abgelehnt. Die Adressabdeckung ist unvollständig.`;
   if (error.includes("No usable regional observations produced")) return "Der Download war erfolgreich; daraus wurden keine verwertbaren regionalen Werte verarbeitet.";
@@ -149,8 +151,19 @@ export function getSourceStatus(source: SourceItem, now = Date.now()): SourceSta
 
 export function summarizeSources(sources: SourceItem[], now: number) {
   const summary: Record<StatusGroup, number> = { success: 0, attention: 0, unknown: 0, inactive: 0 };
-  for (const source of sources) summary[getSourceStatus(source, now).group] += 1;
-  return summary;
+  const reasons = { failed: 0, partial: 0, noEntries: 0, stale: 0, missingProof: 0 };
+  for (const source of sources) {
+    const status = getSourceStatus(source, now);
+    summary[status.group] += 1;
+    if (status.group === "attention") {
+      if (source.status === "failed") reasons.failed += 1;
+      else if (source.status === "partial") reasons.partial += 1;
+      else if (source.status === "success" && hasItemCount(source) && source.item_count === 0) reasons.noEntries += 1;
+      else if (status.stale) reasons.stale += 1;
+      else reasons.missingProof += 1;
+    }
+  }
+  return { ...summary, attentionReasons: reasons };
 }
 
 export function parseSourcesResponse(value: unknown): SourceItem[] | null {

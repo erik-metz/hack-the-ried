@@ -90,6 +90,8 @@ def parse_radolan_rw(raw_bytes: bytes, target_lat: float, target_lon: float) -> 
     """Parse DWD RADOLAN RW binary composite (optionally bz2-compressed)."""
     if not raw_bytes:
         return None
+    if raw_bytes.startswith(b"\x89HDF\r\n\x1a\n"):
+        return parse_radolan_hdf5(raw_bytes, target_lat, target_lon)
     if raw_bytes[:3] == b"BZh":
         try:
             data = bz2.decompress(raw_bytes)
@@ -154,6 +156,54 @@ def parse_radolan_rw(raw_bytes: bytes, target_lat: float, target_lon: float) -> 
         latitude=target_lat,
         longitude=target_lon,
     )
+
+
+def parse_radolan_hdf5(raw_bytes: bytes, target_lat: float, target_lon: float) -> NormalizedRadar | None:
+    """Read the current DWD ODIM_H5 RW composite at the Ried coordinate."""
+    try:
+        import h5py
+        import numpy as np
+        from pyproj import CRS, Transformer
+
+        with h5py.File(io.BytesIO(raw_bytes), "r") as radar:
+            if radar.attrs.get("Conventions") != "ODIM_H5/V2_3":
+                return None
+            data = radar["dataset1/data1/data"]
+            metadata = radar["dataset1/data1/what"].attrs
+            composite = radar["dataset1/what"].attrs
+            where = radar["where"].attrs
+            if metadata.get("quantity") != "ACRR":
+                return None
+            values = np.asarray(data)
+            rows, columns = values.shape
+            if rows != int(where["ysize"]) or columns != int(where["xsize"]):
+                return None
+            projection = CRS.from_user_input(where["projdef"].decode() if isinstance(where["projdef"], bytes) else where["projdef"])
+            transformer = Transformer.from_crs("EPSG:4326", projection, always_xy=True)
+            x, y = transformer.transform(target_lon, target_lat)
+            ul_x, ul_y = transformer.transform(float(where["UL_lon"]), float(where["UL_lat"]))
+            col = int(round((x - ul_x) / float(where["xscale"])))
+            row = int(round((ul_y - y) / float(where["yscale"])))
+            if not (0 <= col < columns and 0 <= row < rows):
+                return None
+            raw = int(values[row, col])
+            nodata = int(metadata["nodata"])
+            undetect = int(metadata["undetect"])
+            if raw == nodata:
+                return None
+            amount = 0.0 if raw == undetect else raw * float(metadata["gain"]) + float(metadata["offset"])
+            if not math.isfinite(amount) or amount < 0:
+                return None
+            date = composite["enddate"]
+            time = composite["endtime"]
+            if isinstance(date, bytes):
+                date = date.decode()
+            if isinstance(time, bytes):
+                time = time.decode()
+            timestamp = datetime.strptime(f"{date}{time}", "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+            return NormalizedRadar("weather-radolan-ried", round(amount, 3), timestamp, target_lat, target_lon)
+    except (ImportError, OSError, KeyError, TypeError, ValueError, OverflowError):
+        return None
 
 
 def parse_mosmix(raw_bytes: bytes, station_id: str = "10729") -> list[NormalizedForecast]:

@@ -135,7 +135,7 @@ export default async function SourcesPage() {
           <section aria-label="Überblick über die gemeldeten Quellen" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {([
               ["success", "Erfolg gemeldet", "Bestätigte Verarbeitung oder Live-Empfang", "text-emerald-300"],
-              ["attention", "Prüfung nötig", "Fehler, Teilerfolg, fehlender Nachweis oder veralteter Status", "text-amber-200"],
+              ["attention", "Prüfung nötig", summary ? `${summary.attentionReasons.failed} Fehler · ${summary.attentionReasons.partial} Teilerfolge · ${summary.attentionReasons.noEntries} ohne Einträge · ${summary.attentionReasons.stale} veraltet · ${summary.attentionReasons.missingProof} ohne Abschlussnachweis` : "", "text-amber-200"],
               ["unknown", "Offen / ohne Status", "Laufende Erfassungen und fehlende Meldungen", "text-sky-200"],
               ["inactive", "Nicht eingerichtet / inaktiv", "Einschließlich geplanter Anbindungen", "text-slate-300"],
             ] as const).map(([group, label, description, color]) => <div key={group} className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">

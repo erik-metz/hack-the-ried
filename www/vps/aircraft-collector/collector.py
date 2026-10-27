@@ -168,7 +168,8 @@ async def run_adsb(seconds=None):
                     if len(response.content) > 4 * 1024 * 1024:
                         raise ValueError('Oversized snapshot')
                     accepted = await persist(conn, response.json())
-                    await conn.execute("INSERT INTO collection_attempts(source_id,status) VALUES (%s,'success')", (SOURCE,))
+                    await conn.execute("""INSERT INTO collection_attempts(source_id,http_status,status,error_stage)
+                        VALUES (%s,%s,'success','acquisition')""", (SOURCE, response.status_code))
                     Path('/tmp/aircraft-heartbeat').touch()
                     LOG.info('ADS-B snapshot accepted; new observations: %d', accepted)
                     failures = 0
@@ -178,7 +179,12 @@ async def run_adsb(seconds=None):
                 LOG.warning('Aircraft acquisition failed: %s', type(exc).__name__)
                 try:
                     async with await psycopg.AsyncConnection.connect(**db, autocommit=True) as conn:
-                        await conn.execute("INSERT INTO collection_attempts(source_id,status,error) VALUES (%s,'failed',%s)", (SOURCE, type(exc).__name__))
+                        status = response.status_code if response is not None else None
+                        message = f"HTTP {status}" if status is not None else type(exc).__name__
+                        stage = ('storage' if isinstance(exc, psycopg.Error) else
+                                 'processing' if isinstance(exc, (ValueError, TypeError)) else 'acquisition')
+                        await conn.execute("""INSERT INTO collection_attempts(source_id,http_status,status,error,error_stage)
+                            VALUES (%s,%s,'failed',%s,%s)""", (SOURCE, status, message, stage))
                 except (OSError, psycopg.Error):
                     LOG.warning('Cannot record aircraft source status')
             await asyncio.sleep(min(delay, max(0, stop_at - asyncio.get_running_loop().time())))

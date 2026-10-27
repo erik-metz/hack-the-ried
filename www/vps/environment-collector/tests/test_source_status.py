@@ -125,3 +125,28 @@ class SourceStatusTests(DatabaseCase):
         row = await (await self.conn.execute("SELECT d.source_id,r.value,r.period_end-r.period_start FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.source_id='environment-xweather' AND d.metric='lightning_strikes_count'")).fetchone()
         from datetime import timedelta
         self.assertEqual(row, ('environment-xweather', 0, timedelta(minutes=5)))
+
+    async def test_xweather_quota_response_records_reset_and_skips_until_then(self):
+        from datetime import UTC, datetime, timedelta
+        settings = Settings(db={}, enable_xweather=True, enable_blitzortung=False,
+                            enable_radolan=False, enable_mosmix=False,
+                            xweather_client_id='id', xweather_client_secret='secret')
+        reset = (datetime.now(UTC) + timedelta(hours=2)).replace(microsecond=0)
+        calls = 0
+
+        def handler(request):
+            nonlocal calls
+            if request.url.path.endswith('/closest'):
+                calls += 1
+                return httpx.Response(429, json={'success': False, 'error': {'code': 'maxhits'}},
+                                      headers={'X-RateLimit-Reset-Period': reset.isoformat()})
+            return httpx.Response(200, json={})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await fetch(client, settings, self.conn)
+        error = await self.scalar("SELECT error FROM collection_attempts WHERE source_id='environment-xweather'")
+        self.assertIn('maxhits', error)
+        self.assertIn(reset.isoformat(), error)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await fetch(client, settings, self.conn)
+        self.assertEqual(calls, 1)

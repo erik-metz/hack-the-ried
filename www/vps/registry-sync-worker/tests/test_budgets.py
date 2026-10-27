@@ -57,9 +57,13 @@ async def test_inconsistent_document_is_archived_but_not_published_as_budget():
     def provider(request):
         return httpx.Response(200,text='<a href="https://www.biblis.eu/budget/haushaltsplan-2026.pdf">Budget</a>') if request.url.path.endswith('/') else httpx.Response(200,content=b'PDF fixture')
     async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
-        with patch('budgets.parse_pdf',return_value=(datetime(2026,2,11,tzinfo=UTC),{},['ordinary_totals_do_not_reconcile'])):
+        with patch('budgets.parse_pdf',return_value=(datetime(2026,2,11,tzinfo=UTC),{
+            'ordinary_revenue_eur':24166774,'ordinary_expense_eur':26800450,'ordinary_balance_eur':-2572977,
+        },['ordinary_totals_do_not_reconcile'])):
             assert await import_biblis_budget(conn,client,source)=='partial'
     publications=[c.args[1][0] for c in conn.execute.call_args_list if 'INSERT INTO collected_datasets\n' in c.args[0]]
     assert publications==['finance/budget-review/biblis']
     assert any('INSERT INTO collected_payloads' in c.args[0] for c in conn.execute.call_args_list)
     assert any('DELETE FROM collected_datasets' in c.args[0] for c in conn.execute.call_args_list)
+    status_update=next(c for c in conn.execute.call_args_list if 'UPDATE collection_attempts' in c.args[0])
+    assert '60,699 EUR' in status_update.args[1][1]
