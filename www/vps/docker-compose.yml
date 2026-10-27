@@ -234,6 +234,25 @@ services:
       timescaledb:
         condition: service_healthy
 
+  sky-collector:
+    build:
+      context: ./sky-collector
+      dockerfile: Dockerfile
+    image: ghcr.io/erik-metz/hack-the-ried-sky-collector:latest
+    restart: unless-stopped
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SKY_POLL_SECONDS: ${SKY_POLL_SECONDS:-300}
+    depends_on:
+      backend-api:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+
   rast-collector:
     build:
       context: ./rast-collector

@@ -44,6 +44,17 @@ jobs:
         env:
           FUEL_TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/postgres
 
+  validate-sky-collector:
+    name: Sky collector validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -r www/vps/sky-collector/requirements.txt ruff
+      - run: ruff check --config www/vps/pyproject.toml www/vps/sky-collector
+
   validate-api-code:
     name: Code Validation & Linting
     runs-on: ubuntu-latest
@@ -345,6 +356,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - validate-fuel-collector
+      - validate-sky-collector
       - validate-api-code
       - validate-satellite-collector
       - validate-shake-collector-code
@@ -507,3 +519,10 @@ jobs:
           context: ./www/vps/fuel-collector
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-fuel-collector:latest
+
+      - name: Build and push regional sky collector image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./www/vps/sky-collector
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-sky-collector:latest

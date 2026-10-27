@@ -20,6 +20,7 @@ import { motionPoint, nextMotion, MOVEMENT_POLL_MS, type MarkerMotion } from "@/
 import { detailCard, featureCard, featureKind, mapSymbol, placeMarker } from "@/lib/mapPresentation";
 import { aircraftMarker, aircraftStyle } from "@/lib/aircraftPresentation";
 import AircraftLegend from "./AircraftLegend";
+import MapSkyWidget from "./MapSkyWidget";
 import { useEffect, useRef, useState } from "react";
 import type { GeoJsonObject } from "geojson";
 import { CATEGORIES, markerCategory, readingFreshness, primaryReading, valueLabel, observationLabel, temperatureColor, type Category, type MapMode, type SensorNode, type StationNode } from "@/lib/mapData";
@@ -614,7 +615,10 @@ export default function MapComponent(props: MapProps) {
 
   const missing = publication.unavailable.filter(id => id !== "nature" && id !== "charging" && id !== "maengelmelder" && layers[id as MapLayerId]);
   return <div className="w-full space-y-3">
-    <div ref={container} className="sensor-map h-[500px] w-full" aria-label="Karte mit aktuellen Quelldaten" />
+    <div className="relative">
+      <div ref={container} className="sensor-map h-[500px] w-full" aria-label="Karte mit aktuellen Quelldaten" />
+      <MapSkyWidget />
+    </div>
     {layers.traffic && trafficCorridors.length > 0 && (
       <div className="flex flex-wrap items-center gap-2" aria-label="Verkehrsauslastung">
         <div className="commuter-corridor-bar">

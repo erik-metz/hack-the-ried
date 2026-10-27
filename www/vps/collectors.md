@@ -2,6 +2,17 @@
 
 The collectors use the same local structure while remaining independently deployable. There is no shared runtime package or universal data model.
 
+### Regional sky collector
+
+`sky-collector` calculates solar azimuth/altitude, lunar azimuth/altitude,
+illuminated fraction and phase every five minutes for a fixed reference point
+in the Hessian Ried (49.62° N, 8.46° E; 100 m). It stores timestamped model
+readings through `write_measurement` under `region:hessisches-ried`; no external
+ephemeris service or observation is implied. The map reads the latest database
+snapshot from `/api/v1/sky`. Install the canonical measurement schema before
+starting the collector. `SKY_POLL_SECONDS` can change the cadence, with a
+60-second minimum.
+
 | Module | Responsibility |
 | --- | --- |
 | `config.py` | Explicit `Settings.from_env()` validation; no import-time settings |

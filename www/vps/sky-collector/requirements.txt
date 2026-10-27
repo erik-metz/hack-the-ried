@@ -1,0 +1,2 @@
+astronomy-engine==2.1.19
+psycopg[binary]==3.2.6

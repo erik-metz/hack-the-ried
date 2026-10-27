@@ -11,6 +11,7 @@ from endpoints import (
     pitch,
     satellite,
     satellite_tracking,
+    sky,
     sensor_integrations,
     sensors,
     social_daily_life,
@@ -27,6 +28,7 @@ api_router.include_router(newsletter.router)
 api_router.include_router(collected.router)
 api_router.include_router(satellite.router)
 api_router.include_router(satellite_tracking.router)
+api_router.include_router(sky.router)
 api_router.include_router(sensors.router, tags=["Sensors Metadata"])
 api_router.include_router(sensor_integrations.router)
 api_router.include_router(telemetry.router, tags=["Telemetry Data"])
