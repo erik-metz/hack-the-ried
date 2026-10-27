@@ -121,4 +121,4 @@ async def import_maengelmelder(conn, client, source):
             (source["id"], digest, len(records)),
         )
         await publish(conn, source, DATASET, data, digest, now, now)
-    return f"success ({len(records)} reports)"
+    return "success"

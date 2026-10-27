@@ -99,7 +99,7 @@ class MaengelmelderTests(unittest.TestCase):
         self.assertIn("INSERT INTO collected_dataset_versions", " ".join(q for q, _ in conn.calls))
         self.assertTrue(any("INSERT INTO collected_datasets" in q for q, _ in conn.calls))
         self.assertIn("application/geo+json", payload_query)
-        self.assertEqual(result, "success (1 reports)")
+        self.assertEqual(result, "success")
 
 
 if __name__ == "__main__":
