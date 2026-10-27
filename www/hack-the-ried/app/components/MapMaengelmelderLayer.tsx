@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import type { FeatureCollection } from "geojson";
 import { detailCard } from "@/lib/mapPresentation";
 
-type Report = { id: string; category?: string | null; status?: string | null; reportedAt?: string | null; url: string };
+type Report = { id?: string; category?: string | null; status?: string | null; reportedAt?: string | null; url?: string };
+type ReportDetails = { id: string; category: string | null; status: string | null; reportedAt: string | null; description: string | null; images: { preview: string; original: string }[] };
 type Snapshot = FeatureCollection & { source?: string; license?: string; attribution?: string };
 const STATUS_COLORS: Record<string, string> = { open: "#f97316", checked: "#eab308", approved: "#3b82f6", solved: "#22c55e", closed: "#64748b" };
 
@@ -36,11 +37,62 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
       },
       onEachFeature: (feature, marker) => {
         const p = feature.properties as Report;
-        const card = detailCard(`Mängelmeldung ${p.id}`, "Öffentlicher Mängelmelder", [p.category ? `Kategorie: ${p.category}` : "Kategorie: unbekannt", p.status ? `Status: ${p.status}` : "Status: unbekannt", p.reportedAt ? `Gemeldet: ${p.reportedAt}` : "", "Mängelmelder.de · CC BY-SA"].filter(Boolean));
+        const reportId = p.id ?? String(feature.id ?? "");
+        const card = detailCard(`Mängelmeldung ${reportId}`, "Öffentlicher Mängelmelder", ["Mängelmelder.de · CC BY-SA"]);
+        const detail = document.createElement("div");
+        detail.className = "mt-2 space-y-2";
+        const loading = document.createElement("p");
+        loading.textContent = "Beschreibung und Fotos werden geladen …";
+        detail.append(loading);
+        card.append(detail);
         const link = document.createElement("a");
-        link.href = p.url; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = "Originalmeldung öffnen";
+        link.href = p.url ?? `https://www.xn--mngelmelder-l8a.de/bms/${encodeURIComponent(reportId)}`; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = "Originalmeldung öffnen";
         card.append(link);
         marker.bindPopup(card, { maxWidth: 320 });
+        let loaded = false;
+        let pending = false;
+        marker.on("popupopen", () => {
+          if (loaded || pending) return;
+          pending = true;
+          fetch(`/api/maengelmelder/${encodeURIComponent(reportId)}`)
+            .then(response => { if (!response.ok) throw new Error("Details nicht verfügbar"); return response.json() as Promise<ReportDetails>; })
+            .then(report => {
+              detail.replaceChildren();
+              const rows = [
+                report.category ? `Kategorie: ${report.category}` : "",
+                report.status ? `Status: ${report.status}` : "",
+                report.reportedAt ? `Gemeldet: ${new Date(report.reportedAt).toLocaleString("de-DE")}` : "",
+              ].filter(Boolean);
+              for (const value of rows) {
+                const row = document.createElement("p");
+                row.textContent = value;
+                detail.append(row);
+              }
+              if (report.description?.trim()) {
+                const description = document.createElement("p");
+                description.className = "whitespace-pre-wrap break-words";
+                description.textContent = report.description;
+                detail.append(description);
+              }
+              for (const photo of report.images ?? []) {
+                const anchor = document.createElement("a");
+                anchor.href = photo.original; anchor.target = "_blank"; anchor.rel = "noreferrer";
+                const image = document.createElement("img");
+                image.src = photo.preview; image.alt = `Foto zu Mängelmeldung ${reportId}`; image.loading = "lazy";
+                image.className = "max-h-56 w-full rounded object-contain";
+                anchor.append(image);
+                detail.append(anchor);
+              }
+              if (!detail.childElementCount) {
+                const empty = document.createElement("p");
+                empty.textContent = "Für diese Meldung sind keine Beschreibung oder Fotos veröffentlicht.";
+                detail.append(empty);
+              }
+              loaded = true;
+            })
+            .catch(() => { loading.textContent = "Meldungsdetails derzeit nicht verfügbar. Bitte Originalmeldung öffnen."; })
+            .finally(() => { pending = false; });
+        });
       },
     }).addTo(map);
     const attribution = '<a href="https://www.xn--mngelmelder-l8a.de/" target="_blank" rel="noreferrer">Mängelmelder.de · CC BY-SA</a>';
@@ -49,7 +101,7 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
   }, [map, snapshot]);
   return <section className="space-y-1" aria-label="Mängelmelder">
     <strong>Mängelmelder im Ried</strong>
-    <p>Öffentliche Meldungen aus dem gesamten Kartenausschnitt. Kategorien und Status werden angezeigt; Beschreibung, Adresse und Fotos werden nicht übernommen.</p>
+    <p>Öffentliche Meldungen aus dem gesamten Kartenausschnitt. Beschreibung und öffentliche Fotos erscheinen beim Öffnen einer Meldung.</p>
     <p role="status">{failed ? "Mängelmeldungen derzeit nicht verfügbar." : snapshot ? `${snapshot.features.length} Meldungen · Datenstand bei letzter Erfassung.` : "Mängelmeldungen werden geladen …"}</p>
     <p><a className="underline" href="https://www.xn--mngelmelder-l8a.de/" target="_blank" rel="noreferrer">Mängelmelder.de</a> · Inhalte CC BY-SA</p>
   </section>;
