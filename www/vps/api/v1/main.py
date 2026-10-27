@@ -80,6 +80,7 @@ async def lifespan(app: FastAPI):
             await conn.execute((Path(__file__).parent / "migrations" / "20261010_webcam_retention.sql").read_text())
             await conn.execute((Path(__file__).parent / "migrations" / "20261016_ttn_ingestion.sql").read_text())
             await conn.execute((Path(__file__).parent / "migrations" / "20261020_sensor_window_statistics.sql").read_text())
+            await conn.execute((Path(__file__).parent / "migrations" / "20261027_newsletter_subscribers.sql").read_text())
             await conn.execute((Path(__file__).parent / "migrations" / "20261016_reading_export_index.sql").read_text())
             await ensure_core_ready(conn)
         yield

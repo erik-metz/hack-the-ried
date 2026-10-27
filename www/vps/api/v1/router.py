@@ -7,11 +7,12 @@ from endpoints import (
     environment_measurements,
     fuel,
     map_sensors,
+    newsletter,
     pitch,
     satellite,
     satellite_tracking,
-    sensors,
     sensor_integrations,
+    sensors,
     social_daily_life,
     street_closures,
     telemetry,
@@ -22,6 +23,7 @@ from fastapi import APIRouter
 
 api_router = APIRouter()
 api_router.include_router(environment_measurements.router)
+api_router.include_router(newsletter.router)
 api_router.include_router(collected.router)
 api_router.include_router(satellite.router)
 api_router.include_router(satellite_tracking.router)

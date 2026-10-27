@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import DashboardClient from "./components/DashboardClient.tsx";
 import SiteFooter from "./components/SiteFooter";
+import NewsletterSignup from "./components/NewsletterSignup";
 import SiteHeader from "./components/SiteHeader";
 
 export const dynamic = "force-dynamic";
@@ -119,22 +120,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="newsletter" aria-labelledby="newsletter-title" className="rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6 sm:p-9 scroll-mt-24">
-          <div className="max-w-3xl space-y-4">
-            <p className="text-sm font-medium text-emerald-400">Neuigkeiten aus dem Ried</p>
-            <h2 id="newsletter-title" className="text-2xl sm:text-3xl font-bold tracking-tight">Bleib auf dem Laufenden.</h2>
-            <p className="text-sm sm:text-base leading-relaxed text-slate-300">
-              Möchtest du über neue Daten, Workshops und Aktionen von HackTheRied informiert werden?
-              Schreib uns eine kurze Nachricht. Wir melden uns, sobald der Newsletter startet.
-            </p>
-            <a
-              href="mailto:info@kamue.me?subject=Newsletter%20HackTheRied&body=Hallo%2C%20ich%20m%C3%B6chte%20Informationen%20zum%20HackTheRied-Newsletter%20erhalten."
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400"
-            >
-              Interesse per E-Mail anmelden <ArrowRight className="size-4" aria-hidden="true" />
-            </a>
-          </div>
-        </section>
+        <NewsletterSignup />
 
         <section id="mitmachen" aria-labelledby="community-title" className="grid lg:grid-cols-2 gap-8 lg:gap-14 border-t border-slate-800 pt-10 sm:pt-12 scroll-mt-24">
           <div className="space-y-6">
