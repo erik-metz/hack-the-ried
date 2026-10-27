@@ -6,6 +6,7 @@ import { updateMarkerDialogs } from "@/lib/mapDialogs";
 import MapContextLayer from "./MapContextLayer";
 import MapSupplementaryLayer from "./MapSupplementaryLayer";
 import MapMaengelmelderLayer from "./MapMaengelmelderLayer";
+import MapSchadlingsradarLayer from "./MapSchadlingsradarLayer";
 import MapRestAreaLayer from "./MapRestAreaLayer";
 import MapFuelLayer from "./MapFuelLayer";
 import MapEarthObservationLayer from "./MapEarthObservationLayer";
@@ -651,6 +652,7 @@ export default function MapComponent(props: MapProps) {
         {layers.nature ? <MapSupplementaryLayer map={mapInstance} id="protected" /> : null}
         {layers.monitoring ? <MapSupplementaryLayer map={mapInstance} id="monitoring" /> : null}
         {layers.maengelmelder ? <MapMaengelmelderLayer map={mapInstance} /> : null}
+        {layers.schadlingsradar ? <MapSchadlingsradarLayer map={mapInstance} /> : null}
         {layers.warnings ? <MapSupplementaryLayer map={mapInstance} id="warnings" /> : null}
         {layers.charging ? <MapSupplementaryLayer map={mapInstance} id="chargers" primary={publication.layers.charging} /> : null}
         {layers.landcover ? <MapContextLayer map={mapInstance} id="landcover" /> : null}

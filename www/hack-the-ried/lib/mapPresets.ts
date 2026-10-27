@@ -54,6 +54,7 @@ export const LAYER_MIN_ZOOM: Record<MapLayerId, number> = {
   // Regional (Zoom 8-11)
   monitoring: 12,
   maengelmelder: 8,
+  schadlingsradar: 8,
   warnings: 8,
   landcover: 12,
   floodrisk: 10,
@@ -100,6 +101,7 @@ export function isLayerZoomRestricted(id: MapLayerId, zoom: number): boolean {
 export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {
   monitoring: { id: "monitoring", label: "Gewässermessstellen", icon: "💧", category: "environment", description: "BfG-Verzeichnis: Grundwasser- und Oberflächenwassermessstellen · keine Live-Messwerte", minZoom: 12 },
   maengelmelder: { id: "maengelmelder", label: "Mängelmelder", icon: "🛠️", category: "planning", description: "Öffentliche Mängelmeldungen im Ried · Status und Kategorie, ohne Beschreibung, Adresse oder Foto", minZoom: 8 },
+  schadlingsradar: { id: "schadlingsradar", label: "Schädlingsradar", icon: "🐀", category: "environment", description: "Öffnet die öffentlichen Schädlingsmeldungen für Bürstadt, Lampertheim, Biblis und Groß-Rohrheim nach Postleitzahl · Gebietsmarker, keine Fundorte", minZoom: 8 },
   warnings: { id: "warnings", label: "DWD-Wetterwarnungen", icon: "⚠️", category: "environment", description: "Warnpolygone über Esri · etwa 30 Minuten verzögert · mit Quellenaktualität", minZoom: 8 },
   landcover: { id: "landcover", label: "Landbedeckung 2021", icon: "🌱", category: "environment", description: "BKG-Landbedeckung im Ried · historischer Flächenkontext, Mindestkartierfläche 1 ha", minZoom: 12 },
   floodrisk: { id: "floodrisk", label: "Hochwasserrisikoflächen", icon: "🌊", category: "environment", description: "BfG-Szenarien 2016–2021, Bearbeitung 2024 · keine aktuelle Überflutung oder Starkregenprognose", minZoom: 10 },
@@ -395,6 +397,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
     layers: {
       monitoring: false,
       maengelmelder: false,
+      schadlingsradar: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
@@ -438,6 +441,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
     layers: {
       monitoring: false,
       maengelmelder: false,
+      schadlingsradar: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
@@ -481,6 +485,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
     layers: {
       monitoring: false,
       maengelmelder: false,
+      schadlingsradar: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
@@ -524,6 +529,7 @@ export const LAYER_PRESETS: Record<LayerPresetId, LayerPreset> = {
     layers: {
       monitoring: false,
       maengelmelder: false,
+      schadlingsradar: false,
       warnings: false,
       landcover: false,
       floodrisk: false,
