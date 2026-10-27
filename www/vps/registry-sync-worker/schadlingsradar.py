@@ -71,7 +71,9 @@ def parse_aggregate(payload, postal_code):
     if not isinstance(raw_species, dict):
         raise TypeError("Invalid Schädlingsradar species aggregate")
 
-    reports = {}
+    # Keep explicit zero readings for supported species. Empty PLZ aggregates
+    # are valid provider data and must still appear in the measurement history.
+    reports = {species: {period: 0 for period in PERIODS} for species in SPECIES}
     for species, values in raw_species.items():
         if species not in SPECIES or not isinstance(values, dict):
             continue

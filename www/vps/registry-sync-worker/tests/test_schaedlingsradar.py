@@ -7,7 +7,9 @@ from datetime import datetime
 from schadlingsradar import (
     BASE_URL,
     DATASET,
+    PERIODS,
     RIED_POSTCODES,
+    SPECIES,
     import_schaedlingsradar,
     parse_aggregate,
 )
@@ -61,7 +63,23 @@ class SchadlingsradarTests(unittest.TestCase):
             "68642",
         )
         self.assertEqual(parsed["generated"], datetime.fromisoformat("2026-10-27T14:30:01+01:00"))
-        self.assertEqual(parsed["reports"], {"ratten": {"d7": 1, "d30": 3, "d90": 5, "d365": 8, "dalle": 9}})
+        self.assertEqual(parsed["reports"]["ratten"], {"d7": 1, "d30": 3, "d90": 5, "d365": 8, "dalle": 9})
+        self.assertTrue(all(parsed["reports"]["maeuse"][period] == 0 for period in PERIODS))
+
+    def test_empty_live_aggregate_produces_explicit_zero_values(self):
+        parsed = parse_aggregate(
+            {
+                "generated": "2026-10-27T14:30:01+01:00",
+                "demo": False,
+                "name": "68642 Bürstadt",
+                "arten": {},
+            },
+            "68642",
+        )
+        self.assertEqual(set(parsed["reports"]), set(SPECIES))
+        self.assertTrue(
+            all(count == 0 for periods in parsed["reports"].values() for count in periods.values())
+        )
 
     def test_rejects_demo_data_wrong_postcode_and_invalid_counts(self):
         base = {"generated": "2026-10-27T14:30:01+01:00", "demo": False, "name": "68642 Bürstadt", "arten": {}}
