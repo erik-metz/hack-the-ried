@@ -141,6 +141,14 @@ test("parseMapSessionState parses selected node and metric", () => {
   assert.equal(parsed.metric, "pm25");
 });
 
+test("sun and moon overlay is off by default and can be shared in the URL", () => {
+  assert.equal(urlState.parseMapSessionState("").sky, undefined);
+  assert.equal(urlState.parseMapSessionState("sky=1").sky, true);
+  assert.equal(urlState.parseMapSessionState("sky=0").sky, false);
+  assert.equal(urlState.serializeMapSessionState({ sky: true }), "sky=1");
+  assert.equal(urlState.serializeMapSessionState({ sky: false }), "");
+});
+
 test("serializeMapSessionState omits default values for clean URLs", () => {
   const defaultState = {
     lat: 49.62,

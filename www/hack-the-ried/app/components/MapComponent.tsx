@@ -50,6 +50,7 @@ interface MapProps {
   onOpenLayersDrawer?: () => void;
   onActiveClosuresCountChange?: (count: number) => void;
   satelliteMode?: "none" | "rgb" | "ndvi" | "ecostress" | "firms";
+  skyEnabled?: boolean;
   satelliteSceneId?: string;
 }
 interface LayerPublication {
@@ -617,7 +618,7 @@ export default function MapComponent(props: MapProps) {
   return <div className="w-full space-y-3">
     <div className="relative">
       <div ref={container} className="sensor-map h-[500px] w-full" aria-label="Karte mit aktuellen Quelldaten" />
-      <MapSkyWidget />
+      {props.skyEnabled ? <MapSkyWidget /> : null}
     </div>
     {layers.traffic && trafficCorridors.length > 0 && (
       <div className="flex flex-wrap items-center gap-2" aria-label="Verkehrsauslastung">

@@ -55,6 +55,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
   const [isLayersDrawerOpen, setIsLayersDrawerOpen] = useState(false);
   const [activeClosuresCount, setActiveClosuresCount] = useState(0);
   const [satelliteMode, setSatelliteMode] = useState<"none" | "rgb" | "ndvi" | "ecostress" | "firms">("none");
+  const [skyEnabled, setSkyEnabled] = useState(false);
 
   const stored = useSyncExternalStore(subscribe, preferences, () => DEFAULT_SELECTION);
   const categories = useMemo(() => parseStoredCategories(stored), [stored]);
@@ -95,6 +96,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
       setViewport((prev) => ({ ...prev, z: urlState.z! }));
     }
     if (urlState.metric) setSelectedMetric(urlState.metric);
+    setSkyEnabled(urlState.sky ?? false);
     setMounted(true);
   }, []);
 
@@ -114,6 +116,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
         });
       }
       if (urlState.metric !== undefined) setSelectedMetric(urlState.metric);
+      setSkyEnabled(urlState.sky ?? false);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -131,9 +134,10 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
       layers,
       node: selectedNodeId,
       metric: selectedMetric,
+      sky: skyEnabled,
     });
     updateUrlDebounced(query);
-  }, [mounted, viewport, mode, categories, layers, selectedNodeId, selectedMetric]);
+  }, [mounted, viewport, mode, categories, layers, selectedNodeId, selectedMetric, skyEnabled]);
 
   const handleShare = () => {
     if (typeof window === "undefined") return;
@@ -147,6 +151,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
         layers,
         node: selectedNodeId,
         metric: selectedMetric,
+        sky: skyEnabled,
       },
       { includeDefaults: false }
     );
@@ -180,6 +185,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
     setMode("category");
     setSelectedNodeId(undefined);
     setLayers(DEFAULT_MAP_LAYERS);
+    setSkyEnabled(false);
     setViewport({ lat: DEFAULT_MAP_CENTER[0], lng: DEFAULT_MAP_CENTER[1], z: DEFAULT_MAP_ZOOM });
     setSelectedMetric(undefined);
   };
@@ -231,6 +237,8 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
         }}
         satelliteMode={satelliteMode}
         onSatelliteModeChange={setSatelliteMode}
+        skyEnabled={skyEnabled}
+        onSkyEnabledChange={setSkyEnabled}
         layers={layers}
         onLayerToggle={(layerId, enabled) =>
           setLayers((prev) => ({ ...prev, [layerId]: enabled }))
@@ -282,6 +290,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
         initialZoom={viewport.z}
         layers={layers}
         satelliteMode={satelliteMode}
+        skyEnabled={skyEnabled}
         onViewportChange={(center, zoom) =>
           setViewport({ lat: center[0], lng: center[1], z: zoom })
         }

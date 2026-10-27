@@ -89,6 +89,7 @@ export interface MapSessionState {
   layers?: Record<MapLayerId, boolean>;
   node?: string;
   metric?: string;
+  sky?: boolean;
 }
 
 export function parseMapSessionState(
@@ -190,6 +191,11 @@ export function parseMapSessionState(
     result.metric = metricStr.trim();
   }
 
+  // Regional sun and moon overlay; disabled unless explicitly enabled.
+  const skyStr = params.get("sky");
+  if (skyStr === "1" || skyStr === "true") result.sky = true;
+  else if (skyStr === "0" || skyStr === "false") result.sky = false;
+
   return result;
 }
 
@@ -261,6 +267,10 @@ export function serializeMapSessionState(
   // Metric
   if (state.metric) {
     params.set("metric", state.metric);
+  }
+
+  if (includeDefaults || state.sky) {
+    params.set("sky", state.sky ? "1" : "0");
   }
 
   return params.toString();

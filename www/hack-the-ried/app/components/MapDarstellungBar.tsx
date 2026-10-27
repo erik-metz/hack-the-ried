@@ -10,6 +10,7 @@ import {
   Thermometer,
   RotateCcw,
   Satellite,
+  Sun,
 } from "lucide-react";
 import { CATEGORIES, CATEGORY_IDS, DEFAULT_MAP_CATEGORIES, type Category, type MapMode } from "@/lib/mapData";
 import { MAP_LAYER_IDS, type MapLayerId, DEFAULT_MAP_LAYERS } from "@/lib/urlState";
@@ -31,6 +32,8 @@ interface MapDarstellungBarProps {
   onModeChange: (mode: MapMode) => void;
   satelliteMode?: "none" | "rgb" | "ndvi" | "ecostress" | "firms";
   onSatelliteModeChange?: (mode: "none" | "rgb" | "ndvi" | "ecostress" | "firms") => void;
+  skyEnabled: boolean;
+  onSkyEnabledChange: (enabled: boolean) => void;
   layers: Record<MapLayerId, boolean>;
   onLayerToggle: (id: MapLayerId, enabled: boolean) => void;
   onSetLayers: (layers: Record<MapLayerId, boolean>) => void;
@@ -52,6 +55,8 @@ export default function MapDarstellungBar({
   onModeChange,
   satelliteMode = "none",
   onSatelliteModeChange,
+  skyEnabled,
+  onSkyEnabledChange,
   layers,
   onLayerToggle,
   onSetLayers,
@@ -62,7 +67,7 @@ export default function MapDarstellungBar({
   filteredCount,
   zoom = 12,
 }: MapDarstellungBarProps) {
-  const totalActive = countActiveLayers(layers) + sensorCategories.length;
+  const totalActive = countActiveLayers(layers) + sensorCategories.length + (skyEnabled ? 1 : 0);
 
   const toggleCategoryAll = (category: LayerCategory) => {
     const items = getLayersByCategory(category);
@@ -211,6 +216,27 @@ export default function MapDarstellungBar({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-3">
+            <span className="text-[11px] font-semibold text-slate-300 inline-flex items-center gap-1">
+              <Sun className="size-3 text-amber-400" />
+              <span>Sonne &amp; Mond:</span>
+            </span>
+            <button
+              type="button"
+              aria-label="Sonnen- und Mondstand auf der Karte anzeigen"
+              aria-pressed={skyEnabled}
+              onClick={() => onSkyEnabledChange(!skyEnabled)}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                skyEnabled
+                  ? "bg-amber-950/70 text-amber-200 border border-amber-500/50"
+                  : "bg-slate-950/70 text-slate-400 border border-slate-800 hover:text-slate-200"
+              }`}
+              title="Sonnenposition, Mondposition und Mondphase auf der Karte anzeigen"
+            >
+              {skyEnabled ? "An" : "Aus"}
+            </button>
           </div>
 
 
