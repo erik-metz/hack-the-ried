@@ -16,8 +16,8 @@
       "adapter": "schadlingsradar",
       "enabled": true,
       "url": "https://www.schaedlingsradar.de/agg/plz/",
-      "interval_seconds": 900,
-      "max_age_seconds": 3600,
+      "interval_seconds": 86400,
+      "max_age_seconds": 172800,
       "description": "Öffentliche, nach PLZ aggregierte Meldungszahlen aus den Radar-JSON-Dateien für acht Ried-PLZ; keine einzelnen Meldungstexte oder Fundkoordinaten."
     },
     {

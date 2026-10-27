@@ -14,6 +14,14 @@ from schadlingsradar import (
 
 
 class SchadlingsradarTests(unittest.TestCase):
+    def test_source_is_scheduled_daily(self):
+        from pathlib import Path
+
+        manifest = json.loads((Path(__file__).parents[1] / "sources.json").read_text())
+        source = next(item for item in manifest["sources"] if item["id"] == "schadlingsradar-ried")
+        self.assertEqual(source["interval_seconds"], 24 * 60 * 60)
+        self.assertEqual(source["max_age_seconds"], 2 * 24 * 60 * 60)
+
     def test_parse_keeps_only_validated_period_counts(self):
         parsed = parse_aggregate(
             {
