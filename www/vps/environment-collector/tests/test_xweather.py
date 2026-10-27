@@ -1,10 +1,16 @@
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from xweather import normalize_lightning, validate_response
+from source import _xweather_retry_at
 
 
 class XweatherTests(unittest.TestCase):
+    def test_legacy_quota_cooldown_is_based_on_failure_time(self):
+        received = datetime(2026, 10, 27, 18, tzinfo=UTC)
+        self.assertEqual(_xweather_retry_at('HTTP 429', received), received + timedelta(minutes=15))
+        self.assertEqual(_xweather_retry_at('HTTP 429 maxhits', received), received + timedelta(hours=24))
+
     def test_confirmed_empty_window(self):
         point = normalize_lightning({'success': True, 'error': {'code': 'warn_no_data'}, 'response': []},
                                     '2026-10-08T10:00:00+00:00', 49.6425, 8.4552, 25)

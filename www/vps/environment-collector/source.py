@@ -36,10 +36,10 @@ async def fetch(client, settings, conn=None):
             continue
         if name == 'xweather' and conn:
             previous = await (await conn.execute(
-                """SELECT error FROM collection_attempts WHERE source_id='environment-xweather'
+                """SELECT error,received_at FROM collection_attempts WHERE source_id='environment-xweather'
                 AND status='failed' ORDER BY received_at DESC LIMIT 1"""
             )).fetchone()
-            retry_at = _xweather_retry_at(previous[0] if previous else None)
+            retry_at = _xweather_retry_at(previous[0] if previous else None, previous[1] if previous else None)
             if retry_at and retry_at > datetime.now(UTC):
                 continue
         try:
@@ -142,7 +142,7 @@ async def fetch(client, settings, conn=None):
     return payload
 
 
-def _xweather_retry_at(error):
+def _xweather_retry_at(error, received_at=None):
     if not isinstance(error, str) or 'HTTP 429' not in error:
         return None
     quota_exhausted = 'maxhits' in error
@@ -152,7 +152,11 @@ def _xweather_retry_at(error):
         return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
     except (IndexError, ValueError):
         # Quota resets are period-based; avoid another request every five minutes.
-        return datetime.now(UTC) + timedelta(hours=24 if quota_exhausted else 0, minutes=0 if quota_exhausted else 15)
+        if received_at is None:
+            return None
+        if received_at.tzinfo is None:
+            received_at = received_at.replace(tzinfo=UTC)
+        return received_at + timedelta(hours=24 if quota_exhausted else 0, minutes=0 if quota_exhausted else 15)
 
 
 def _xweather_reset(headers, now, error_code):
