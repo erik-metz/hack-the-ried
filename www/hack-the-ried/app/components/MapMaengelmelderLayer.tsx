@@ -100,8 +100,8 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
     return () => { layer.remove(); map.attributionControl?.removeAttribution(attribution); };
   }, [map, snapshot]);
   return <section className="space-y-1" aria-label="Mängelmelder">
-    <strong>Mängelmelder im Ried</strong>
-    <p>Öffentliche Meldungen aus dem gesamten Kartenausschnitt. Beschreibung und öffentliche Fotos erscheinen beim Öffnen einer Meldung.</p>
+    <strong>Mängelmelder im Hessischen Ried</strong>
+    <p>Öffentliche Meldungen aus dem Kartenausschnitt einschließlich Lorsch, Einhausen, Bensheim und Heppenheim. Beschreibung und öffentliche Fotos erscheinen beim Öffnen einer Meldung.</p>
     <p role="status">{failed ? "Mängelmeldungen derzeit nicht verfügbar." : snapshot ? `${snapshot.features.length} Meldungen · Datenstand bei letzter Erfassung.` : "Mängelmeldungen werden geladen …"}</p>
     <p><a className="underline" href="https://www.xn--mngelmelder-l8a.de/" target="_blank" rel="noreferrer">Mängelmelder.de</a> · Inhalte CC BY-SA</p>
   </section>;

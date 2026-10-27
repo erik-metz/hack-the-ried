@@ -6,6 +6,19 @@ from maengelmelder import API_URL, BOUNDS, import_maengelmelder, parse_geojson
 
 
 class MaengelmelderTests(unittest.TestCase):
+    def test_collection_bounds_cover_new_ried_towns(self):
+        town_centers = {
+            "Lorsch": (8.569, 49.653),
+            "Einhausen": (8.548, 49.676),
+            "Bensheim": (8.617, 49.680),
+            "Heppenheim": (8.647, 49.641),
+        }
+        for town, (longitude, latitude) in town_centers.items():
+            self.assertTrue(
+                any(west <= longitude <= east and south <= latitude <= north for west, south, east, north in BOUNDS),
+                f"Mängelmelder bounds do not cover {town}",
+            )
+
     def test_parse_keeps_minimal_fields_and_filters_to_ried(self):
         payload = {
             "type": "FeatureCollection",

@@ -22,6 +22,17 @@ class SchadlingsradarTests(unittest.TestCase):
         self.assertEqual(source["interval_seconds"], 24 * 60 * 60)
         self.assertEqual(source["max_age_seconds"], 2 * 24 * 60 * 60)
 
+    def test_added_bergstrasse_postcodes_are_covered(self):
+        self.assertEqual(
+            {item["postcode"] for item in RIED_POSTCODES},
+            {"68623", "68642", "68647", "68649", "64560", "64579", "64584", "64589",
+             "64653", "64683", "64625", "64646"},
+        )
+        self.assertEqual(
+            {item["name"] for item in RIED_POSTCODES if item["postcode"] in {"64653", "64683", "64625", "64646"}},
+            {"Lorsch", "Einhausen", "Bensheim", "Heppenheim"},
+        )
+
     def test_parse_keeps_only_validated_period_counts(self):
         parsed = parse_aggregate(
             {

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Sensorkarte & Satelliten-Layer | HackTheRied",
   description:
-    "Interaktive Karte für Bürstadt, Lampertheim und das Hessische Ried: Live-Sensordaten, Mobilität, Kommunallayer sowie Copernicus Sentinel-2 Satellitenbilder (Echtfarben RGB & NDVI Vegetationsgesundheit).",
+    "Interaktive Karte für das Hessische Ried einschließlich Lorsch, Einhausen, Bensheim und Heppenheim: Live-Sensordaten, Mobilität, Kommunallayer sowie Copernicus Sentinel-2 Satellitenbilder (Echtfarben RGB & NDVI Vegetationsgesundheit).",
 };
 
 async function fetchSensors() {
