@@ -80,7 +80,7 @@ def test_current_odim_hdf5_radolan_composite():
     ul_lon, ul_lat = inverse.transform(x - 1000, y + 1000)
     stream = io.BytesIO()
     with h5py.File(stream, "w") as radar:
-        radar.attrs["Conventions"] = "ODIM_H5/V2_3"
+        radar.attrs["Conventions"] = np.bytes_("ODIM_H5/V2_3")
         dataset = radar.create_group("dataset1")
         what = dataset.create_group("what")
         what.attrs["enddate"] = "20261027"
@@ -88,7 +88,7 @@ def test_current_odim_hdf5_radolan_composite():
         data = dataset.create_group("data1")
         data.create_dataset("data", data=np.array([[99, 99, 99], [99, 250, 99], [99, 99, 99]], dtype="u2"))
         info = data.create_group("what")
-        for key, value in {"quantity": "ACRR", "gain": 0.01, "offset": 0,
+        for key, value in {"quantity": np.bytes_("ACRR"), "gain": 0.01, "offset": 0,
                            "nodata": 65535, "undetect": 0}.items():
             info.attrs[key] = value
         where = radar.create_group("where")

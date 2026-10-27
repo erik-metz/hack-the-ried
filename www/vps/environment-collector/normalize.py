@@ -166,13 +166,19 @@ def parse_radolan_hdf5(raw_bytes: bytes, target_lat: float, target_lon: float) -
         from pyproj import CRS, Transformer
 
         with h5py.File(io.BytesIO(raw_bytes), "r") as radar:
-            if radar.attrs.get("Conventions") != "ODIM_H5/V2_3":
+            conventions = radar.attrs.get("Conventions")
+            if isinstance(conventions, bytes):
+                conventions = conventions.decode()
+            if conventions != "ODIM_H5/V2_3":
                 return None
             data = radar["dataset1/data1/data"]
             metadata = radar["dataset1/data1/what"].attrs
             composite = radar["dataset1/what"].attrs
             where = radar["where"].attrs
-            if metadata.get("quantity") != "ACRR":
+            quantity = metadata.get("quantity")
+            if isinstance(quantity, bytes):
+                quantity = quantity.decode()
+            if quantity != "ACRR":
                 return None
             values = np.asarray(data)
             rows, columns = values.shape
