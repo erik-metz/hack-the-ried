@@ -81,30 +81,96 @@ export default function MapSchadlingsradarLayer({ map }: { map: L.Map }) {
       },
       onEachFeature: (feature, marker) => {
         const { name, postcode, reports, url } = feature.properties;
-        const card = detailCard(`Schädlingsmeldungen · ${name}`, `PLZ ${postcode} · Meldungen, keine Tierzahlen`, [
-          `Datenstand: ${snapshot.generated ? new Date(snapshot.generated).toLocaleString("de-DE") : "unbekannt"}`,
-          "Marker zeigt das Gebiet, keinen Fundort",
-        ]);
-        const table = document.createElement("div");
-        table.className = "mt-2 space-y-1";
-        const heading = document.createElement("p");
-        heading.className = "font-semibold";
-        heading.textContent = "Meldungen nach Schädlingsart";
-        table.append(heading);
-        for (const [species, label] of Object.entries(SPECIES_LABELS)) {
-          const counts = reports[species] ?? { d7: 0, d30: 0, d90: 0, d365: 0, dalle: 0 };
-          const row = document.createElement("p");
-          row.textContent = `${label}: 7T ${counts.d7} · 30T ${counts.d30} · 90T ${counts.d90} · 12M ${counts.d365} · gesamt ${counts.dalle}`;
-          table.append(row);
+        const card = detailCard(`Schädlingsmeldungen · ${name}`, `PLZ ${postcode} · Meldungen nach Gebiet`, []);
+        const timestamp = document.createElement("p");
+        timestamp.className = "schadlingsradar-timestamp";
+        timestamp.textContent = `Datenstand: ${snapshot.generated
+          ? new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(snapshot.generated))
+          : "unbekannt"}`;
+        card.append(timestamp);
+
+        const allSpecies = Object.entries(SPECIES_LABELS).map(([species, label]) => ({
+          label,
+          counts: reports[species] ?? { d7: 0, d30: 0, d90: 0, d365: 0, dalle: 0 },
+        }));
+        const totals = allSpecies.reduce(
+          (sum, item) => ({ d7: sum.d7 + item.counts.d7, d30: sum.d30 + item.counts.d30, dalle: sum.dalle + item.counts.dalle }),
+          { d7: 0, d30: 0, dalle: 0 },
+        );
+        const summary = document.createElement("div");
+        summary.className = "schadlingsradar-summary";
+        for (const [label, value] of [["Letzte 7 Tage", totals.d7], ["Letzte 30 Tage", totals.d30], ["Insgesamt", totals.dalle]] as const) {
+          const item = document.createElement("div");
+          item.className = "schadlingsradar-summary-item";
+          const number = document.createElement("strong");
+          number.textContent = String(value);
+          const caption = document.createElement("span");
+          caption.textContent = label;
+          item.append(number, caption);
+          summary.append(item);
         }
-        card.append(table);
+        card.append(summary);
+
+        const activeSpecies = allSpecies.filter(({ counts }) =>
+          counts.d7 > 0 || counts.d30 > 0 || counts.d90 > 0 || counts.d365 > 0 || counts.dalle > 0,
+        );
+        const results = document.createElement("div");
+        results.className = "schadlingsradar-results";
+        const heading = document.createElement("h3");
+        heading.className = "schadlingsradar-section-title";
+        heading.textContent = activeSpecies.length ? "Meldungen nach Schädlingsart" : "Keine Meldungen erfasst";
+        results.append(heading);
+        if (activeSpecies.length) {
+          const list = document.createElement("ul");
+          list.className = "schadlingsradar-species-list";
+          for (const { label, counts } of activeSpecies) {
+            const row = document.createElement("li");
+            const speciesName = document.createElement("strong");
+            speciesName.textContent = label;
+            const values = document.createElement("span");
+            values.textContent = `7 Tage ${counts.d7} · 30 Tage ${counts.d30} · 90 Tage ${counts.d90} · 12 Monate ${counts.d365} · Gesamt ${counts.dalle}`;
+            row.append(speciesName, values);
+            list.append(row);
+          }
+          results.append(list);
+        } else {
+          const empty = document.createElement("p");
+          empty.className = "schadlingsradar-empty";
+          empty.textContent = "Für dieses PLZ-Gebiet liegen derzeit keine Meldungen vor.";
+          results.append(empty);
+        }
+        card.append(results);
+
+        const details = document.createElement("details");
+        details.className = "schadlingsradar-details";
+        const detailsLabel = document.createElement("summary");
+        detailsLabel.textContent = "Alle Schädlingsarten anzeigen";
+        const allList = document.createElement("ul");
+        allList.className = "schadlingsradar-species-list schadlingsradar-species-list-all";
+        for (const { label, counts } of allSpecies) {
+          const row = document.createElement("li");
+          const speciesName = document.createElement("strong");
+          speciesName.textContent = label;
+          const values = document.createElement("span");
+          values.textContent = `7 Tage ${counts.d7} · 30 Tage ${counts.d30} · 90 Tage ${counts.d90} · 12 Monate ${counts.d365} · Gesamt ${counts.dalle}`;
+          row.append(speciesName, values);
+          allList.append(row);
+        }
+        details.append(detailsLabel, allList);
+        card.append(details);
+
+        const note = document.createElement("p");
+        note.className = "schadlingsradar-location-note";
+        note.textContent = "Der Marker zeigt das PLZ-Gebiet, keinen Fundort.";
+        card.append(note);
         const link = document.createElement("a");
         link.href = url;
         link.target = "_blank";
-        link.rel = "noreferrer";
-        link.textContent = "PLZ-Lage beim Schädlingsradar öffnen";
+        link.rel = "noopener noreferrer";
+        link.className = "schadlingsradar-source-link";
+        link.textContent = "Details beim Schädlingsradar öffnen";
         card.append(link);
-        marker.bindPopup(card, { maxWidth: 360 });
+        marker.bindPopup(card, { className: "schadlingsradar-popup", maxWidth: 390, minWidth: 290 });
         marker.bindTooltip(`${name} · ${postcode} · ${totalForPeriod(reports, "d30")} Meldungen (30 Tage)`, { direction: "top", offset: [0, -12] });
       },
     }).addTo(map);
