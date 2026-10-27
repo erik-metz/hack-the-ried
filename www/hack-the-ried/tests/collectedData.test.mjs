@@ -68,6 +68,18 @@ test('movement compatibility routes pass the same stored batch through unchanged
  }
 });
 
+test('civic map layers bypass Next cache so new collections appear immediately',async()=>{
+ for (const layer of ['maengelmelder','schadlingsradar']) {
+  let seen;
+  const expected=Response.json({type:'FeatureCollection',features:[]});
+  const route=load('../app/api/collected/[...path]/route.ts',{'@/lib/collectedBackend':{proxyBackend:(path,ttl)=>{seen={path,ttl};return expected;}}});
+  const response=await route.GET(new Request('https://site.example/api/collected/civic/'+layer),{params:Promise.resolve({path:['civic',layer]})});
+  assert.equal(response,expected);
+  assert.equal(seen.path,`collected/civic/${layer}?`);
+  assert.equal(seen.ttl,0);
+ }
+});
+
 test('map renderer has no external tiles, bundled datasets or local simulations',()=>{
  const source=fs.readFileSync(new URL('../app/components/MapComponent.tsx',import.meta.url),'utf8');
  assert.doesNotMatch(source,/calculate\w+Mobility|calculateLocalTraffic|BASELINE_|VERIFIED_|tileLayer\("https?:/);
