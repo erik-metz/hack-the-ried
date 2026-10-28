@@ -3,6 +3,13 @@
 Stand: 28.10.2026. Status: Plan, noch keine Gateway-Software implementiert oder
 auf Hardware geprüft. Annahme: Standort Deutschland, EU868, Internet per Ethernet/PoE.
 
+Die [Recherche vorhandener Container und Projekte](vorhandene-projekte.md)
+ergänzt diesen Plan: Zuerst `xoseperez/basicstation` unverändert als Referenz
+testen und vorhandene Fernupdateverwaltung (balena) bewerten. Die folgenden
+Eigenentwicklungen für Queue und Updater sind Vorschläge für verbleibende
+Lücken, keine Voraussetzung für den ersten Basistest. Store-and-forward bleibt
+verbindliches Abnahmeziel; ein passendes Standardimage allein erfüllt es noch nicht.
+
 ## 1. Ziel und Entscheidungen
 
 Das Gateway besteht aus Raspberry Pi 4, RAK2287 mit Raspberry-Pi-HAT,
@@ -29,7 +36,8 @@ Vorgeschlagene Entscheidungen:
 - Persistenter, applicationunabhängiger Uplink-Puffer außerhalb des
   Container-Dateisystems; nötige Erweiterungen am Forwarder gezielt entwickeln.
 - TTN zuerst, ChirpStack später auf einem zentralen Server.
-- Eigener kleiner Update-Dienst auf dem Host, gestartet durch systemd.
+- Fernupdateverwaltung zunächst mit balena vergleichen; falls eine eigene
+  Lösung erforderlich ist, kleiner Update-Dienst auf dem Host über systemd.
 - Versionierte, signierte Release-Manifeste und Images mit festem Digest.
 - Automatisch ausrollen, sobald eine Version für den Standort freigegeben ist;
   ein beliebiger Code-Push ist noch keine Produktionsfreigabe.
@@ -311,6 +319,12 @@ später die LNS-Konfiguration verwalten; es ersetzt nicht automatisch unser
 Container- oder Host-Updateverfahren.
 
 ## 6. Automatische Updates mit Rücksprung
+
+Vor Umsetzung dieses Entwurfs vorhandene Fernupdateverwaltung gemäß
+[Projektvergleich](vorhandene-projekte.md) testen. Bei Wahl von balena diesen
+Abschnitt auf dessen Release-/Supervisor-Modell umstellen; keinen zweiten,
+konkurrierenden Update-Dienst daneben betreiben. Die Anforderungen an
+Funktionsprüfung, Queue-Erhalt und Rücksprung bleiben bestehen.
 
 Der Update-Dienst läuft auf dem Host, damit er auch nach einem defekten
 Forwarder-Container handlungsfähig bleibt. Kein Docker-Socket im Funkcontainer.
