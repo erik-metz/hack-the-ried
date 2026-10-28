@@ -299,7 +299,7 @@ Expected: `{"status":"healthy"}`.
 Verify the public route using your deployment hostname. The repository's nginx configuration uses:
 
 ```bash
-curl --fail --show-error https://api.hack-the-ried.de/health
+curl --fail --show-error https://hack-the-ried.duckdns.org/health
 ```
 
 If internal health works but nginx returns 502, inspect its logs and reload nginx after validating its configuration:

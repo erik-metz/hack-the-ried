@@ -5,8 +5,8 @@ Collector structure, CLI, reliability contracts, migration order and testing are
 This directory contains the FastAPI backend, TimescaleDB configuration, and
 independently deployable data collectors for the HackTheRied VPS at
 `169.58.102.132`. The public API is served over HTTPS through Nginx at
-`api.hack-the-ried.de`. The frontend is a separate Next.js deployment on
-Vercel.
+`hack-the-ried.duckdns.org`; `open-ried-sens.duckdns.org` remains a compatible
+alias. The frontend is a separate Next.js deployment on Vercel.
 
 ---
 
