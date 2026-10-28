@@ -485,6 +485,8 @@ test("related readings are grouped across sensor types that share a chart contex
     [[["soil_moisture_30cm", "%"], ["soil_tension_30cm", "kPa"]], "Bodenfeuchte"],
     [[["water_surface_distance", "cm"], ["water_level_delta", "m"]], "Wasserstand"],
     [[["day_ahead_price", "EUR/MWh"], ["total_load", "MW"], ["generation_power", "MW"]], "Energie"],
+    [[["current", "mA"], ["power", "mW"]], "Strom & Leistung"],
+    [[["bus_voltage", "mV"], ["shunt_voltage", "µV"]], "Spannungen"],
     [[["speed", "km/h"], ["free_flow_speed", "km/h"], ["delay", "s"]], "Verkehrsfluss"],
     [[["altitude_baro", "m"], ["altitude_geom", "m"]], "Flughöhe"],
     [[["evapotranspiration", "mm"], ["reference_evapotranspiration", "mm"]], "Verdunstung"],
@@ -507,6 +509,21 @@ test("related readings are grouped across sensor types that share a chart contex
   assert.equal(telemetry.metricLabel(reading("day_ahead_price", "EUR/MWh")), "Börsenstrompreis");
   assert.equal(telemetry.metricLabel(reading("dew_point", "°C")), "Taupunkt");
   assert.ok(telemetry.measurementGroupDescription("parking"));
+});
+
+test("INA measurements form two chart groups without hiding or mixing electrical units", () => {
+  const readings = [reading("bus_voltage", 5000, "mV"), reading("current", 120, "mA"), reading("power", 600, "mW"), reading("shunt_voltage", 12000, "µV"), reading("temperature", 22, "°C")];
+  const groups = telemetry.measurementCardGroups(readings);
+  assert.deepEqual(Array.from(groups, group => Array.from(group, item => item.metric)), [["bus_voltage", "shunt_voltage"], ["current", "power"], ["temperature"]]);
+  for (const group of groups.slice(0, 2)) {
+    assert.equal(new Set(group.map(item => item.unit)).size, 2);
+    assert.match(telemetry.measurementGroupDescription(telemetry.measurementGroup(group[0])), /getrennten Skalen/);
+  }
+  for (const [item, label] of readings.slice(0, 4).map((item, index) => [item, ["Busspannung", "Stromstärke", "Elektrische Leistung", "Shuntspannung"][index]])) {
+    assert.equal(telemetry.metricLabel(item), label);
+    assert.ok(telemetry.metricDescription(item));
+  }
+  assert.equal(telemetry.measurementCardGroups(readings.slice(0, 1))[0].length, 1);
 });
 
 test("weather identity is not overridden by generic parking notes in source descriptions", () => {

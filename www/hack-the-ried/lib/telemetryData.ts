@@ -17,6 +17,8 @@ export function measurementGroup(reading: { metric: string; unit: string }): str
   if (["soil_moisture", "soil_moisture_30cm", "soil_moisture_60cm", "soil_tension", "soil_tension_30cm", "soil_tension_60cm"].includes(metric)) return "soil-moisture";
   if (["water_surface_distance", "water_level_delta"].includes(metric)) return "water-level";
   if (["day_ahead_price", "total_load", "generation_power"].includes(metric)) return "energy";
+  if (["current", "power"].includes(metric)) return "station-power";
+  if (["bus_voltage", "shunt_voltage"].includes(metric)) return "station-voltage";
   if (["speed", "free_flow_speed", "delay"].includes(metric)) return "traffic-flow";
   if (["altitude_baro", "altitude_geom", "altitude_ogn"].includes(metric)) return "flight-altitude";
   if (["evapotranspiration", "reference_evapotranspiration"].includes(metric)) return "evapotranspiration";
@@ -38,6 +40,8 @@ const MEASUREMENT_GROUP_LABELS: Record<string, string> = {
   "soil-moisture": "Bodenfeuchte",
   "water-level": "Wasserstand",
   energy: "Energie",
+  "station-power": "Strom & Leistung",
+  "station-voltage": "Spannungen",
   "traffic-flow": "Verkehrsfluss",
   "flight-altitude": "Flughöhe",
   evapotranspiration: "Verdunstung",
@@ -58,6 +62,8 @@ const MEASUREMENT_GROUP_DESCRIPTIONS: Record<string, string> = {
   "soil-moisture": "Vergleich von Bodenwassergehalt und Bodensaugspannung, sofern beides erfasst wird.",
   "water-level": "Abstand zur Wasseroberfläche und Änderung des Wasserstands.",
   energy: "Energiepreise und Leistung im Zeitverlauf; die Einheiten werden getrennt skaliert.",
+  "station-power": "Stromstärke und elektrische Leistung am Messpunkt im gemeinsamen Verlauf, mit getrennten Skalen.",
+  "station-voltage": "Busspannung und Spannungsabfall am Messwiderstand im gemeinsamen Verlauf, mit getrennten Skalen.",
   "traffic-flow": "Geschwindigkeit und Verspätung des Verkehrsabschnitts im gemeinsamen Verlauf.",
   "flight-altitude": "Barometrische und geometrische Höhenmeldungen; der Höhenbezug kann sich unterscheiden.",
   evapotranspiration: "Tatsächliche und rechnerische Verdunstung zum Vergleich.",
@@ -118,6 +124,10 @@ const LABELS: Record<string, string> = {
   bme688_gas_resistance: "Luftgüte-Signal",
   pressure: "Luftdruck",
   sound_level: "Lautstärke",
+  bus_voltage: "Busspannung",
+  shunt_voltage: "Shuntspannung",
+  current: "Stromstärke",
+  power: "Elektrische Leistung",
   particle_number_pm0_5: "Feinstaub PM0.5 · Partikelanzahl",
   particle_number_pm1_0: "Feinstaub PM1.0 · Partikelanzahl",
   particle_number_pm2_5: "Feinstaub PM2.5 · Partikelanzahl",
@@ -261,6 +271,10 @@ export function metricDescription(reading: { metric: string; unit: string }): st
   if (/^pm(?:0_5|1_0|2_5|4_0|10)$/.test(reading.metric)) return "Masse der Feinstaubpartikel pro Luftvolumen in dieser Größenklasse.";
   if (reading.metric === "particle_size_typical") return "Typische Größe der erfassten Schwebeteilchen.";
   if (reading.metric === "bme688_gas_resistance") return "Reaktionssignal auf flüchtige Stoffe; daraus lässt sich keine direkte Konzentration ablesen.";
+  if (reading.metric === "bus_voltage") return "Elektrische Spannung am Bus-Messeingang des Stromsensors.";
+  if (reading.metric === "shunt_voltage") return "Spannungsabfall am Messwiderstand, aus dem der Sensor die Stromstärke berechnet.";
+  if (reading.metric === "current") return "Elektrische Stromstärke durch den Messwiderstand; das Vorzeichen zeigt die Stromrichtung.";
+  if (reading.metric === "power") return "Elektrische Leistung am Messpunkt, berechnet aus Spannung und Stromstärke.";
   if (reading.metric === "sound_level") return "Momentaner Schalldruckpegel; dBFS ist ein relativer digitaler Messwert.";
   if (reading.metric === "bme688_co2_equivalent") return "Vom Sensor geschätzter CO₂-Äquivalentwert; kein direkt gemessener CO₂-Wert.";
   if (reading.metric === "bme688_bvoc_equivalent") return "Vom Sensor geschätzter Wert für flüchtige organische Stoffe.";
