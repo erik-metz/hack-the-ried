@@ -102,10 +102,15 @@ separate Erweiterung der Zulassung und Zugangsdatenverwaltung benötigen.
   auf einer RAK-Trägerplatine mit Kühlkörper. Die genaue HAT-Revision und
   Schnittstellenvariante sind auf dem Foto nicht eindeutig ablesbar. Bei der
   beschriebenen Pi-HAT-Kombination ist SPI vorgesehen; am Board verifizieren.
+- Das ergänzte Rückseitenfoto zeigt eine 40-polige Buchsenleiste (`J1`) und
+  RAK-Beschriftung. Eine eindeutige Modell-/Revisionsnummer ist auch dort nicht
+  ablesbar. Die sichtbaren Leiterplatten-/Fertigungsmarkierungen werden nicht
+  als Produktrevision interpretiert. Das Foto belegt noch keine Stapelbarkeit
+  mit dem PoE+ HAT und keine geprüfte GPIO-Belegung.
 - Wetterbeständiges Gehäuse für den Pi am Dachstandort vorgesehen.
-- Vorläufige Höhenangabe des Nutzers: „12 m Höhe über dem Dach“. Im Standortblatt
-  noch festhalten, ob tatsächlich 12 m oberhalb der Dachfläche oder etwa 12 m
-  über Grund gemeint sind; Mast- und Montageplanung hängen davon ab.
+- Montagehöhe laut Nutzer etwa 12 m über dem Boden am Dachstandort.
+  Gebäude, konkrete Befestigung und Höhe relativ zur Dachfläche bleiben für
+  Standortblatt und Montageplanung festzulegen.
 - Antennenkabellänge laut Nutzer etwa 5 cm. Kabeltyp und vollständige
   Steckerkette bis zur TX868-BLG-26 bleiben zu dokumentieren. Das Foto allein
   bestätigt weder die Länge noch den Typ des äußeren Steckverbinders zuverlässig.
@@ -122,7 +127,7 @@ separate Erweiterung der Zulassung und Zugangsdatenverwaltung benötigen.
 | Datenträger | Geeignete High-Endurance-SD oder getestete SSD wählen; Ersatzmedium vorbereiten. |
 | Antenne | TX868-BLG-26, vertikal montiert, außerhalb abschirmender Bauteile. |
 | HF-Leitung | Etwa 5 cm laut Nutzer; 50-Ohm-Kabeltyp, passende Gegenstecker und Gesamtverluste einschließlich Adapter dokumentieren. |
-| Dachstandort | Montagehöhe, freie Sicht, Kabelführung, Wetterschutz und Wartungszugang festhalten. |
+| Dachstandort | Etwa 12 m über Boden bestätigt; konkrete Befestigung, freie Sicht, Kabelführung, Wetterschutz und Wartungszugang festhalten. |
 | Gebäudeschutz | Erdung, Potentialausgleich und Überspannungsschutz mit Gebäudeverantwortlichen/Fachbetrieb abstimmen. |
 | Netzwerk | DHCP/Adressreservierung, DNS, Uhrzeitsynchronisation und zulässige ausgehende Verbindungen prüfen. |
 
@@ -400,8 +405,9 @@ und Dachfreigabe hängen davon ab:
 
 1. Genaue Revision des RAK-HAT und Bestätigung der SPI-Ausführung am Board;
    PoE+ HAT R2 / SC1022 und RAK2287 EU868 sind bereits erfasst.
-2. Konkreter Standort, Bedeutung der Höhenangabe und Gehäusemodell inklusive
-   Temperatur-/Kondensationskonzept; wetterbeständiges Gehäuse ist vorgesehen.
+2. Konkreter Standort, Befestigung und Gehäusemodell inklusive
+   Temperatur-/Kondensationskonzept; etwa 12 m über Boden und ein
+   wetterbeständiges Gehäuse sind als Vorgaben erfasst.
 3. Kabeltyp und Steckerkette der angegebenen etwa 5 cm langen Antennenleitung.
 4. Internetzugang: verwaltetes Gebäudenetz, eigene Firewall, PoE-Switch/Injector,
    Einschränkungen und Möglichkeit eines VPN.
