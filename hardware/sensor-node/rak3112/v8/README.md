@@ -1,5 +1,8 @@
 # RAK3112 SHT41 + SGP41 + SCD41 + LTR390 firmware v8
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v8 adds the LTR390 UV and ambient-light sensor to v7. The sensors
 share the RAK3212 I²C bus (SDA GPIO14, SCL GPIO13):
 

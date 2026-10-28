@@ -25,6 +25,10 @@ mkdir -p "$secrets_dir"
 chmod 700 "$secrets_dir"
 profile="$secrets_dir/$device_id.h"
 [[ -f "$source_dir/$version.ino" ]] || { echo "Unknown firmware folder: $version" >&2; exit 2; }
+[[ -s "$source_dir/payload-formatter.js" ]] || {
+  echo "Missing TTN decoder for $version: $source_dir/payload-formatter.js" >&2
+  exit 2
+}
 [[ -f "$profile" ]] || {
   echo "Missing per-device credentials: $profile" >&2
   echo "Copy device-profile.example.h there and fill in this TTN device's keys." >&2

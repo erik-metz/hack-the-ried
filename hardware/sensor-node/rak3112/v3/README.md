@@ -1,5 +1,8 @@
 # RAK3112 SHT41 firmware v3
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 This version reads an SHT41 attached to a RAK3112 on the RAK3212 breakout:
 
 | SHT41 | RAK3112 GPIO |

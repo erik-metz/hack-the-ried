@@ -1,5 +1,8 @@
 # RAK3112 SHT41 + SGP41 firmware v5
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v5 runs Sensirion's Gas Index Algorithm on the RAK3112 while keeping
 v4 unchanged. Both sensors share the RAK3212 I²C bus:
 

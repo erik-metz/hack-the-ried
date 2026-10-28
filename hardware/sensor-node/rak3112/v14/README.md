@@ -1,5 +1,8 @@
 # RAK3112 / RAK3212 v14 — INA226 bring-up
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 v14 retains v13 and adds identification, calibration and sampling for the INA226
 module with the **R100 (0.100 ohm)** shunt shown in the hardware reference photo.
 The shunt value must match the actual board. An INA226 cannot measure station
@@ -60,7 +63,7 @@ being measured. Never interpret such zeros as zero station consumption.
 
 ## Payload and deployment
 
-Install `../v1/payload-formatter.js` in TTN before flashing. The decoder continues
+Install `payload-formatter.js` in TTN before flashing. The decoder continues
 to accept formats 3-7. v14 automatically emits format **7** if no INA readings are
 present, or **8** when INA readings are included. Both retain the format-7 header,
 presence/wide bitmaps and existing scales, described in `../v13/README.md`.

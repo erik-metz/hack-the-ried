@@ -1,5 +1,8 @@
 # RAK3112 SHT41 + SGP41 + SCD41 firmware v7
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v7 adds support for the Sensirion SCD41 CO₂ sensor while keeping
 SHT41 and SGP41 on-device Gas Index processing. All three sensors share the
 RAK3212 I²C bus:

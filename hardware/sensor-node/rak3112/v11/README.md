@@ -1,5 +1,8 @@
 # RAK3112 Umweltstation — Firmware v11
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v11 extends v10 with on-device 5-minute summaries and continuous
 processing of ICS-43434 audio blocks. It sends one format-5 LoRaWAN uplink per
 five-minute window. No raw audio or per-second raw samples are sent or stored.
@@ -70,7 +73,7 @@ codes 32/33 carry only a mean. Sample count records use codes 50–57:
 
 At the current sensor set, the complete payload is at most 213 bytes, within
 the firmware's 222-byte format limit. The shared decoder in
-`../v1/payload-formatter.js` accepts old formats 3/4 and format 5. Install its
+`payload-formatter.js` accepts old formats 3/4 and format 5. Install its
 updated contents as the TTN FPort-10 uplink formatter before activating v11.
 
 The TTN webhook writes sensor identity and metric definitions to the canonical

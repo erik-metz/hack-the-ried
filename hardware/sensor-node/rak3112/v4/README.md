@@ -1,5 +1,8 @@
 # RAK3112 SHT41 + SGP41 firmware v4
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 This version reads an SHT41 and an SGP41 on the same RAK3212 I²C bus:
 
 | Sensor | Signal | RAK3112 GPIO | I²C address |

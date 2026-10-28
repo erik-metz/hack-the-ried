@@ -1,5 +1,8 @@
 # RAK3112 / RAK3212 firmware v13 — compact telemetry
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 v13 retains the v12 sensors, sampling, five-minute windows and audio classifier.
 It replaces format-6 TLVs with **format 7**, reducing the full 26-metric sensor
 summary from **257 to 165 bytes** (35.8%) without changing scales, sensor values,
@@ -10,7 +13,7 @@ The shared TTN decoder reconstructs the existing API/DB/frontend JSON contract.
 
 ## Deployment order
 
-1. Install `../v1/payload-formatter.js` in the TTN application (or device override)
+1. Install `payload-formatter.js` in the TTN application (or device override)
    uplink formatter on FPort 10 **before flashing v13**. It continues to decode
    deployed formats 3–6 as well as format 7.
 2. Run the protocol tests and build/upload with the actual device's profile:

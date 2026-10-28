@@ -1,5 +1,8 @@
 # RAK3112 environmental firmware v9
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v9 extends v8 with BME680/BME688 measurements. The Bosch BME68x
 SensorAPI performs calibration compensation over the shared RAK3212 I²C bus
 (SDA GPIO14, SCL GPIO13).

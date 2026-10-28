@@ -7,11 +7,28 @@ Each released firmware version lives in its own numbered folder (`v1/`,
 version. The folder number is the firmware version; it is sent as a single
 integer in each uplink. Keep the LoRaWAN payload-format number separate.
 
-`v1/payload-formatter.js` is the shared TTN application decoder. It supports
-payload formats still used by deployed firmware, so TTN can keep one formatter
-for multiple RAK devices. Metric IDs, scales and current transmission behavior
-are documented in `v1/README.md` and the active firmware's README. Assign new
-metric IDs there before emitting new measurements.
+Every numbered firmware directory includes a standalone **`payload-formatter.js`**
+that decodes that firmware's uplinks. For v14, install
+[`v14/payload-formatter.js`](v14/payload-formatter.js) in TTN before flashing.
+A version directory therefore contains both the Arduino firmware and its matching
+TTN JavaScript decoder; no imports or files from another directory are required
+when pasting the decoder into TTN.
+
+`v1/payload-formatter.js` remains the central development copy and existing
+compatibility path for tests and tooling. When creating a new firmware version,
+copy the compatible decoder into the new directory and update both the central
+copy and the newest version's snapshot when changing the protocol. Keep older
+version snapshots stable unless fixing their decoder. The latest snapshot must
+match the central copy; CI checks this, decoder presence for every numbered
+version, and sample uplinks for each version's wire format. `build.sh` also
+rejects a version without its decoder.
+
+The missing v2–v14 files were backfilled with the current backwards-compatible
+decoder. These are compatible snapshots, not a reconstruction of the exact
+historical decoder source at each release date. They support formats 3–8, so the
+v14 decoder can also serve an application containing older deployed devices.
+Metric IDs and scales are documented in `v1/README.md` and each active firmware's
+README. Assign new metric IDs there before emitting new measurements.
 
 ## Device credentials and identity
 

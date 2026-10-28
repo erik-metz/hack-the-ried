@@ -1,5 +1,8 @@
 # RAK3112 Umweltstation — Firmware v12 audio-ML prototype
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v12 adds local audio classification to v11 using the quantized
 ACDNet20 ESC-50 fold-4 model and Espressif's TFLite Micro runtime. It captures
 the existing ICS-43434 I²S stream at 16 kHz and builds temporary 1.51-second

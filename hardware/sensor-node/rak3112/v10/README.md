@@ -1,5 +1,8 @@
 # RAK3112 environmental firmware v10
 
+TTN uplink decoder for this firmware: [`payload-formatter.js`](payload-formatter.js).
+Install this file in TTN before flashing this firmware.
+
 Firmware v10 extends v9 with an ICS-43434 digital I2S microphone on the RAK3112 / RAK3212.
 Existing I2C environmental sensors and the LoRaWAN payload remain supported.
 
