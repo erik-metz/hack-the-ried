@@ -1,0 +1,20 @@
+#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+
+static constexpr size_t AUDIO_MODEL_CLASS_COUNT = 50;
+static const char* const AUDIO_MODEL_CLASSES[AUDIO_MODEL_CLASS_COUNT] = {
+    "dog", "rooster", "pig", "cow", "frog", "cat", "hen", "insects", "sheep", "crow",
+    "rain", "sea_waves", "crackling_fire", "crickets", "chirping_birds", "water_drops", "wind",
+    "pouring_water", "toilet_flush", "thunderstorm", "crying_baby", "sneezing", "clapping",
+    "breathing", "coughing", "footsteps", "laughing", "brushing_teeth", "snoring", "drinking_sipping",
+    "door_wood_knock", "mouse_click", "keyboard_typing", "door_wood_creaks", "can_opening",
+    "washing_machine", "vacuum_cleaner", "clock_alarm", "clock_tick", "glass_breaking", "helicopter",
+    "chainsaw", "siren", "car_horn", "engine", "train", "church_bells", "airplane", "fireworks", "hand_saw",
+};
+
+struct AudioEventStats {
+  uint16_t count = 0;
+  float maxScore = 0.0f;
+};

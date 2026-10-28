@@ -1,4 +1,7 @@
-#ifdef RAK_INA226
+#ifdef RAK_SHT41_ONLY
+#include "../v15/compact_payload.h"
+static constexpr uint8_t FIRMWARE = 15;
+#elif defined(RAK_INA226)
 #include "../v14/compact_payload.h"
 static constexpr uint8_t FIRMWARE = 14;
 #else
@@ -18,6 +21,9 @@ int main() {
     if (!(std::cin >> code >> metric.minimum >> metric.mean >> metric.maximum >> metric.count) ||
         code == 0 || code > 41) return 2;
     metric.present = true;
+#ifdef RAK_SHT41_ONLY
+    if (!CompactPayload::isUplinkMetric(code)) continue;
+#endif
     metrics[code] = metric;
   }
   uint8_t bytes[222] = {};

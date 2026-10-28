@@ -144,3 +144,23 @@ test("traffic snapshot history preserves counts instead of averaging totals", as
   assert.equal(result.history[0].avg_value, 664);
   assert.equal(result.historyMode, "snapshots");
 });
+
+test("telemetry excludes historical BME688/SCD41 climate series in averages and snapshots", async () => {
+  const metrics = ["temperature", "humidity", "scd41_temperature", "scd41_humidity",
+    "bme688_temperature", "bme688_humidity", "co2", "pressure", "bme688_gas_resistance"];
+  const readings = metrics.map(metric => ({ metric, unit: "test", value: 20, timestamp: "2026-10-28T10:00:00Z" }));
+  const retained = ["temperature", "humidity", "co2", "pressure", "bme688_gas_resistance"];
+  for (const historyMode of ["averages", "snapshots"]) {
+    const route = load("app/api/telemetry/route.ts", { "@/env": { env: { BACKEND_API_URL: "https://backend.test" } } }, {
+      URL, URLSearchParams, Response, AbortSignal,
+      fetch: async url => Response.json(url.pathname.endsWith("/window") ? { metrics: [] }
+        : url.pathname.endsWith("/aggregates") ? readings.map(r => ({ ...r, bucket: r.timestamp, avg_value: r.value }))
+        : readings),
+    });
+    const response = await route.GET(new Request(`https://frontend.test/api/telemetry?sensor_id=ttn-rak3112-002&history_mode=${historyMode}`));
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.deepEqual(data.readings.map(r => r.metric), retained);
+    assert.deepEqual(data.history.map(r => r.metric), retained);
+  }
+});

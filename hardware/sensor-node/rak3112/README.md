@@ -8,8 +8,8 @@ version. The folder number is the firmware version; it is sent as a single
 integer in each uplink. Keep the LoRaWAN payload-format number separate.
 
 Every numbered firmware directory includes a standalone **`payload-formatter.js`**
-that decodes that firmware's uplinks. For v14, install
-[`v14/payload-formatter.js`](v14/payload-formatter.js) in TTN before flashing.
+that decodes that firmware's uplinks. For v15, install
+[`v15/payload-formatter.js`](v15/payload-formatter.js) in TTN before flashing.
 A version directory therefore contains both the Arduino firmware and its matching
 TTN JavaScript decoder; no imports or files from another directory are required
 when pasting the decoder into TTN.
@@ -52,7 +52,7 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v14 <device-profile-id>` to compile the
+Use `./hardware/sensor-node/rak3112/build.sh v15 <device-profile-id>` to compile the
 latest firmware, or
 add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board. Firmware v10 adds
 the ICS-43434 I2S microphone; see `v10/README.md` for wiring and serial diagnostics.
@@ -93,3 +93,7 @@ Firmware v14 identifies and calibrates the INA226 R100 module and adds voltage,
 current and power via format 8 (204 bytes for all 30 channels). Without INA data
 it emits format 7. See [`v14/README.md`](v14/README.md) for wiring, limits,
 measurement caveats and decoder deployment order.
+
+Firmware v15 sends temperature and humidity exclusively from SHT41. SCD41 and
+BME688 values remain available locally for diagnostics/compensation; CO₂, pressure
+and gas uplinks are retained. See [`v15/README.md`](v15/README.md).

@@ -69,12 +69,14 @@ test("CO2 and air-quality indicators share one comparison group", () => {
   assert.match(telemetry.measurementGroupDescription("air-quality"), /CO₂/);
 });
 
-test("SCD41 temperature and humidity are omitted from frontend station readings", () => {
+test("only SHT41 temperature and humidity remain in RAK frontend station readings", () => {
   const nodes = model.toStationNodes([sensor([
     reading("temperature", 21, "°C"),
     reading("relative_humidity", 55, "%"),
     reading("scd41_temperature", 29, "°C"),
     reading("scd41_humidity", 70, "%"),
+    reading("bme688_temperature", 25, "°C"),
+    reading("bme688_humidity", 60, "%"),
   ])]);
   assert.deepEqual(nodes[0].readings.map(item => item.metric), ["temperature", "relative_humidity"]);
 });
