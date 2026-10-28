@@ -36,6 +36,10 @@ Die Sensoren werden in einem wetterfesten, weiß lackierten oder UV-beständigen
 * **Separate Kammer** für RAK3113 und INA226 Elektronik
 * STL-Dateien liegen unter `hardware/sensor-node/v2/3d-prints/`.
 
+### Mikrofongehäuse
+
+Für den Aufbau eines geeigneten Mikrofongehäuses bietet die Anleitung von Sensor.Community eine gute Orientierung: [DNMS – Digital Noise Measurement Sensor](https://sensor.community/de/sensors/dnms/). Sie beschreibt einen praxiserprobten Gehäuseaufbau für einen Außensensor mit Mikrofon.
+
 ---
 
 ## 📡 Funk & Anbindung (LoRaWAN / TTN)
