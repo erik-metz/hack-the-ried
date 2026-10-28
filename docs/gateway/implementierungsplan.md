@@ -94,16 +94,34 @@ separate Erweiterung der Zulassung und Zugangsdatenverwaltung benötigen.
 
 ## 4. Hardware und Standort vorab klären
 
+### Bestätigter Planungsstand nach Hardwarefoto und Nutzerangaben
+
+- Raspberry Pi 4 mit Raspberry Pi PoE+ HAT (R2), Herstellerteilenummer SC1022,
+  Händlerartikel RP2-210220, GTIN 5056561800097.
+- Das bereitgestellte Foto zeigt ein Modul mit Aufdruck `RAK2287` und `EU868`
+  auf einer RAK-Trägerplatine mit Kühlkörper. Die genaue HAT-Revision und
+  Schnittstellenvariante sind auf dem Foto nicht eindeutig ablesbar. Bei der
+  beschriebenen Pi-HAT-Kombination ist SPI vorgesehen; am Board verifizieren.
+- Wetterbeständiges Gehäuse für den Pi am Dachstandort vorgesehen.
+- Vorläufige Höhenangabe des Nutzers: „12 m Höhe über dem Dach“. Im Standortblatt
+  noch festhalten, ob tatsächlich 12 m oberhalb der Dachfläche oder etwa 12 m
+  über Grund gemeint sind; Mast- und Montageplanung hängen davon ab.
+- Antennenkabellänge laut Nutzer etwa 5 cm. Kabeltyp und vollständige
+  Steckerkette bis zur TX868-BLG-26 bleiben zu dokumentieren. Das Foto allein
+  bestätigt weder die Länge noch den Typ des äußeren Steckverbinders zuverlässig.
+- Stromversorgung und Internet gemeinsam über Ethernet/PoE vorgesehen.
+  Switch/Injector, Gebäudenetz und dessen Zugriffsregeln sind noch nicht festgelegt.
+
 | Punkt | Prüfung und Ergebnis |
 | --- | --- |
-| RAK2287 | EU868-/8xx-MHz-Hardware und SPI-Ausführung identifizieren; SKU dokumentieren. |
+| RAK2287 | RAK2287 EU868 im Foto bestätigt; SPI-Ausführung am Board und SKU dokumentieren. |
 | RAK-HAT | Modell und Revision, Schaltplan, Reset-/Power-GPIO, SPI-Gerät und GNSS-Anbindung aufnehmen. |
-| PoE-HAT | Modell, unterstützten PoE-Standard, Leistungsbudget und Kombination mit RAK-HAT prüfen. |
+| PoE-HAT | Raspberry Pi PoE+ HAT R2 / SC1022 festgelegt; 802.3at-Versorgung und Kombination mit RAK-HAT prüfen. |
 | Mechanik | Stapelbarkeit, Abstandshalter, Durchführungen, zugängliche Anschlüsse und Lüfterfreiraum prüfen. |
 | Versorgung | Pi, Konzentrator und Lüfter unter Last prüfen; Unterspannung und thermische Drosselung erfassen. |
 | Datenträger | Geeignete High-Endurance-SD oder getestete SSD wählen; Ersatzmedium vorbereiten. |
 | Antenne | TX868-BLG-26, vertikal montiert, außerhalb abschirmender Bauteile. |
-| HF-Leitung | 50-Ohm-Pigtail und Koaxleitung, passende Gegenstecker, Kabeltyp/Länge und Verluste dokumentieren. |
+| HF-Leitung | Etwa 5 cm laut Nutzer; 50-Ohm-Kabeltyp, passende Gegenstecker und Gesamtverluste einschließlich Adapter dokumentieren. |
 | Dachstandort | Montagehöhe, freie Sicht, Kabelführung, Wetterschutz und Wartungszugang festhalten. |
 | Gebäudeschutz | Erdung, Potentialausgleich und Überspannungsschutz mit Gebäudeverantwortlichen/Fachbetrieb abstimmen. |
 | Netzwerk | DHCP/Adressreservierung, DNS, Uhrzeitsynchronisation und zulässige ausgehende Verbindungen prüfen. |
@@ -111,6 +129,39 @@ separate Erweiterung der Zulassung und Zugangsdatenverwaltung benötigen.
 Das RAK2287-Pi-HAT ist laut Hersteller nur für SPI-Versionen vorgesehen [5].
 Bei HATs keine GPIO-Belegung oder Stapelbarkeit aus dem Produktnamen ableiten.
 LoRa- und gegebenenfalls GNSS-Antennenanschluss eindeutig unterscheiden.
+
+### Konsequenzen für Versorgung, Montage und Gehäuse
+
+Das gewählte PoE+ HAT unterstützt den Pi 4. Die aktuelle Herstellerangabe nennt
+IEEE 802.3at, 5 V/4 A Ausgang und einen 25-mm-Lüfter [9]. Deshalb einen aktiven
+802.3at-PoE+-Switch oder entsprechenden Injector vorsehen und das gesamte
+Leistungsbudget unter Last messen. Keine Versorgung über einen passiven
+PoE-Adapter planen. Ein Injector speist Strom ein, benötigt aber zusätzlich
+einen bestehenden Ethernet-Uplink zum Router bzw. Gebäudenetz.
+
+Für zwei HATs einen mechanischen Probeaufbau vorsehen: Der PoE+ HAT benötigt
+den 40-Pin-Anschluss und den separaten 4-Pin-PoE-Anschluss des Pi. Ein einfacher
+40-Pin-Verlängerer allein löst daher nicht jede Stapelreihenfolge. Prüfen, ob
+geeignete durchgeführte Header/Adapter erforderlich sind, ob das RAK-Board
+Bauteile berührt und ob Luft am Lüfter und RAK-Kühlkörper vorbeiströmen kann.
+Die konkrete Stapelreihenfolge erst nach diesem Test festlegen.
+
+Der Hersteller spezifiziert für das PoE+ HAT einen Betriebsbereich von
+0 °C bis +50 °C [9]. Ein wetterbeständiges Gehäuse stellt diesen Bereich nicht
+automatisch sicher: Frost, Sonneneinstrahlung, Eigenwärme und Kondensation
+in die Auslegung aufnehmen. Der interne Lüfter bewegt zunächst nur Gehäuseluft.
+Vor Dachfreigabe Innenraumtemperatur und Feuchte unter realistischen Bedingungen
+erfassen und bei Bedarf Verschattung, Wärmeabfuhr, Druckausgleich oder eine
+geregelte Heizung dimensionieren. Ein erfolgreicher Sommer-Dauerlauf weist
+keinen Betrieb bei Frost nach. Auch den Kaltstart berücksichtigen, wenn das
+Gehäuse nach Stromausfall unter 0 °C ausgekühlt ist.
+
+Die kurze HF-Leitung ist für geringe Kabelverluste günstig; Antenne mechanisch
+am Gehäuse/Mast abfangen und das empfindliche Modul-Pigtail zugentlasten.
+Eine wetterfeste Antennendurchführung und die Ethernet-Einführung mit Dichtung
+und Tropfschleife planen. Ein Metallgehäuse erfordert eine außenliegende Antenne.
+Beim Überspannungsschutz die vollständige HF- und Ethernet-Strecke berücksichtigen;
+zusätzliche Bauteile können die bisher angenommene Kabellänge verändern.
 
 Für die TX868-BLG-26 nennt Ebyte 868 MHz, 3 dBi, 50 Ohm und N-J/N-Stecker [6].
 Bei der vorhandenen Antenne Typenschild und Ausführung gegenprüfen. Das Modell
@@ -300,6 +351,9 @@ mit Puffer bei unbekannten HAT-/Treiberproblemen. ChirpStack separat planen.
 - Ruhiges Funkfeld löst keinen falschen Rollback aus.
 - VPN funktioniert nach Stromausfall; externer Monitor erkennt Totalausfall.
 - Versorgung und Temperatur bleiben im realen Gehäuse unter Last unauffällig.
+- PoE+ HAT und RAK-HAT passen ohne Kontakt zu Bauteilen zusammen; PoE-Anschluss,
+  GPIO/SPI und Lüfter bleiben funktionsfähig. Innenraumtemperatur bleibt im
+  spezifizierten Bereich; Frost-/Kaltstartkonzept und Kondensationsschutz sind geklärt.
 - Reichweitentest protokolliert Standort, Entfernung, RSSI, SNR, Datenrate und
   Paketverlustrate mit bekanntem Sendeplan; erfolgreicher Downlink separat prüfen.
 
@@ -344,9 +398,11 @@ Sicherung, Updates und Wiederherstellung des Network Servers in unsere Verantwor
 Die Planung kann ohne diese Angaben stehen; die konkrete Hardwarekonfiguration
 und Dachfreigabe hängen davon ab:
 
-1. Exaktes Modell/Revision von RAK-HAT und PoE-HAT sowie RAK2287-Variante.
-2. Standort, ungefähre Montagehöhe und wettergeschützter Platz für den Pi.
-3. Vorhandenes Antennenkabel: Typ, Länge, Adapter und Anschlüsse.
+1. Genaue Revision des RAK-HAT und Bestätigung der SPI-Ausführung am Board;
+   PoE+ HAT R2 / SC1022 und RAK2287 EU868 sind bereits erfasst.
+2. Konkreter Standort, Bedeutung der Höhenangabe und Gehäusemodell inklusive
+   Temperatur-/Kondensationskonzept; wetterbeständiges Gehäuse ist vorgesehen.
+3. Kabeltyp und Steckerkette der angegebenen etwa 5 cm langen Antennenleitung.
 4. Internetzugang: verwaltetes Gebäudenetz, eigene Firewall, PoE-Switch/Injector,
    Einschränkungen und Möglichkeit eines VPN.
 5. Vorhandenes TTN-Konto, Application und Gateway-Registrierung sowie darin
@@ -383,3 +439,7 @@ https://www.thethingsindustries.com/docs/hardware/gateways/troubleshooting/
 
 [8] ChirpStack Gateway Bridge: Basics Station Backend
 https://www.chirpstack.io/docs/chirpstack-gateway-bridge/backends/basics-station.html
+
+[9] Raspberry Pi: PoE+ HAT, Kompatibilität, Anschluss und aktuelle Spezifikation
+https://www.raspberrypi.com/products/poe-plus-hat/
+https://datasheets.raspberrypi.com/poe/poe-plus-hat-product-brief.pdf
