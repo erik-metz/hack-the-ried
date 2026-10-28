@@ -44,7 +44,7 @@ for source_file in "$source_dir"/*.c "$source_dir"/*.h; do
   [[ -f "$source_file" ]] || continue
   cp "$source_file" "$build_dir/"
 done
-if [[ "$version" == "v12" ]]; then
+if [[ -f "$source_dir/acdnet20_esc50_fold4_int8.tflite" ]]; then
   python3 "$script_dir/tools/embed_tflite_model.py" \
     "$source_dir/acdnet20_esc50_fold4_int8.tflite" "$build_dir/model_data.cc"
 fi

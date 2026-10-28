@@ -1,0 +1,27 @@
+name: RAK telemetry protocol CI
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "hardware/sensor-node/rak3112/**"
+      - ".github/workflows/hardware.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "hardware/sensor-node/rak3112/**"
+      - ".github/workflows/hardware.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  payload-protocol:
+    name: C++ encoder and TTN decoder regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: node --test hardware/sensor-node/rak3112/v1/*test.mjs

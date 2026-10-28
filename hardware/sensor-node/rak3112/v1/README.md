@@ -130,3 +130,8 @@ node --test hardware/sensor-node/rak3112/v1/payload-formatter.test.mjs
 
 The LoRaWAN session and DevNonce/JoinNonce state are stored separately in ESP32
 NVS to avoid invalid rejoins after reset.
+
+Firmware v13 uses compact format 7 (fixed field order, presence/wide bitmaps,
+metric-specific integer widths). The decoder retains support for formats 3–6.
+See [`../v13/README.md`](../v13/README.md) for the wire contract and deployment order.
+Run both protocol suites with `node --test hardware/sensor-node/rak3112/v1/*test.mjs`.

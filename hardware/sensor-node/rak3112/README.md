@@ -35,7 +35,7 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v12 <device-profile-id>` to compile the
+Use `./hardware/sensor-node/rak3112/build.sh v13 <device-profile-id>` to compile the
 latest firmware, or
 add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board. Firmware v10 adds
 the ICS-43434 I2S microphone; see `v10/README.md` for wiring and serial diagnostics.
@@ -66,3 +66,8 @@ An experimental host-side YAMNet runner now exists at
 locally. `tools/evaluate_sonyc_yamnet.py` evaluates verified SONYC-UST test
 clips from local dataset archives. Both are research tools, not part of
 firmware or the uplink contract.
+
+Firmware v13 adds compact payload format 7: all 26 sensor channels fit in 165
+bytes at their normal field widths, preserving existing precision and statistics.
+Install the shared TTN decoder before flashing v13. See [`v13/README.md`](v13/README.md)
+for the wire schema, overflow handling, deployment order and protocol tests.

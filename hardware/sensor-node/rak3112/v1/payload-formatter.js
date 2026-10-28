@@ -1,9 +1,82 @@
-// RAK3112 uplink decoder. Formats 3/4 are point samples; format 5/6 are window summaries.
+// RAK3112 uplink decoder. Formats 3/4: samples; 5/6: TLV windows; 7: compact windows.
+function decodeCompactWindow(bytes) {
+  if (bytes.length < 17 || bytes.length > 222 || bytes.some(function (b) {
+    return !Number.isInteger(b) || b < 0 || b > 255;
+  })) return { errors: ["Invalid compact payload length or byte"] };
+  const seconds = bytes[2] * 65536 + bytes[3] * 256 + bytes[4];
+  if (!seconds) return { errors: ["Window duration must be positive"] };
+  // code, sensor group, default byte width, signed, mean-only. Versioned wire schema.
+  const fields = [
+    [1,1,2,true,false],[2,1,2,false,false],[3,4,2,false,false],[4,2,2,false,false],
+    [5,2,2,true,false],[6,2,2,false,false],[7,8,2,true,false],
+    [8,9,2,false,true],[9,9,2,false,true],[10,9,2,false,true],[11,9,2,false,true],
+    [12,9,3,false,true],[13,9,3,false,true],[14,9,3,false,true],
+    [15,9,3,false,true],[16,9,3,false,true],[17,9,2,false,true],
+    [18,6,2,true,false],[19,6,2,false,false],[20,6,2,false,false],[21,7,3,false,false],
+    [29,3,2,false,false],[30,3,2,false,false],[31,5,3,false,false],
+    [32,4,3,false,true],[33,5,3,false,true]
+  ];
+  const allowed = [0,0,0,0,0,0];
+  fields.forEach(function (field) { allowed[(field[0]-1) >> 3] |= 1 << ((field[0]-1) % 8); });
+  for (let i = 0; i < 6; ++i) {
+    if ((bytes[5+i] & ~allowed[i]) || (bytes[11+i] & ~bytes[5+i])) {
+      return { errors: ["Invalid compact presence or wide bitmap"] };
+    }
+  }
+  const definitions = windowDefinitions(), classes = windowAudioClasses();
+  const statistics = [], groups = {};
+  let offset = 17;
+  function read(width, signed) {
+    if (offset + width > bytes.length) throw new Error("Truncated compact payload");
+    let value = 0;
+    for (let i = 0; i < width; ++i) value = value * 256 + bytes[offset++];
+    if (signed && value >= Math.pow(2, width*8-1)) value -= Math.pow(2, width*8);
+    return value;
+  }
+  try {
+    fields.forEach(function (field) {
+      const code = field[0], byte = (code-1) >> 3, bit = 1 << ((code-1) % 8);
+      if (!(bytes[5+byte] & bit)) return;
+      const wide = !!(bytes[11+byte] & bit), width = wide ? 4 : field[2];
+      const signed = wide || field[3], definition = definitions[code];
+      function value() { return Math.round(read(width, signed) * definition[2] * 1000) / 1000; }
+      const minimum = field[4] ? null : value(), mean = value(), maximum = field[4] ? null : value();
+      if ((minimum !== null && minimum > mean) || (maximum !== null && mean > maximum)) {
+        throw new Error("Invalid compact statistic range");
+      }
+      statistics.push({metric:definition[0],unit:definition[1],min_value:minimum,
+        mean_value:mean,max_value:maximum,sample_count:0,group:field[1]});
+      groups[field[1]] = 0;
+    });
+    if (!statistics.length) throw new Error("Compact payload has no measurements");
+    for (let group = 1; group <= 9; ++group) {
+      if (groups[group] === undefined) continue;
+      groups[group] = read(3, false);
+      if (!groups[group]) throw new Error("Compact sample count must be positive");
+    }
+    statistics.forEach(function (item) { item.sample_count = groups[item.group]; delete item.group; });
+    if ((bytes.length-offset) % 3) throw new Error("Invalid compact audio record length");
+    const events = [], seen = {};
+    while (offset < bytes.length) {
+      const classId = read(1, false), count = read(1, false), score = read(1, false);
+      if (!classes[classId] || seen[classId] || !count || score > 100) throw new Error("Invalid compact audio event");
+      seen[classId] = true;
+      events.push({class_id:classId,class:classes[classId],count:count,max_score:score/100});
+    }
+    return {data:{version:7,firmware_version:bytes[1],window_seconds:seconds,
+      measurements:statistics.map(function (item) { return {metric:item.metric,unit:item.unit,value:item.mean_value}; }),
+      window_statistics:statistics,sound_events:events}};
+  } catch (error) {
+    return {errors:[error.message]};
+  }
+}
+
 function decodeUplink(input) {
   const bytes = input.bytes;
   if (input.fPort !== undefined && input.fPort !== 10) return { errors: ["Unsupported FPort; expected 10"] };
   if (!Array.isArray(bytes) || bytes.length === 0) return { errors: ["Payload is empty"] };
   const version = bytes[0];
+  if (version === 7) return decodeCompactWindow(bytes);
   if (version !== 3 && version !== 4 && version !== 5 && version !== 6) return { errors: ["Unsupported payload version: " + version] };
   if (version === 5 || version === 6) {
     if (bytes.length < 9 || bytes.length > 222) {
@@ -11,33 +84,9 @@ function decodeUplink(input) {
     }
     const windowSeconds = (bytes[2] << 16) | (bytes[3] << 8) | bytes[4];
     if (windowSeconds < 1) return { errors: ["Window duration must be positive"] };
-    const definitions = {
-      1:["temperature","°C",0.1],2:["humidity","%",0.1],3:["uv_index","index",0.01],4:["co2","ppm",1],
-      5:["scd41_temperature","°C",0.01],6:["scd41_humidity","%",0.01],7:["sound_level","dBFS",0.1],
-      8:["pm1_0","µg/m³",0.1],9:["pm2_5","µg/m³",0.1],10:["pm4_0","µg/m³",0.1],11:["pm10","µg/m³",0.1],
-      12:["particle_number_pm0_5","#/cm³",0.1],13:["particle_number_pm1_0","#/cm³",0.1],
-      14:["particle_number_pm2_5","#/cm³",0.1],15:["particle_number_pm4_0","#/cm³",0.1],
-      16:["particle_number_pm10","#/cm³",0.1],17:["particle_size_typical","µm",0.1],
-      18:["bme688_temperature","°C",0.01],19:["bme688_humidity","%",0.01],20:["pressure","hPa",0.1],
-      21:["bme688_gas_resistance","Ω",1],22:["bme688_iaq","index",0.1],23:["bme688_static_iaq","index",0.1],
-      24:["bme688_co2_equivalent","ppm",1],25:["bme688_bvoc_equivalent","ppm",0.01],26:["bme688_gas_percentage","%",0.1],
-      29:["sgp41_voc_index","index",1],30:["sgp41_nox_index","index",1],
-      31:["ambient_light","lux",0.1],32:["ltr390_uv_raw","raw",1],33:["ltr390_als_raw","raw",1],
-      34:["rain_detected","bool",1],35:["rain_pulses","count",1],36:["bus_voltage","mV",1],
-      37:["shunt_voltage","µV",1],38:["current","mA",1],39:["power","mW",1],
-      40:["sound_dominant_frequency","Hz",1],41:["sound_event_class","class",1]
-    };
-    const audioClasses = [
-      "dog","rooster","pig","cow","frog","cat","hen","insects","sheep","crow",
-      "rain","sea_waves","crackling_fire","crickets","chirping_birds","water_drops","wind",
-      "pouring_water","toilet_flush","thunderstorm","crying_baby","sneezing","clapping",
-      "breathing","coughing","footsteps","laughing","brushing_teeth","snoring","drinking_sipping",
-      "door_wood_knock","mouse_click","keyboard_typing","door_wood_creaks","can_opening",
-      "washing_machine","vacuum_cleaner","clock_alarm","clock_tick","glass_breaking","helicopter",
-      "chainsaw","siren","car_horn","engine","train","church_bells","airplane","fireworks","hand_saw"
-    ];
-    const groupForMetric = {1:1,2:1,4:2,5:2,6:2,29:3,30:3,3:4,32:4,31:5,33:5,18:6,19:6,20:6,21:7,7:8,
-      8:9,9:9,10:9,11:9,12:9,13:9,14:9,15:9,16:9,17:9};
+    const definitions = windowDefinitions();
+    const audioClasses = windowAudioClasses();
+    const groupForMetric = windowGroups();
     const groups = {}, stats = {}, seen = {}, soundEvents = [];
     if ((bytes.length - 5) % 4 !== 0) return { errors: ["Window payload has an invalid length"] };
     for (let offset = 5; offset < bytes.length; offset += 4) {
@@ -131,4 +180,40 @@ function decodeUplink(input) {
   if (version === 4) data.firmware_version = bytes[1];
   if (unknownMeasurements.length) data.unknown_measurements = unknownMeasurements;
   return {data:data};
+}
+
+function windowDefinitions() {
+  return {
+      1:["temperature","°C",0.1],2:["humidity","%",0.1],3:["uv_index","index",0.01],4:["co2","ppm",1],
+      5:["scd41_temperature","°C",0.01],6:["scd41_humidity","%",0.01],7:["sound_level","dBFS",0.1],
+      8:["pm1_0","µg/m³",0.1],9:["pm2_5","µg/m³",0.1],10:["pm4_0","µg/m³",0.1],11:["pm10","µg/m³",0.1],
+      12:["particle_number_pm0_5","#/cm³",0.1],13:["particle_number_pm1_0","#/cm³",0.1],
+      14:["particle_number_pm2_5","#/cm³",0.1],15:["particle_number_pm4_0","#/cm³",0.1],
+      16:["particle_number_pm10","#/cm³",0.1],17:["particle_size_typical","µm",0.1],
+      18:["bme688_temperature","°C",0.01],19:["bme688_humidity","%",0.01],20:["pressure","hPa",0.1],
+      21:["bme688_gas_resistance","Ω",1],22:["bme688_iaq","index",0.1],23:["bme688_static_iaq","index",0.1],
+      24:["bme688_co2_equivalent","ppm",1],25:["bme688_bvoc_equivalent","ppm",0.01],26:["bme688_gas_percentage","%",0.1],
+      29:["sgp41_voc_index","index",1],30:["sgp41_nox_index","index",1],
+      31:["ambient_light","lux",0.1],32:["ltr390_uv_raw","raw",1],33:["ltr390_als_raw","raw",1],
+      34:["rain_detected","bool",1],35:["rain_pulses","count",1],36:["bus_voltage","mV",1],
+      37:["shunt_voltage","µV",1],38:["current","mA",1],39:["power","mW",1],
+      40:["sound_dominant_frequency","Hz",1],41:["sound_event_class","class",1]
+    };
+}
+
+function windowAudioClasses() {
+  return [
+      "dog","rooster","pig","cow","frog","cat","hen","insects","sheep","crow",
+      "rain","sea_waves","crackling_fire","crickets","chirping_birds","water_drops","wind",
+      "pouring_water","toilet_flush","thunderstorm","crying_baby","sneezing","clapping",
+      "breathing","coughing","footsteps","laughing","brushing_teeth","snoring","drinking_sipping",
+      "door_wood_knock","mouse_click","keyboard_typing","door_wood_creaks","can_opening",
+      "washing_machine","vacuum_cleaner","clock_alarm","clock_tick","glass_breaking","helicopter",
+      "chainsaw","siren","car_horn","engine","train","church_bells","airplane","fireworks","hand_saw"
+    ];
+}
+
+function windowGroups() {
+  return {1:1,2:1,4:2,5:2,6:2,29:3,30:3,3:4,32:4,31:5,33:5,18:6,19:6,20:6,21:7,7:8,
+      8:9,9:9,10:9,11:9,12:9,13:9,14:9,15:9,16:9,17:9};
 }
