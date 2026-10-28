@@ -11,14 +11,23 @@ TTN-Endgeräte mit The Things Network. Änderungen an der Gateway-Anwendung
 werden nach erfolgreicher CI und Freigabe eines Releases automatisch vom Pi
 abgerufen, geprüft und aktiviert. Bei einer fehlerhaften Version erfolgt ein
 lokaler Rücksprung auf die letzte funktionierende Version.
+Store-and-forward ist Bestandteil des Zielumfangs: Bei Ausfall der
+Internet-/LNS-Verbindung bleibt der Funkempfang aktiv, empfangene Uplinks werden
+dauerhaft lokal gepuffert und nach Wiederverbindung kontrolliert nachgeliefert.
+Die TTN-seitige Verarbeitung verspäteter Pakete ist vor der Festlegung des
+Produktions-Forwarders nachzuweisen (Abschnitt 3.1).
 
 Vorgeschlagene Entscheidungen:
 
 - Raspberry Pi OS Lite in 64 Bit als Host; konkrete Version beim Hardwaretest festlegen.
 - Docker Engine und Compose; Images für `linux/arm64`.
-- LoRa Basics Station als einziger Prozess mit Zugriff auf den Konzentrator.
+- Ein einziger Funkprozess mit Zugriff auf den Konzentrator; Basics Station
+  ist die bevorzugte Ausgangsbasis, vorbehaltlich des Store-and-forward-Nachweises.
 - RAKWireless/basicstation als Ausgangsbasis evaluieren; geprüften Quellstand
-  und Abhängigkeiten fixieren, statt einen eigenen Funk-Forwarder zu entwickeln.
+  und Abhängigkeiten fixieren. Vorhandene Funk-/LNS-Implementierung soweit
+  möglich weiterverwenden; Offline-Erweiterungen anhand des Nachweises auswählen.
+- Persistenter, applicationunabhängiger Uplink-Puffer außerhalb des
+  Container-Dateisystems; nötige Erweiterungen am Forwarder gezielt entwickeln.
 - TTN zuerst, ChirpStack später auf einem zentralen Server.
 - Eigener kleiner Update-Dienst auf dem Host, gestartet durch systemd.
 - Versionierte, signierte Release-Manifeste und Images mit festem Digest.
@@ -53,8 +62,9 @@ und Tag sowie zehn Downlinks pro Gerät und Tag [4]. Deshalb:
 - Unbestätigte Uplinks für normale Messwerte vorsehen; ACKs benötigen Downlinks.
 - Payload, Datenrate und Intervall gemeinsam dimensionieren; Join-Vorgänge und
   Wiederholungen berücksichtigen und Reserve einplanen.
-- Tatsächliche Airtime der vorhandenen RAK3112-Firmware messen. Ein Intervall
-  von fünf Minuten ist bei hohen Spreading Factors nicht automatisch TTN-tauglich.
+- Airtime und Sendeverhalten in der jeweiligen Sensor-Application planen.
+  Ein Intervall von fünf Minuten ist bei hohen Spreading Factors nicht automatisch
+  TTN-tauglich; das Gateway benötigt dafür keinen sensorspezifischen Decoder.
 - Funkkanäle und gesetzliche Sendezeit-/Leistungsgrenzen gelten auch im eigenen Netz.
 
 Mehrere Kilometer Reichweite sind ein zu messendes Projektziel. Gebäudehöhe,
@@ -68,9 +78,9 @@ flowchart LR
     S[Eigene und fremde TTN-Sensoren] -->|LoRaWAN EU868| A[TX868-BLG-26]
     A --> R[RAK2287 über HAT]
     R --> B[Pi: Basics-Station-Container]
-    B <-->|LNS über TLS/WebSocket| T[TTN]
-    T -->|Webhook eigener Application| V[Bestehendes Backend]
-    V --> W[Web-Dashboard]
+    B <-->|Dauerhaftes Empfangsjournal| Q[Lokaler Uplink-Puffer]
+    B <-->|Livebetrieb und geprüfte Nachlieferung über TLS| T[TTN / LNS]
+    T --> X[Jeweilige Application: Decoder und Datenintegration]
     G[GitHub: Tests und ARM64-Build] --> C[Container Registry]
     G --> M[Signiertes Release-Manifest]
     C --> U[Pi: systemd Update-Dienst]
@@ -78,19 +88,105 @@ flowchart LR
     U -->|Version aktivieren oder zurückrollen| B
 ```
 
-Auf dem Pi laufen zunächst nur Forwarder, Update-Dienst und eine kleine
-Betriebsüberwachung. Kein lokaler Network Server und keine Messwertdatenbank.
-Der Forwarder ersetzt kein dauerhaftes Store-and-forward-System: Bei einem
-Internetausfall können Uplinks verloren gehen, zeitkritische Downlinks lassen
-sich nicht später nachholen.
+Auf dem Pi laufen Forwarder mit persistentem Uplink-Puffer, Update-Dienst und
+Betriebsüberwachung. Kein lokaler Network Server und keine Datenbank für
+entschlüsselte Sensormesswerte. Der Puffer speichert Funkframes einschließlich
+ihrer Empfangsmetadaten und bleibt unabhängig von Sensorformaten und Applications.
 
-Im Repository bestehen bereits ein gemeinsamer TTN-Decoder unter
-`hardware/sensor-node/rak3112/v1/payload-formatter.js` und die authentifizierte
-Annahme unter `/api/v1/integrations/sensor/uplink`. Diese prüft derzeit genau eine
-konfigurierte `TTN_APPLICATION_ID` und verarbeitet Messwerte idempotent.
-Für das erste Gateway bleibt dieser Pfad bestehen. Fremde Applications gelangen
-nicht automatisch in unsere Datenbank. Mehrere eigene Applications würden eine
-separate Erweiterung der Zulassung und Zugangsdatenverwaltung benötigen.
+Payload-Formatter, Application-Zugangsdaten, Webhooks und Messwertverarbeitung
+gehören zur jeweiligen Application hinter dem Network Server. Der vorhandene
+Formatter unter `hardware/sensor-node/rak3112/v1/payload-formatter.js` ist keine
+Gateway-Komponente. Er wird weder ins Gateway-Image eingebaut noch dort
+ausgeführt; Änderungen daran lösen keinen Gateway-Build oder -Rollout aus.
+Das Gateway benötigt keine AppKeys oder AppSKeys und entschlüsselt keine
+Anwendungsdaten. Auch fremde TTN-Applications werden ohne eigene Decoder oder
+Application-Allowlist am Gateway bedient, innerhalb der LNS-Netzwerkfilter.
+
+### 3.1 Store-and-forward: Umsetzung und belastbare Grenzen
+
+**Verbindliches Ziel:** Empfang während eines Backhaul-Ausfalls, dauerhafte
+Speicherung und automatische Nachlieferung. Lokale Sicherung, Übertragung zum
+LNS und Annahme durch die Application werden als getrennte Zustände bewertet.
+Ein erfolgreicher Socket-Schreibvorgang belegt keine erfolgreiche Zustellung
+bis zur Application. Ein Rohdatenarchiv allein erfüllt dieses Zustellziel nicht.
+
+**Empfangspfad:** Empfangene, CRC-gültige und gemäß Netzwerkprofil zugelassene
+Frames vor ihrer Weiterleitung in einem lokalen Journal sichern. Vorgesehene
+Basis ist SQLite mit WAL und geeigneter Synchronisation auf einem Host-Volume.
+Den tatsächlichen Verlustbereich bei Stromausfall einschließlich Datenträger-
+Verhalten testen; nur dauerhaft bestätigte Schreibvorgänge als gesichert zählen.
+Speichern: unveränderter LoRaWAN-Frame bzw. verlustfrei rekonstruierbare
+Protokollrepräsentation, Gateway-EUI, eindeutige lokale Empfangs-ID, Frequenz,
+Datenrate, RSSI/SNR, Empfangskontext, Konzentratorzeit, Boot-/Zeitdomänen-ID,
+verfügbare UTC-/GNSS-Zeit mit Qualitätsangabe und Netzwerkprofil-Version.
+Keine künstlich aktuellen Empfangszeiten beim Wiederabspielen erzeugen.
+DevAddr ist keine global eindeutige Geräte- oder Application-Identität.
+
+**Offlinebetrieb:** Letzten geprüften Kanalplan und Hardwarekonfiguration lokal
+halten. Nach Verbindungsabbruch und nach einem Neustart ohne Internet weiter
+empfangen können. Dabei Gültigkeit und Profilbindung des gespeicherten Plans
+prüfen. Ein unverändertes Basics-Station-Image wird hierfür nicht als ausreichend
+vorausgesetzt: Das LNS-Protokoll sieht zunächst `router_config` vom Server vor [10].
+Ein bloßer WebSocket-Proxy kann ausgebliebene Funkaufzeichnungen nicht ersetzen.
+
+**Implementierungsentscheidung:** Zuerst die gepinnte Basics-Station-Basis auf
+Offlineempfang, Journal-Einhängepunkt und Wiederanlauf prüfen. Fehlende Funktionen
+erfordern eine gepflegte Erweiterung am Empfangspfad einschließlich lokalem
+Konfigurationsstart. Falls die Basis ungeeignet ist, den Funkprozess durch einen
+geeigneten HAL-/Konzentrator-Dienst mit Queue und LNS-Adapter ersetzen. Weiterhin
+genau ein Prozess auf SPI; Entscheidung mit Hardware- und TTN-Versuch treffen,
+bevor das Produktionsimage festgelegt wird.
+
+**Nachlieferung:** Nach Wiederverbindung gespeicherte Datenframes in ursprünglicher
+Empfangsreihenfolge abarbeiten, mit begrenzter Rate, Backoff und fortgesetztem
+Liveempfang. Liveverkehr und Rückstau so koordinieren, dass die eigene Weiterleitung
+ältere Frames nicht durch neuere überholt; Auswirkungen auf Live-Latenz messen.
+Empfangs-ID und Nutzdatenhash für Wiederholungsbehandlung führen, aber echte
+mehrfache Funkempfänge nicht blind anhand eines Hashs zusammenwerfen.
+Zustandswechsel wie `persisted`, `send_attempted`, `acceptance_unknown`,
+`accepted` und `expired` dauerhaft führen. `accepted` nur mit belastbarem Beleg
+der jeweiligen Gegenstelle setzen. Keine garantierte Exactly-once-Zustellung
+an TTN behaupten: Die dokumentierten LNS-Uplinknachrichten enthalten keine
+Ende-zu-Ende-Quittierung der Application [10]. Ohne Annahmenachweis Datensätze
+nicht allein wegen erfolgreichem WebSocket-Senden löschen; begrenzte
+Wiederholungen und nachvollziehbare Aufbewahrung vorsehen.
+
+**TTN-Kompatibilität als frühe Abnahme:** Das LNS-Protokoll beschreibt Transport
+und Empfangszeitkontext, garantiert aber keine beliebig späte Verarbeitung [10].
+Mit vorhandener OTAA-Session Offlinephasen von 5 Minuten, 1 Stunde, 24 Stunden
+und zum Abschluss 72 Stunden bei vereinbarter Last
+prüfen: Annahme im Gateway Server, Network Server und einer separaten
+Test-Application getrennt nachweisen. Zusätzlich Mehrgateway-Empfang, inzwischen
+höhere Frame Counter, Sessionwechsel/Rejoin, Duplikate, Counterüberlauf sowie
+Neustart des Konzentrators testen. Frame Counter dienen dem Replay-Schutz [11];
+sie oder MIC/Session-Zuordnungen nicht umschreiben und Schutzprüfungen nicht
+abschalten. Empfangsreihenfolge auf unserem Pi verhindert keine Überholung über
+ein anderes Gateway. Historische Zeitstempel und ungültig gewordener
+Downlink-Kontext sind ausdrücklich Teil des Versuchs.
+
+**Zeitkritische Funkvorgänge:** Während des Ausfalls lassen sich Joins,
+Bestätigungen und Class-A-Downlinks nicht nachträglich in bereits abgelaufenen
+Empfangsfenstern zustellen [12]. Veraltete Join Requests nicht als nachholbaren
+Join behandeln; neue Join-Versuche nach Wiederverbindung regulär verarbeiten.
+Historische Downlink-Aufträge nicht später auf Funk aussenden. Gepufferte
+bestätigte Uplinks können Anwendungsdaten enthalten, erhalten dadurch aber kein
+nachträglich gültiges ACK im ursprünglichen Empfangsfenster.
+
+**Kapazität:** Planungsziel zunächst 72 Stunden Offlineempfang beim gemessenen
+Spitzenverkehr aller zugelassenen Geräte. Bedarf aus Frames/s × Bytes/Datensatz
+× Offlinezeit plus Index-/WAL-Aufwand und Reserve bestimmen; mindestens den
+doppelten gemessenen Bedarf vorsehen. Byte-, Anzahl- und Altersgrenzen festlegen,
+System-/Update-Reserve separat sichern. Bei Grenzwertüberschreitung alarmieren;
+älteste Datensätze nur nach dokumentierter Überlaufregel verwerfen und genaue
+Verlustzähler führen. Kein unbegrenztes verlustfreies Puffern versprechen.
+
+**Entscheidung bei TTN-Grenzen:** Wenn TTN historische Frames im geprüften Fall
+nicht bis zur Application verarbeitet, ist diese Anforderung im TTN-Profil noch
+nicht erfüllt. Lokale Aufzeichnung bleibt erhalten, ersetzt aber die Zustellung
+nicht. Dann vor Dachbetrieb einen unterstützten Nachlieferweg bzw. eine geeignete
+Network-Server-Lösung auswählen. Ein eigener quittierender Rohdaten-Empfänger
+wäre eine gesonderte Option zur Sicherung, keine automatische TTN-Integration
+und kein Anlass, Application-Schlüssel auf dem Gateway zu speichern.
 
 ## 4. Hardware und Standort vorab klären
 
@@ -194,7 +290,8 @@ EIRP sauber umrechnen.
 8. Gateway-spezifischen LNS-Schlüssel mit minimalen Rechten lokal provisionieren.
 9. Basics Station mit festem Modell, Schnittstelle, SPI-Gerät und verifizierten
    GPIO-Werten starten. Kein zweiter Forwarder darf parallel auf SPI zugreifen.
-10. TTN-Verbindung, OTAA-Join und vollständigen Messwertpfad prüfen.
+10. TTN-Verbindung, OTAA-Join und Uplink-/Downlink-Transport mit einer separaten
+    Test-Application prüfen; danach Store-and-forward gemäß Abschnitt 3.1 abnehmen.
 
 LNS verwendet bei The Things Stack `wss://<server-address>:8887`; CUPS verwendet
 HTTPS auf Port 443 [7]. Den konkreten Endpunkt aus dem verwendeten TTN-Cluster
@@ -225,6 +322,11 @@ Das Manifest enthält Version, Gateway-Profil, Image-Digest, Konfigurationshash,
 minimale Host-/Updater-Version und Signatur. Ein im Host hinterlegter öffentlicher
 Schlüssel prüft den freigegebenen Inhalt. Der Signaturschlüssel liegt in der
 Release-Umgebung. Für private Images ausschließlich lesende Zugangsdaten nutzen.
+Queue-Schema und erlaubte Vor-/Rückwärtskompatibilität gehören ins Manifest.
+Die Queue liegt auf einem persistenten Host-Volume, das Updates nicht ersetzen.
+Schemaänderungen müssen die Rücksprungversion unterstützen; irreversible
+Migrationen sperren den automatischen Rollout. Kein Löschen oder Neuerstellen
+des Puffers als Teil von Update oder Rollback.
 
 Vorgeschlagener Ablauf:
 
@@ -270,7 +372,8 @@ Vorgesehene neue Struktur, noch nicht angelegt:
 
 ```text
 gateway/
-  basicstation/       # reproduzierbarer Build und Startkonfiguration
+  basicstation/       # geprüfte Basis und nötige Offline-/Empfangserweiterung
+  spool/              # Empfangsjournal, Aufbewahrung und Nachliefersteuerung
   deploy/            # Compose und Beispielkonfiguration ohne Secrets
   updater/           # Manifestprüfung, Zustandsjournal, Aktivierung, Rollback
   provision/         # Host-Einrichtung und systemd-Units
@@ -281,7 +384,7 @@ docs/gateway/implementierungsplan.md
 ```
 
 PR-Prüfungen: Konfiguration validieren, Secrets ausschließen, Skripte prüfen,
-Updater-Zustandswechsel und Fehlerfälle testen, ARM64-Image bauen. Bei Nutzung
+Updater- und Queue-Zustandswechsel sowie Fehlerfälle testen, ARM64-Image bauen. Bei Nutzung
 von Shell ShellCheck, bei Python passende Lint- und Unit-Tests vorsehen.
 Release-Build: getesteten Commit bauen, unveränderlichen Digest veröffentlichen,
 Manifest erzeugen/signieren, zunächst dem Testkanal zuordnen.
@@ -301,6 +404,9 @@ eigene Registry-Namen und Releasekanäle, unabhängig vom VPS-Stack.
 Erfassen: aktive Version/Digest, letzter erfolgreicher Updatecheck, letzter
 Rollback, Container-Neustarts, Konzentrator-/LNS-Zustand, letzte Funkaktivität,
 CPU-Temperatur, Unterspannung, Drosselung, Speicherplatz und Host-Uptime.
+Zusätzlich Queue-Belegung, Alter des ältesten Frames, Schreiblatenz/-fehler,
+Wiederholungen, unbekannte Annahmezustände, Nachlieferrate und verworfene Frames
+erfassen. Bei ausbleibendem Abbau des Rückstaus und drohendem Überlauf alarmieren.
 Verfügbare Forwarder-Metriken prüfen; nicht von vollständigen RX-/TX-Zählern
 in jedem Backend ausgehen. Betriebsdaten enthalten keine entschlüsselten
 fremden Payloads oder Zugangsschlüssel.
@@ -326,27 +432,41 @@ Paketupdates bieten keinen gleichwertigen Rücksprung.
 | Etappe | Arbeitsergebnis | Abnahmekriterium |
 | --- | --- | --- |
 | A: Inventar | Hardwareliste, GPIO-/Versorgungsplan, Standort- und Netzwerkprofil | Varianten und HAT-Kombination geklärt; kein offener Versorgungskonflikt. |
-| B: Grundbetrieb | Pi mit Basics Station und TTN | OTAA-Join, Uplink und geplanter Testdownlink funktionieren; Messwert erscheint im bestehenden Backend. |
+| B: Grundbetrieb | Funkprozess und TTN | OTAA-Join, Uplink und geplanter Testdownlink funktionieren mit unabhängiger Test-Application. |
+| B1: Store-and-forward | Persistente Queue, Offlineempfang und geprüfter Nachlieferweg | Ausfall, Offline-Neustart und Wiederanlauf geprüft; verspätete Daten erreichen die Test-Application im vereinbarten Testumfang. TTN-Grenzen sind vor Wahl des Produktionsimages geklärt. |
 | C: Reproduzierbarkeit | Provisionierung, Compose und gepinntes ARM64-Image | Frisches Medium lässt sich nach Anleitung auf denselben Stand bringen. |
 | D: Fernupdates | Signierte Releases, Updater und Rücksprung | Erfolgsfall und absichtlich fehlerhafter Kandidat ohne Vor-Ort-Eingriff getestet. |
 | E: Dauerlauf | Monitoring, VPN, Loggrenzen, Strom-/Netzausfalltests | Mindestens sieben Tage stabil; Neustarts und Wiederverbindung nachgewiesen. |
 | F: Dachbetrieb | Geprüfte Montage und dokumentierte Funkmessungen | Standortfreigabe, Schutzmaßnahmen, Fernzugriff und Update nach Montage geprüft. |
 | G: Eigener Network Server | Separater ChirpStack-Pilot | Join, Datenpfad, Downlink, Backup und Rückkehr zum TTN-Profil nachgewiesen. |
 
-Grobe Aufwandsschätzung: A ein halber bis ein Tag, B/C zwei bis drei Tage,
-D zwei bis vier Tage, E/F ein bis zwei aktive Tage plus Dauerlauf und
-Montagekoordination. Insgesamt ungefähr sechs bis zehn aktive Arbeitstage,
-mit Puffer bei unbekannten HAT-/Treiberproblemen. ChirpStack separat planen.
+Grobe Aufwandsschätzung ohne Store-and-forward: ungefähr sechs bis zehn aktive
+Arbeitstage plus Dauerlauf und Montagekoordination. Für B1 zunächst zwei bis vier
+aktive Tage für Machbarkeit und Prototyp reservieren. Aufwand für produktive
+Queue, Offline-Forwarder und Nachlieferung danach anhand der Befunde schätzen;
+die bisherige Gesamtschätzung gilt damit nicht mehr für den vollständigen Umfang.
+ChirpStack separat planen.
 
 ## 10. Verbindliche Tests vor schwer zugänglicher Montage
 
 - Cold Boot, Warmstart und Container-Neuerstellung erhalten dieselbe Gateway-EUI.
 - Referenzsensor führt OTAA-Join aus; Uplink und zulässiger Testdownlink funktionieren.
-- Eigener Messwert erreicht TTN, Decoder, Backend und Dashboard.
-- Zweite, getrennte TTN-Application wird über dasselbe Gateway bedient;
-  deren Daten werden nicht versehentlich in unser Backend übernommen.
+- Zwei unabhängige TTN-Test-Applications mit unterschiedlichen Payloadformaten
+  werden ohne Änderung am Gateway bedient. Keine Decoder, Application-Schlüssel
+  oder Abhängigkeiten vom bestehenden Sensor-Backend im Gateway-Image.
 - Netzwerkunterbrechung und TTN-Nichterreichbarkeit führen nach Wiederkehr zur
-  Verbindung, ohne Reboot-Schleifen. Paketverlust während der Unterbrechung dokumentieren.
+  Verbindung, ohne Reboot-Schleifen. Im vereinbarten Last-/Zeitbereich werden
+  dauerhaft gesicherte Uplinks nachgeliefert; Annahme durch die Test-Application
+  getrennt von bloßer Übertragung belegen.
+- Empfang und Queue funktionieren nach Kaltstart ohne Internet mit gespeichertem
+  Kanalplan; Reboot und Stromausfall erhalten bereits dauerhaft bestätigte Frames.
+- Nachlieferung mit parallel laufendem Liveverkehr, Mehrgateway-Empfang,
+  Sessionwechsel und Zeit-/Countergrenzen gemäß Abschnitt 3.1 prüfen.
+- Verbindungsabbruch unmittelbar nach Senden verursacht keinen stillen Datenverlust;
+  unbekannte Annahme und mögliche Duplikate bleiben nachvollziehbar.
+- Queue-Alter/-Größe begrenzen; Überlauf alarmiert und zählt verworfene Frames.
+  Warteschlange übersteht Update und Rollback einschließlich Schemakompatibilität.
+- Veraltete Joins/Downlinks werden nicht als regulär nachgeholt ausgegeben.
 - Gültiges Update gelingt; falsche Signatur, falsches Profil, inkompatible
   Hostversion und unvollständiger Download werden vor Aktivierung abgewiesen.
 - Abstürzendes Image, falsche SPI-/GPIO-Konfiguration und defekte LNS-Konfiguration
@@ -380,12 +500,13 @@ der dann verwendeten ChirpStack-Version festlegen, privat vernetzen und sichern.
 Kanalplan und Downlink-Konfiguration ausdrücklich testen. Credentials werden
 nicht mit dem bisherigen TTN-Schlüssel weiterverwendet.
 
-Der Wechsel betrifft auch Endgeräte und Datenintegration: Geräteprofile,
-LoRaWAN-Versionen und individuelle Schlüssel sicher provisionieren, neue OTAA-
-Joins durchführen, Decoder übernehmen und ChirpStack-Ereignisse in das bestehende
-Messwertmodell abbilden. TTN-Webhook-JSON nicht als identisch voraussetzen.
-Stabile Sensoridentität über DevEUI/Zuordnung erhalten; historische IDs
-`ttn-<device-id>` nicht unkontrolliert durch neue Sensoren ersetzen.
+Der Wechsel erfordert eine separate Migration von Endgeräten und Applications:
+Geräteprofile und Schlüssel auf der Serverseite provisionieren, neue OTAA-Joins
+durchführen und die jeweiligen Decoder/Integrationen dort einrichten. Diese
+Arbeiten sind keine Gateway-Komponenten und bleiben vom Gateway-Release getrennt.
+Store-and-forward für ChirpStack erneut bis zur Test-Application prüfen;
+gepufferte Frames an ihr ursprüngliches Netzwerkprofil binden und nicht bei
+Profilwechsel ungeprüft in ein anderes Netz einspeisen.
 
 Zunächst ein separates Gateway-Profil mit genau einem aktiven LNS verwenden.
 Ein einfacher Wechsel zu ChirpStack nimmt diesem Gateway seine bisherige
@@ -416,6 +537,8 @@ und Dachfreigabe hängen davon ab:
 6. Gewünschte Releasepolitik: vorgeschlagen sind automatisch installierte,
    vorher freigegebene stabile Releases mit Testkanal.
 7. Soll TTN-Community-Abdeckung später parallel zu ChirpStack erhalten bleiben?
+8. Offlinezeit und erwartetes Verkehrsaufkommen für die endgültige Queue-Größe;
+   zunächst gelten 72 Stunden bei gemessener Spitzenlast als Planungsziel.
 
 ## Quellen
 
@@ -449,3 +572,12 @@ https://www.chirpstack.io/docs/chirpstack-gateway-bridge/backends/basics-station
 [9] Raspberry Pi: PoE+ HAT, Kompatibilität, Anschluss und aktuelle Spezifikation
 https://www.raspberrypi.com/products/poe-plus-hat/
 https://datasheets.raspberrypi.com/poe/poe-plus-hat-product-brief.pdf
+
+[10] Semtech: LNS-Protokoll, router_config, Uplinknachrichten und Empfangskontext
+https://doc.sm.tc/station/tcproto.html
+
+[11] The Things Stack: Frame Counter und Replay-Schutz
+https://www.thethingsindustries.com/docs/devices/best-practices/
+
+[12] The Things Stack: Gerätefehler, Join-/Downlink-Timing und Backhaul-Latenz
+https://www.thethingsindustries.com/docs/hardware/devices/troubleshooting/
