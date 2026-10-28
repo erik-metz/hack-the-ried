@@ -35,7 +35,7 @@ deliberately excluded from the measurement history.
 
 ## Build and flash
 
-Use `./hardware/sensor-node/rak3112/build.sh v13 <device-profile-id>` to compile the
+Use `./hardware/sensor-node/rak3112/build.sh v14 <device-profile-id>` to compile the
 latest firmware, or
 add `--port /dev/cu.usbmodem...` to upload to a deliberately selected board. Firmware v10 adds
 the ICS-43434 I2S microphone; see `v10/README.md` for wiring and serial diagnostics.
@@ -71,3 +71,8 @@ Firmware v13 adds compact payload format 7: all 26 sensor channels fit in 165
 bytes at their normal field widths, preserving existing precision and statistics.
 Install the shared TTN decoder before flashing v13. See [`v13/README.md`](v13/README.md)
 for the wire schema, overflow handling, deployment order and protocol tests.
+
+Firmware v14 identifies and calibrates the INA226 R100 module and adds voltage,
+current and power via format 8 (204 bytes for all 30 channels). Without INA data
+it emits format 7. See [`v14/README.md`](v14/README.md) for wiring, limits,
+measurement caveats and decoder deployment order.

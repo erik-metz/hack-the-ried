@@ -1,4 +1,4 @@
-// RAK3112 uplink decoder. Formats 3/4: samples; 5/6: TLV windows; 7: compact windows.
+// RAK3112 uplink decoder. Formats 3/4: samples; 5/6: TLV windows; 7/8: compact windows.
 function decodeCompactWindow(bytes) {
   if (bytes.length < 17 || bytes.length > 222 || bytes.some(function (b) {
     return !Number.isInteger(b) || b < 0 || b > 255;
@@ -16,6 +16,8 @@ function decodeCompactWindow(bytes) {
     [29,3,2,false,false],[30,3,2,false,false],[31,5,3,false,false],
     [32,4,3,false,true],[33,5,3,false,true]
   ];
+  if (bytes[0] === 8) fields.push([36,10,2,false,false], [37,10,3,true,false],
+    [38,10,3,true,false], [39,10,4,true,false]);
   const allowed = [0,0,0,0,0,0];
   fields.forEach(function (field) { allowed[(field[0]-1) >> 3] |= 1 << ((field[0]-1) % 8); });
   for (let i = 0; i < 6; ++i) {
@@ -24,6 +26,9 @@ function decodeCompactWindow(bytes) {
     }
   }
   const definitions = windowDefinitions(), classes = windowAudioClasses();
+  // Formats 3-7 retain whole mA/mW. Format 8 carries microamps/microwatts,
+  // decoded into the same mA/mW units with three decimal places.
+  if (bytes[0] === 8) { definitions[38][2] = 0.001; definitions[39][2] = 0.001; }
   const statistics = [], groups = {};
   let offset = 17;
   function read(width, signed) {
@@ -49,7 +54,7 @@ function decodeCompactWindow(bytes) {
       groups[field[1]] = 0;
     });
     if (!statistics.length) throw new Error("Compact payload has no measurements");
-    for (let group = 1; group <= 9; ++group) {
+    for (let group = 1; group <= (bytes[0] === 8 ? 10 : 9); ++group) {
       if (groups[group] === undefined) continue;
       groups[group] = read(3, false);
       if (!groups[group]) throw new Error("Compact sample count must be positive");
@@ -63,7 +68,7 @@ function decodeCompactWindow(bytes) {
       seen[classId] = true;
       events.push({class_id:classId,class:classes[classId],count:count,max_score:score/100});
     }
-    return {data:{version:7,firmware_version:bytes[1],window_seconds:seconds,
+    return {data:{version:bytes[0],firmware_version:bytes[1],window_seconds:seconds,
       measurements:statistics.map(function (item) { return {metric:item.metric,unit:item.unit,value:item.mean_value}; }),
       window_statistics:statistics,sound_events:events}};
   } catch (error) {
@@ -76,7 +81,7 @@ function decodeUplink(input) {
   if (input.fPort !== undefined && input.fPort !== 10) return { errors: ["Unsupported FPort; expected 10"] };
   if (!Array.isArray(bytes) || bytes.length === 0) return { errors: ["Payload is empty"] };
   const version = bytes[0];
-  if (version === 7) return decodeCompactWindow(bytes);
+  if (version === 7 || version === 8) return decodeCompactWindow(bytes);
   if (version !== 3 && version !== 4 && version !== 5 && version !== 6) return { errors: ["Unsupported payload version: " + version] };
   if (version === 5 || version === 6) {
     if (bytes.length < 9 || bytes.length > 222) {

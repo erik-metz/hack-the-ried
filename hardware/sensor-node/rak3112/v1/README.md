@@ -135,3 +135,7 @@ Firmware v13 uses compact format 7 (fixed field order, presence/wide bitmaps,
 metric-specific integer widths). The decoder retains support for formats 3–6.
 See [`../v13/README.md`](../v13/README.md) for the wire contract and deployment order.
 Run both protocol suites with `node --test hardware/sensor-node/rak3112/v1/*test.mjs`.
+
+Firmware v14 additionally supports format 8 for INA226 statistics. In that format
+only, current/power are encoded as µA/µW and decoded to the existing mA/mW units
+with 0.001 scaling. Older formats retain their scales. See [`../v14/README.md`](../v14/README.md).

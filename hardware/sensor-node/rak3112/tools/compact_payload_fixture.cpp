@@ -1,4 +1,10 @@
+#ifdef RAK_INA226
+#include "../v14/compact_payload.h"
+static constexpr uint8_t FIRMWARE = 14;
+#else
 #include "../v13/compact_payload.h"
+static constexpr uint8_t FIRMWARE = 13;
+#endif
 #include <iostream>
 
 // Host harness for the exact encoder included by the Arduino firmware.
@@ -15,7 +21,7 @@ int main() {
     metrics[code] = metric;
   }
   uint8_t bytes[222] = {};
-  const size_t length = CompactPayload::encode(bytes, capacity, 13, seconds, metrics);
+  const size_t length = CompactPayload::encode(bytes, capacity, FIRMWARE, seconds, metrics);
   for (size_t i = 0; i < length; ++i) std::cout << unsigned(bytes[i]) << ' ';
   std::cout << '\n';
 }
