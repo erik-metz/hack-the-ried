@@ -21,6 +21,7 @@ services:
     tmpfs:
       - /app/config:mode=0700,size=4m
       - /tmp:size=16m
+      - /var/tmp:mode=0700,size=4m
     labels:
       com.centurylinklabs.watchtower.enable: "true"
       com.centurylinklabs.watchtower.scope: kamue-gateway

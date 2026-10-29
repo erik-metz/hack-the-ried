@@ -46,6 +46,7 @@ class GatewayConfigTests(unittest.TestCase):
         station = data["services"]["basicstation"]
         updater = data["services"]["watchtower"]
         self.assertFalse(station.get("privileged", False))
+        self.assertTrue(any(v.startswith("/var/tmp:") for v in station["tmpfs"]))
         self.assertNotEqual(station.get("network_mode"), "host")
         self.assertTrue(station["environment"]["TC_KEY"].startswith("NNSXS."))
         self.assertNotIn("secrets", station)
