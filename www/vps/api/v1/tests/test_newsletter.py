@@ -26,8 +26,16 @@ class NewsletterTests(unittest.IsolatedAsyncioTestCase):
         pool, connection = database_pool()
         await signup(NewsletterSignup(email="  Person@Example.org ", consent=True), pool)
         query, params = connection.execute.await_args.args
-        self.assertIn("ON CONFLICT (email)", query)
-        self.assertEqual(params, ("person@example.org", "2026-10-27-v1"))
+        self.assertIn("ON CONFLICT (email, category)", query)
+        self.assertEqual(params, ("person@example.org", "2026-10-27-v1", "newsletter", None, None, None))
+
+    async def test_workshop_signup_uses_its_own_category_and_consent_version(self):
+        pool, connection = database_pool()
+        await signup(NewsletterSignup(email="person@example.org", consent=True,
+                                       category="sensor-workshop", name="Alex", location="Bürstadt"), pool)
+        _, params = connection.execute.await_args.args
+        self.assertEqual(params, ("person@example.org", "sensor-workshop-2026-10-29-v1",
+                                  "sensor-workshop", "Alex", "Bürstadt", None))
 
     async def test_signup_requires_consent(self):
         pool, connection = database_pool()

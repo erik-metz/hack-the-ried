@@ -8,6 +8,7 @@ export default function WorkshopRegistrationForm() {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("Bürstadt");
   const [interest, setInterest] = useState("Eigenen Sensor im Workshop bauen");
+  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -22,7 +23,7 @@ export default function WorkshopRegistrationForm() {
       const res = await fetch("/api/workshop-registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, location, interest }),
+        body: JSON.stringify({ email, name, location, interest, consent }),
       });
 
       const data = await res.json();
@@ -170,7 +171,7 @@ export default function WorkshopRegistrationForm() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || !consent}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 px-6 py-3 font-bold text-slate-950 text-sm hover:brightness-110 transition-all shadow-lg shadow-emerald-500/10 disabled:opacity-50"
             >
               {busy ? (
@@ -190,6 +191,11 @@ export default function WorkshopRegistrationForm() {
               🔒 Kein Spam. Nur Benachrichtigungen zu Terminen und Bausätzen.
             </span>
           </div>
+
+          <label className="flex items-start gap-3 text-xs leading-relaxed text-slate-400">
+            <input type="checkbox" required checked={consent} onChange={(event) => setConsent(event.target.checked)} disabled={busy} className="mt-0.5 size-4 shrink-0 accent-emerald-500" />
+            <span>Ich möchte zum Sensor-Bau-Workshop kontaktiert werden. Meine Angaben werden dafür gespeichert und können jederzeit per E-Mail an <a className="underline hover:text-emerald-300" href="mailto:info@kamue.me">info@kamue.me</a> gelöscht werden. Details stehen in der <a className="underline hover:text-emerald-300" href="/datenschutz">Datenschutzerklärung</a>.</span>
+          </label>
 
           {errorMessage && (
             <p className="text-xs text-rose-400 pt-1 font-medium">{errorMessage}</p>

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(backendUrl("/api/v1/newsletter/subscribers"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: body.email, consent: true }),
+      body: JSON.stringify({ email: body.email, consent: true, category: body.category, name: body.name, location: body.location, interest: body.interest }),
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });
@@ -46,16 +46,16 @@ export async function GET() {
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return NextResponse.json({ error: "Adressen konnten nicht geladen werden." }, { status: 503 });
-    const subscribers: { email: string; consented_at: string }[] = await response.json();
+    const subscribers: { email: string; consented_at: string; category: string; name?: string | null; location?: string | null; interest?: string | null }[] = await response.json();
     const csvCell = (value: string) => {
       const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
       return `"${safe.replaceAll('"', '""')}"`;
     };
-    const csv = ["E-Mail;Anmeldung am", ...subscribers.map(({ email, consented_at }) => `${csvCell(email)};${csvCell(new Date(consented_at).toISOString())}`)].join("\r\n");
+    const csv = ["E-Mail;Kategorie;Name;Ort;Interesse;Anmeldung am", ...subscribers.map(({ email, consented_at, category, name, location, interest }) => [email, category, name ?? "", location ?? "", interest ?? "", new Date(consented_at).toISOString()].map(csvCell).join(";"))].join("\r\n");
     return new NextResponse(`\uFEFF${csv}`, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="hacktheried-newsletter.csv"',
+        "Content-Disposition": 'attachment; filename="hacktheried-anmeldungen.csv"',
         "Cache-Control": "no-store",
       },
     });

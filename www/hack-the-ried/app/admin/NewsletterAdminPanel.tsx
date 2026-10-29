@@ -17,10 +17,10 @@ export default function NewsletterAdminPanel() {
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = "hacktheried-newsletter.csv";
+      link.download = "hacktheried-anmeldungen.csv";
       link.click();
       URL.revokeObjectURL(url);
-      setMessage("Die aktuelle Abonnentenliste wurde heruntergeladen.");
+      setMessage("Die aktuellen Anmeldungen wurden heruntergeladen.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Download fehlgeschlagen.");
     } finally {
@@ -53,8 +53,8 @@ export default function NewsletterAdminPanel() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 id="newsletter-admin-title" className="font-semibold text-slate-100">Newsletter-Verteiler</h2>
-            <p className="mt-1 text-sm text-slate-400">Adressen nur als BCC verwenden. Widerrufe hier aus der Liste entfernen.</p>
+            <h2 id="newsletter-admin-title" className="font-semibold text-slate-100">Newsletter- und Workshop-Anmeldungen</h2>
+            <p className="mt-1 text-sm text-slate-400">Die CSV enthält Kategorie und Workshop-Angaben. Widerrufe oder Löschanfragen hier entfernen.</p>
           </div>
           <button type="button" onClick={downloadList} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50">
             <Download className="size-4" aria-hidden="true" /> CSV herunterladen
@@ -64,7 +64,7 @@ export default function NewsletterAdminPanel() {
           <label className="sr-only" htmlFor="newsletter-remove-email">E-Mail-Adresse widerrufen</label>
           <input id="newsletter-remove-email" type="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Adresse nach Widerruf entfernen" className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-emerald-400" />
           <button type="submit" disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50">
-            <Trash2 className="size-4" aria-hidden="true" /> Adresse entfernen
+            <Trash2 className="size-4" aria-hidden="true" /> Alle Anmeldungen dieser Adresse entfernen
           </button>
         </form>
         {message && <p role="status" className="mt-3 text-sm text-emerald-300">{message}</p>}

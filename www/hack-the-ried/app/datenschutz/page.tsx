@@ -18,7 +18,7 @@ export default function DatenschutzPage() {
           <header className="space-y-3">
             <p className="text-sm font-medium text-emerald-400">Stand: {updatedAt}</p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Datenschutzerklärung</h1>
-            <p className="text-slate-300">Hier erklären wir, welche personenbezogenen Daten beim Besuch von HackTheRied und bei einer Newsletter-Anmeldung verarbeitet werden.</p>
+            <p className="text-slate-300">Hier erklären wir, welche personenbezogenen Daten beim Besuch von HackTheRied, bei einer Newsletter-Anmeldung und bei einer Workshop-Vormerkung verarbeitet werden.</p>
           </header>
 
           <section className="space-y-3">
@@ -35,8 +35,14 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="space-y-3">
+            <h2 className="text-xl font-semibold">Vormerkung für den Sensor-Bau-Workshop</h2>
+            <p className="text-slate-300 leading-relaxed">Wenn du dich für einen Sensor-Bau-Workshop vormerkst, speichern wir deine E-Mail-Adresse sowie optional deinen Namen, Wohnort und Interessenschwerpunkt in unserer Projektdatenbank. Wir verwenden diese Angaben ausschließlich, um dich über Termine und Bausätze des Sensor-Bau-Workshops zu informieren. Es wird keine automatische Bestätigungsmail versendet. Die Verarbeitung erfolgt auf Grundlage deiner Einwilligung (Art. 6 Abs. 1 lit. a DSGVO).</p>
+            <p className="text-slate-300 leading-relaxed">Du kannst deine Einwilligung jederzeit widerrufen und die Löschung deiner Angaben verlangen, indem du an <a className="text-emerald-300 underline underline-offset-2 hover:text-emerald-200" href="mailto:info@kamue.me">info@kamue.me</a> schreibst. Wir löschen deine Vormerkung dann aus der aktiven Liste.</p>
+          </section>
+
+          <section className="space-y-3">
             <h2 className="text-xl font-semibold">Hosting und technische Zugriffsdaten</h2>
-            <p className="text-slate-300 leading-relaxed">Die Website wird auf Vercel gehostet. Die Newsletter-Datenbank und die API laufen auf einem von uns betriebenen VPS. Beim Aufruf einer Website werden technisch notwendige Verbindungsdaten verarbeitet, insbesondere IP-Adresse, Zeitpunkt, angefragte Seite und Angaben zum Browser. Diese Verarbeitung ist erforderlich, um die Website auszuliefern, Stabilität und Sicherheit zu gewährleisten und Störungen zu untersuchen.</p>
+            <p className="text-slate-300 leading-relaxed">Die Website wird auf Vercel gehostet. Die Datenbank für Newsletter-Anmeldungen und Workshop-Vormerkungen sowie die API laufen auf einem von uns betriebenen VPS. Beim Aufruf einer Website werden technisch notwendige Verbindungsdaten verarbeitet, insbesondere IP-Adresse, Zeitpunkt, angefragte Seite und Angaben zum Browser. Diese Verarbeitung ist erforderlich, um die Website auszuliefern, Stabilität und Sicherheit zu gewährleisten und Störungen zu untersuchen.</p>
           </section>
 
           <section className="space-y-3">

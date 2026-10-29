@@ -15,6 +15,10 @@ EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 class NewsletterSignup(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     consent: bool
+    category: str = Field(default="newsletter", pattern="^(newsletter|sensor-workshop)$")
+    name: str | None = Field(default=None, max_length=100)
+    location: str | None = Field(default=None, max_length=100)
+    interest: str | None = Field(default=None, max_length=200)
 
     @field_validator("email")
     @classmethod
@@ -43,14 +47,19 @@ async def signup(payload: NewsletterSignup, pool=Depends(get_db_pool)):
         raise HTTPException(400, "Bitte bestätige die Newsletter-Einwilligung.")
     async with pool.connection() as conn:
         await conn.execute(
-            """INSERT INTO newsletter_subscribers (email, consent_text_version)
-               VALUES (%s, %s)
-               ON CONFLICT (email) DO UPDATE SET
+            """INSERT INTO newsletter_subscribers
+                   (email, consent_text_version, category, name, location, interest)
+               VALUES (%s, %s, %s, %s, %s, %s)
+               ON CONFLICT (email, category) DO UPDATE SET
                    consented_at = now(),
                    consent_text_version = EXCLUDED.consent_text_version,
+                   name = EXCLUDED.name,
+                   location = EXCLUDED.location,
+                   interest = EXCLUDED.interest,
                    unsubscribed_at = NULL
                WHERE newsletter_subscribers.unsubscribed_at IS NOT NULL""",
-            (payload.email, CONSENT_TEXT_VERSION),
+            (payload.email, CONSENT_TEXT_VERSION if payload.category == "newsletter" else "sensor-workshop-2026-10-29-v1",
+             payload.category, payload.name, payload.location, payload.interest),
         )
     return {"success": True}
 
@@ -61,11 +70,11 @@ async def list_subscribers(
 ):
     async with pool.connection() as conn:
         cursor = await conn.execute(
-            """SELECT email, consented_at FROM newsletter_subscribers
+            """SELECT email, consented_at, category, name, location, interest FROM newsletter_subscribers
                WHERE unsubscribed_at IS NULL ORDER BY consented_at"""
         )
         rows = await cursor.fetchall()
-    return [{"email": row["email"], "consented_at": row["consented_at"]} for row in rows]
+    return [dict(row) for row in rows]
 
 
 @router.delete("/admin/newsletter/subscribers")
