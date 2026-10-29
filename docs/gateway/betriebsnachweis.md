@@ -10,12 +10,14 @@ Hardwaretests. Die Dachfreigabe ist noch nicht erteilt.
   lokaler `.env` mit Modus 600, keine Application-Decoder im Gateway.
 - Image auf gepinnter Basics-Station-Basis; TLS-LNS zu TTN EU1, lokales
   SQLite/WAL-Journal mit Wiederanlauf und zwischengespeichertem Kanalplan.
-- Zehn automatisierte Tests bestehen: Konfiguration/Secrets, Compose-Vertrag,
+- Dreizehn automatisierte Tests bestehen: Konfiguration/Secrets, Compose-Vertrag,
   dauerhafte Reihenfolge/Retention, Offline-Kaltstart, Replay vor Liveverkehr,
-  Discovery-Zielbindung, veraltete Class-A-Downlinks, Erhalt des Keys beim Pinning.
+  Discovery-Zielbindung, veraltete Class-A-Downlinks, Erhalt des Keys beim Pinning,
+  Host-Rücknahme und Ablehnung fehlerhafter Firewallregeln.
 - ARM64-CI testet zusätzlich die tatsächlich im Image installierte Python-/
   WebSocket-Version und veröffentlicht dasselbe geprüfte Image auf GHCR.
-- CI für `574ae61` erfolgreich: [Gateway-Lauf 40888484855](https://github.com/erik-metz/hack-the-ried/actions/runs/40888484855).
+- CI für die Host-Härtung `403ce03` erfolgreich:
+  [Gateway-Lauf 40893443266](https://github.com/erik-metz/hack-the-ried/actions/runs/40893443266).
 
 ## Reale Beobachtungen
 
@@ -76,10 +78,46 @@ wieder regulär mit 300 Sekunden Pollintervall; der Guardian ist aktiviert.
 
 ## Noch nachzuweisen
 
-- Langzeitstabilität und erneuter vollständiger Host-Neustart mit der finalen
-  GPIO25-Konfiguration (Container-Neustarts wurden mehrfach geprüft).
 - Langzeittest 72 Stunden, Stromausfälle, Speichergrenzen und thermischer
   Betrieb im wetterfesten PoE-Gehäuse.
 
 Der Pi läuft im zugänglichen Pilotbetrieb. Eine Montage auf dem Dach setzt
 die ausstehenden Belastungs- und Installationsprüfungen voraus.
+
+## Host-Härtung und vollständiger Neustart
+
+Am 29.10.2026 wurde die [Host-Härtung](host-sicherheit.md) auf dem Pi angewendet.
+Die eigene nftables-INPUT-Tabelle filtert IPv4 und IPv6 mit Standardrichtlinie
+DROP; die Docker-Tabellen bleiben bestehen. SSH-Service und -Socket, Avahi und
+Bluetooth sind gestoppt und maskiert. Die effektive SSH-Konfiguration verbietet
+Passwort-, interaktiven und Root-Login auch bei einer späteren bewussten Aktivierung.
+Die TCP-Bestandsaufnahme zeigte danach nur einen Loopback-Listener für Connect.
+Die Gateway-`.env` behielt Modus 600 und Eigentümer root.
+
+Ein vollständiger Neustart mit der finalen GPIO25-Konfiguration und aktiver
+Firewall wurde durchgeführt. Connect kehrte ohne lokale Anmeldung zurück;
+`Linger=yes`, Firewalldienst und Guardian waren aktiv, die gesperrten Dienste
+blieben maskiert. Das Log zeigte um 15:40:53 MEZ den erfolgreichen
+Konzentratorstart mit Chip-Version 0x10. Funk, lokale Station und LNS-Verbindung
+wurden anschließend als bereit gemeldet. Ein neuer Sensor-Uplink wurde nach
+dem Neustart empfangen und gesendet.
+
+Der Connect-Diagnoselauf bestand auch nach der Härtung die Tests für API,
+WebSocket, Authentifizierung, STUN und TURN. Der Hinweis auf nicht vorhandenes
+Screen-Sharing ist beim verwendeten Shell-Zugang erwartbar.
+
+Die zehnminütige Rücknahme war während der Prüfung aktiv und überstand den
+Neustart. Erst nach den Prüfungen wurde die Härtung bestätigt; der Rücknahme-Timer
+ist nun deaktiviert und die Firewall bleibt aktiviert.
+
+`apt-daily.timer` und `apt-daily-upgrade.timer` sind aktiv. Der Probelauf von
+`unattended-upgrade --dry-run --debug` endete erfolgreich. Er bestätigte die
+aktuellen Debian-Sicherheitsquellen und das Raspberry-Pi-Herstellerarchiv für
+Trixie; aktuell waren daraus keine ausstehenden Pakete zu installieren.
+Automatische Neustarts sind deaktiviert.
+
+Zwei-Faktor-Anmeldung für Connect und GitHub wurde vom Nutzer als bereits aktiv
+bestätigt; das wurde nicht unabhängig in den Kontoeinstellungen kontrolliert.
+Router-Portfreigaben und eine externe Erreichbarkeitsprüfung bleiben ungeprüft.
+Ein TCP-Prüfversuch vom Arbeitsplatz zum LAN des Pi lieferte „No route to host“
+und ist deshalb kein Nachweis für die Filterwirkung oder die Routerkonfiguration.
