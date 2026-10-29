@@ -99,6 +99,11 @@ class OfflineBridgeTests(unittest.IsolatedAsyncioTestCase):
             from websockets.legacy.server import serve
             async with serve(b.handler,'127.0.0.1',0) as server:
                 port=server.sockets[0].getsockname()[1]
+                b.port=port
+                async with connect(f'ws://127.0.0.1:{port}/router-info') as discovery:
+                    await discovery.send(json.dumps({'router':'1:2:3:4'}))
+                    reply=json.loads(await discovery.recv())
+                    self.assertEqual(reply['uri'],f'ws://127.0.0.1:{port}/traffic')
                 async with connect(f'ws://127.0.0.1:{port}') as radio:
                     await radio.send(json.dumps(dict(msgtype='version',protocol=2)))
                     config=json.loads(await asyncio.wait_for(radio.recv(),2))

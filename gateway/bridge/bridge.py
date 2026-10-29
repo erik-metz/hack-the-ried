@@ -57,7 +57,7 @@ class Bridge:
             request = json.loads(await asyncio.wait_for(ws.recv(), 10))
             self.router_id = request['router']
             await ws.send(json.dumps(dict(router=request['router'], muxs=request['router'],
-                                         uri=f'ws://127.0.0.1:{self.port}')))
+                                         uri=f'ws://127.0.0.1:{self.port}/traffic')))
             return
         if self.local is not None:
             await ws.close(1013, 'Only one radio connection supported')
