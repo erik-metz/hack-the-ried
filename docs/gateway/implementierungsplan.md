@@ -1,14 +1,14 @@
 # LoRaWAN-Gateway: Implementierungs- und Betriebsplan
 
-Stand: 28.10.2026. Status: Plan, noch keine Gateway-Software implementiert oder
-auf Hardware geprüft. Annahme: Standort Deutschland, EU868, Internet per Ethernet/PoE.
+Stand: 29.10.2026. Status: Gateway-Grundaufbau unter `gateway/` angelegt;
+noch keine Installation oder Funkprüfung auf dem Pi. Annahme: Standort Deutschland, EU868, Internet per Ethernet/PoE.
 
 Die [Recherche vorhandener Container und Projekte](vorhandene-projekte.md)
-ergänzt diesen Plan: Zuerst `xoseperez/basicstation` unverändert als Referenz
-testen und vorhandene Fernupdateverwaltung (balena) bewerten. Die folgenden
-Eigenentwicklungen für Queue und Updater sind Vorschläge für verbleibende
-Lücken, keine Voraussetzung für den ersten Basistest. Store-and-forward bleibt
-verbindliches Abnahmeziel; ein passendes Standardimage allein erfüllt es noch nicht.
+führt zum vorhandenen Basics-Station-Container als Grundlage. Der Nutzer hat
+GitHub Actions → GHCR → Watchtower als Updatepfad gewählt; balena und ein eigener
+Updater sind für den Grundaufbau nicht vorgesehen. Konkrete Einrichtung und
+Grenzen stehen in [gateway/README.md](../../gateway/README.md).
+Store-and-forward bleibt verbindliches Abnahmeziel und ist noch nicht implementiert.
 
 ## 1. Ziel und Entscheidungen
 
@@ -36,9 +36,10 @@ Vorgeschlagene Entscheidungen:
 - Persistenter, applicationunabhängiger Uplink-Puffer außerhalb des
   Container-Dateisystems; nötige Erweiterungen am Forwarder gezielt entwickeln.
 - TTN zuerst, ChirpStack später auf einem zentralen Server.
-- Fernupdateverwaltung zunächst mit balena vergleichen; falls eine eigene
-  Lösung erforderlich ist, kleiner Update-Dienst auf dem Host über systemd.
-- Versionierte, signierte Release-Manifeste und Images mit festem Digest.
+- Watchtower mit festem Scope und expliziter Containerfreigabe auf dem Pi;
+  vorhandener gepflegter Fork statt archiviertem Ursprungsprojekt.
+- Gepinnte Upstream-Images und GHCR-Pilotkanal plus feste Commit-Tags.
+  Signaturprüfung bei Aktivierung und automatischer Rollback sind noch offen.
 - Automatisch ausrollen, sobald eine Version für den Standort freigegeben ist;
   ein beliebiger Code-Push ist noch keine Produktionsfreigabe.
 - Host-Betriebssystem, Container-Anwendung und Sensor-Firmware haben getrennte
@@ -90,13 +91,11 @@ flowchart LR
     B <-->|Livebetrieb und geprüfte Nachlieferung über TLS| T[TTN / LNS]
     T --> X[Jeweilige Application: Decoder und Datenintegration]
     G[GitHub: Tests und ARM64-Build] --> C[Container Registry]
-    G --> M[Signiertes Release-Manifest]
-    C --> U[Pi: systemd Update-Dienst]
-    M --> U
-    U -->|Version aktivieren oder zurückrollen| B
+    C --> U[Pi: Watchtower]
+    U -->|Pilotversion aktualisieren| B
 ```
 
-Auf dem Pi laufen Forwarder mit persistentem Uplink-Puffer, Update-Dienst und
+Im Zielausbau laufen auf dem Pi Forwarder mit persistentem Uplink-Puffer, Watchtower und
 Betriebsüberwachung. Kein lokaler Network Server und keine Datenbank für
 entschlüsselte Sensormesswerte. Der Puffer speichert Funkframes einschließlich
 ihrer Empfangsmetadaten und bleibt unabhängig von Sensorformaten und Applications.
@@ -318,90 +317,59 @@ beschränkten Dateirechten. Logs dürfen keine Schlüssel enthalten. CUPS kann
 später die LNS-Konfiguration verwalten; es ersetzt nicht automatisch unser
 Container- oder Host-Updateverfahren.
 
-## 6. Automatische Updates mit Rücksprung
+## 6. Automatische Updates über GHCR und Watchtower
 
-Vor Umsetzung dieses Entwurfs vorhandene Fernupdateverwaltung gemäß
-[Projektvergleich](vorhandene-projekte.md) testen. Bei Wahl von balena diesen
-Abschnitt auf dessen Release-/Supervisor-Modell umstellen; keinen zweiten,
-konkurrierenden Update-Dienst daneben betreiben. Die Anforderungen an
-Funktionsprüfung, Queue-Erhalt und Rücksprung bleiben bestehen.
+Der erste Grundaufbau implementiert den gewählten Pfad ohne neue IoT-Plattform:
+GitHub Actions prüft und baut ARM64, veröffentlicht das geprüfte Image auf GHCR,
+Watchtower auf dem Pi ersetzt ausschließlich den freigegebenen Gateway-Container.
+Upstream- und Watchtower-Basis sind per Digest fixiert. Die CI erstellt feste
+`sha-<commit>`-Tags und einen beweglichen `pilot`-Tag für den zugänglichen Testaufbau.
+Es gibt noch keinen Dach-/Produktionskanal.
 
-Der Update-Dienst läuft auf dem Host, damit er auch nach einem defekten
-Forwarder-Container handlungsfähig bleibt. Kein Docker-Socket im Funkcontainer.
-Für ein Gateway reicht ein kleiner Dienst mit Timer; eine Flottenplattform ist
-zunächst nicht erforderlich.
+TTN-Zugangsdaten bleiben als lokale, ignorierte Secret-Datei außerhalb von Git
+und Image. Generierte Konfiguration wird pro Start neu erstellt. Ein optionales
+Compose-Overlay bindet ausschließlich lesende Registry-Zugangsdaten für private
+GHCR-Pakete ein. EUI bleibt explizit festgelegt; kein Host-Netzwerk erforderlich.
+Compose-/Host-Konfigurationsänderungen müssen gesondert übertragen werden.
 
-Ein Release besteht aus Manifest, Compose-Konfiguration und ARM64-Image.
-Das Manifest enthält Version, Gateway-Profil, Image-Digest, Konfigurationshash,
-minimale Host-/Updater-Version und Signatur. Ein im Host hinterlegter öffentlicher
-Schlüssel prüft den freigegebenen Inhalt. Der Signaturschlüssel liegt in der
-Release-Umgebung. Für private Images ausschließlich lesende Zugangsdaten nutzen.
-Queue-Schema und erlaubte Vor-/Rückwärtskompatibilität gehören ins Manifest.
-Die Queue liegt auf einem persistenten Host-Volume, das Updates nicht ersetzen.
-Schemaänderungen müssen die Rücksprungversion unterstützen; irreversible
-Migrationen sperren den automatischen Rollout. Kein Löschen oder Neuerstellen
-des Puffers als Teil von Update oder Rollback.
+Automatischer Rollback ist durch Watchtower allein nicht gegeben. Der erste
+Healthcheck erkennt lediglich den laufenden Station-Prozess und vorhandene
+Konfiguration, keine funktionierende Funkverbindung. Alte Images bleiben erhalten;
+manueller Rücksprung und Updatepause sind dokumentiert. Vor Dachfreigabe einen
+lokalen, auch ohne Cloudzugriff funktionierenden Rücksprung entwickeln bzw.
+integrieren und mit defektem Kandidaten sowie Stromausfällen testen. Kein
+Rollback-Erfolg nur aufgrund eines laufenden Containers behaupten.
 
-Vorgeschlagener Ablauf:
-
-1. systemd-Timer prüft etwa alle 15 Minuten mit zufälliger Verzögerung den
-   zugeordneten Release-Kanal. Ein Wartungsfenster kann Aktivierungen begrenzen.
-2. Manifest herunterladen; Signatur, Profil, Versionsfolge und Kompatibilität
-   prüfen. Unerlaubte Downgrades ablehnen; freigegebene Rollbacks separat abbilden.
-3. Update-Sperre setzen; ausreichend Speicher und lokale Rücksprungversion prüfen.
-4. Image vollständig per Digest laden und Konfiguration vorprüfen. Während
-   Download und Vorbereitung bleibt die bisherige Station aktiv.
-5. Aktuelle Version und passende Konfiguration als zusammengehörigen
-   Rücksprungstand sichern. Secrets nicht in Release-Artefakte kopieren.
-6. Alte Station beenden, neue Version aktivieren. Es gibt eine kurze Funkpause;
-   zwei Versionen dürfen den Konzentrator nicht gleichzeitig betreiben.
-7. In einer zunächst zehnminütigen Prüfphase Prozessstabilität,
-   Konzentratorinitialisierung, Reset-Verhalten und LNS-Verbindung prüfen.
-8. Bei Erfolg den Stand atomar als funktionierend markieren und melden.
-9. Bei einem lokalen Fehler alte Image-/Konfigurationskombination reaktivieren,
-   erneut prüfen, Kandidaten sperren und Fehler melden.
-10. Bei unklarer externer Störung den Zustand begrenzt weiter prüfen und
-    diagnostizieren; ohne lokale Fehler nicht endlos zwischen Versionen wechseln.
-
-Ein fehlender Uplink ist allein kein Fehlernachweis: In einem ruhigen Funkfeld
-muss ein gesundes Gateway ohne empfangene Sensorpakete laufen können. Umgekehrt
-beweist ein laufender Prozess noch keine funktionierende Funkhardware.
-Ein Neustart erfolgt nicht automatisch allein durch Docker-Status `unhealthy`;
-die Wiederherstellungslogik muss ausdrücklich implementiert werden.
-
-Der Updater führt ein dauerhaftes Zustandsjournal mit Phasen wie `prepared`,
-`activating`, `verifying` und `committed`. Nach Stromausfall erkennt er einen
-unvollständigen Wechsel und stellt einen definierten Stand her. Downloads,
-Aktivierung und Rücksprung haben Zeitlimits. Wiederholungsversuche erhalten
-Backoff; eine gesperrte Version wird nicht bei jeder Prüfung erneut aktiviert.
-
-Letztes funktionierendes Image lokal behalten. Alte Images erst nach gesicherter
-Übernahme und ausreichender Reserve bereinigen. Alarm bei fehlgeschlagenem
-Rollback oder verlorenem Fernzugriff. Ein Container-Rollback repariert weder
-beschädigten Datenträger noch defektes Betriebssystem.
+Der spätere persistente Funkpuffer muss außerhalb des austauschbaren Containers
+liegen und Updates/Rollbacks einschließlich Schemawechsel überstehen. Kein
+Löschen der Queue beim Versionswechsel. Ein erfolgreiches CI-/GHCR-Ergebnis
+ersetzt weder diese Abnahme noch einen Hardware-/TTN-Test.
 
 ## 7. CI und Repository-Struktur
 
-Vorgesehene neue Struktur, noch nicht angelegt:
+Angelegter Grundaufbau und vorgesehene Erweiterung:
 
 ```text
 gateway/
-  basicstation/       # geprüfte Basis und nötige Offline-/Empfangserweiterung
-  spool/              # Empfangsjournal, Aufbewahrung und Nachliefersteuerung
-  deploy/            # Compose und Beispielkonfiguration ohne Secrets
-  updater/           # Manifestprüfung, Zustandsjournal, Aktivierung, Rollback
-  provision/         # Host-Einrichtung und systemd-Units
-  tests/             # Update-, Konfigurations- und Ausfalltests
+  Dockerfile                  # gepinnte vorhandene Basics Station + Startwrapper
+  compose.yml                 # Gateway und scoped Watchtower
+  compose.registry-auth.yml   # optionaler privater GHCR-Lesezugang
+  .env.example                # Hardware-/Standortparameter ohne Schlüssel
+  scripts/                    # Startkonfiguration und Prozess-Liveness
+  tests/                      # ungültige Konfiguration und Compose-Vertrag
   README.md
-.github/workflows/gateway.yml
-docs/gateway/implementierungsplan.md
+.github/workflows/gateway.yml # ARM64-Prüfung und Pilotveröffentlichung
+docs/gateway/
 ```
 
+Ein späteres `spool/` für Store-and-forward ist noch nicht angelegt.
+
 PR-Prüfungen: Konfiguration validieren, Secrets ausschließen, Skripte prüfen,
-Updater- und Queue-Zustandswechsel sowie Fehlerfälle testen, ARM64-Image bauen. Bei Nutzung
+Im Grundaufbau Fehlerfälle der Konfiguration und ARM64-Image prüfen;
+Queue- und Rollback-Zustandswechsel mit deren späterer Implementierung testen. Bei Nutzung
 von Shell ShellCheck, bei Python passende Lint- und Unit-Tests vorsehen.
 Release-Build: getesteten Commit bauen, unveränderlichen Digest veröffentlichen,
-Manifest erzeugen/signieren, zunächst dem Testkanal zuordnen.
+zunächst als `pilot` und festen Commit-Tag veröffentlichen.
 
 Nach bestandenem Hardwaretest exakt denselben Digest in den stabilen Kanal
 übernehmen. Keine erneute Kompilierung zwischen Test und Produktion.

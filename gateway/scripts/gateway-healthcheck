@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Liveness only: this does NOT prove radio reception or an established LNS link.
+set -euo pipefail
+[[ $(readlink /proc/1/exe) == /app/artifacts/corecell/station ]]
+test -s /app/config/station.conf
+test -s /app/config/tc.key

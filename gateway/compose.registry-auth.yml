@@ -1,0 +1,5 @@
+# Optional: only required if GHCR package visibility is private.
+services:
+  watchtower:
+    volumes:
+      - ./secrets/registry/config.json:/config.json:ro

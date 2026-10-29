@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Render application-independent hardware/LNS configuration; reuse upstream start.
+set -euo pipefail
+umask 077
+fail() { printf 'Gateway configuration error: %s\n' "$1" >&2; exit 64; }
+[[ ${GATEWAY_EUI:-} =~ ^[[:xdigit:]]{16}$ ]] || fail 'GATEWAY_EUI must contain 16 hexadecimal characters'
+gateway_eui=$(printf '%s' "$GATEWAY_EUI" | tr '[:lower:]' '[:upper:]')
+[[ $gateway_eui != 0000000000000000 && $gateway_eui != FFFFFFFFFFFFFFFF ]] || fail 'GATEWAY_EUI must be a real, stable gateway identity'
+[[ ${TC_URI:-} =~ ^wss://[a-zA-Z0-9.-]+:8887$ ]] || fail 'TC_URI must be a TLS LNS URL: wss://hostname:8887'
+[[ ${RESET_GPIO:-17} =~ ^([0-9]|[12][0-9]|3[01])$ ]] || fail 'RESET_GPIO must be a BCM GPIO number from 0 to 31'
+[[ ${GPIO_CHIP:-gpiochip0} =~ ^gpiochip[0-9]+$ ]] || fail 'GPIO_CHIP must name a gpiochip device'
+[[ ${ANTENNA_GAIN_DBI:-3} =~ ^([0-9]|10)$ ]] || fail 'ANTENNA_GAIN_DBI must be an integer from 0 to 10'
+[[ -s /run/secrets/tc.key ]] || fail 'mount the non-empty gateway LNS key at /run/secrets/tc.key'
+# This profile intentionally supports only the known RAK2287 SPI hardware.
+export MODEL=RAK2287 INTERFACE=SPI DESIGN=CORECELL DEVICE=/dev/spidev0.0
+export USE_CUPS=0 HAS_GPS=0 USE_LIBGPIOD=1 POWER_EN_GPIO=0
+export RESET_GPIO=${RESET_GPIO:-17} GPIO_CHIP=${GPIO_CHIP:-gpiochip0}
+export ANTENNA_GAIN_DBI=${ANTENNA_GAIN_DBI:-3}
+export GATEWAY_EUI=$gateway_eui
+# Generate on every start so key/config rotations cannot be hidden by stale files.
+mkdir -p /app/config
+jq '.SX1302_conf.device = ("spi:" + env.DEVICE)
+    | .SX1302_conf.radio_0.antenna_gain = (env.ANTENNA_GAIN_DBI | tonumber)
+    | .station_conf.routerid = env.GATEWAY_EUI
+    | .station_conf.log_level = "INFO"' /app/station.corecell.conf > /app/config/station.conf
+printf '%s\n' "$TC_URI" > /app/config/tc.uri
+# Accept only a raw, single-line TTN gateway API key, never application keys.
+key=$(cat /run/secrets/tc.key)
+[[ $key =~ ^NNSXS\.[a-zA-Z0-9._-]+$ ]] || fail 'tc.key must contain one raw TTN gateway API key'
+printf 'Authorization: Bearer %s\r\n' "$key" > /app/config/tc.key
+unset key
+exec /app/start

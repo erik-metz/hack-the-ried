@@ -1,0 +1,5 @@
+*
+!Dockerfile
+!scripts/
+!scripts/gateway-start
+!scripts/gateway-healthcheck
