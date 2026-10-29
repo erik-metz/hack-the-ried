@@ -6,6 +6,8 @@ services:
     container_name: kamue-basicstation
     restart: unless-stopped
     stop_grace_period: 30s
+    volumes:
+      - ./state:/var/lib/kamue-gateway
     devices:
       - /dev/spidev0.0:/dev/spidev0.0
       - /dev/${GPIO_CHIP:-gpiochip0}:/dev/${GPIO_CHIP:-gpiochip0}

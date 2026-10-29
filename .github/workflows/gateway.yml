@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - run: pip install websockets==15.0.1
       - name: Validate configuration and failure paths
         env:
           GATEWAY_EUI: '0102030405060708'
@@ -48,15 +49,16 @@ jobs:
       - name: Smoke test without radio hardware
         run: |
           docker run --rm --entrypoint /app/artifacts/corecell/station kamue-gateway:test --version
+          docker run --rm -v "$PWD/gateway/tests:/app/tests:ro" -v "$PWD/gateway/bridge:/app/bridge:ro" -v "$PWD/gateway/scripts:/app/scripts:ro" --entrypoint python3 kamue-gateway:test -m unittest discover -s /app/tests -p test_spool.py -v
           if docker run --rm -e GATEWAY_EUI=invalid kamue-gateway:test; then
             echo 'Invalid configuration was unexpectedly accepted' >&2
             exit 1
           fi
           docker run --rm --entrypoint bash kamue-gateway:test -euc '
             printf "#!/bin/sh\nexit 0\n" > /app/start
-            GATEWAY_EUI=a102030405060708 TC_KEY=NNSXS.synthetic-ci-key TC_URI=wss://eu1.cloud.thethings.network:8887 gateway-start
+            GATEWAY_EUI=a102030405060708 TC_KEY=NNSXS.synthetic-ci-key TC_URI=wss://eu1.cloud.thethings.network:8887 gateway-start --render-only
             jq -e '\''.station_conf.routerid == "A102030405060708" and .SX1302_conf.radio_0.antenna_gain == 3'\'' /app/config/station.conf
-            test "$(cat /app/config/tc.uri)" = wss://eu1.cloud.thethings.network:8887
+            test "$(cat /app/config/tc.uri)" = ws://127.0.0.1:3001
             grep -q "Authorization: Bearer NNSXS.synthetic-ci-key" /app/config/tc.key
           '
       - name: Set image name

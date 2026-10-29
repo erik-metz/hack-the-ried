@@ -10,13 +10,22 @@ Enthalten: ARM64-Image auf gepinnter Upstream-Basis, überprüfte
 Hardware-/LNS-Konfiguration, TTN-Schlüssel in der lokalen `.env`, begrenzte Logs und
 Watchtower für automatische Updates ausschließlich dieses Gateways.
 
-Noch **nicht** implementiert oder abgenommen: persistentes Store-and-forward,
-Offline-Kaltstart mit Kanalplan, Funk-/LNS-Funktionsprüfung und automatischer
-Rollback. Der HEALTHCHECK zeigt nur Prozess-/Konfigurations-Liveness.
-`restart: unless-stopped` startet einen beendeten Prozess neu; `unhealthy`
-löst allein weder Neustart noch Rücksprung aus. Vor Dachmontage müssen die
-Abnahmekriterien im [Implementierungsplan](../docs/gateway/implementierungsplan.md)
-erfüllt werden. Im Grundaufbau können bei Internetausfall Uplinks verloren gehen.
+Zusätzlich implementiert: ein lokaler LNS-Zwischenprozess mit SQLite/WAL-Journal
+für Uplinks, gespeichertem Kanalplan für Offline-Neustarts und einem hostseitigen
+Rollback-Dienst. Die Funksoftware bleibt die vorhandene Basics Station.
+
+Der Healthcheck prüft Bridge-Lebenszeichen, die Station-Verbindung und den
+nachgewiesenen Konzentratorstart. Ein LNS-/Internetausfall allein löst keine
+Neustartschleife aus. Empfangsaktivität und LNS-Status stehen getrennt in
+`state/health.json`. Diese Informationen enthalten keine Application-Payloads.
+
+Die lokale Sicherung ist von der TTN-Annahme zu unterscheiden: Das LNS-Protokoll
+quittiert Uplinks nicht bis zur Application. Nach Sendeversuchen bleiben Frames
+als `acceptance_unknown` erhalten; sie werden bei Wiederverbindung höchstens
+bis zu drei Mal versucht. Frame-Counter-Schutz, andere Gateways und Sessionwechsel
+können die nachträgliche TTN-Verarbeitung verhindern. Keine Garantie einer
+verlustfreien TTN-Application-Zustellung oder eines nachgeholten Joins/Downlinks.
+Ein vollständiger 72-Stunden-/Stromausfalltest bleibt separate Dachabnahme.
 
 ## Image und Updatepfad
 
@@ -170,3 +179,47 @@ bash -n scripts/gateway-start scripts/gateway-healthcheck
 CI baut und startet zusätzlich das ARM64-Binary ohne Hardware und prüft die
 Konfiguration mit ausschließlich synthetischen Zugangsdaten. Das ersetzt keine
 Prüfung von SPI, GPIO, PoE, HAT-Kühlung oder TTN auf unserem Pi.
+
+## Persistentes Empfangsjournal und Offlinebetrieb
+
+`./state` ist dauerhaft in `/var/lib/kamue-gateway` eingebunden. SQLite läuft
+mit WAL und `synchronous=FULL`; keine Löschung bei Imagewechsel. Das Profil ist
+an LNS-URL und Gateway-EUI gebunden. Beim Wechsel werden alte Datensätze nicht
+ungeprüft an ein neues Netz gesendet. Originale Funkdaten und Zeitkontexte bleiben
+unverändert. Empfang während eines ausgeschalteten Pi ist nicht möglich.
+
+Standardgrenzen: 72 Stunden Aufbewahrung, 100.000 Datensätze, 256 MiB Nutzdaten
+zuzüglich SQLite-/WAL-Overhead. Älteste Datensätze werden bei Überlauf gezählt
+verworfen. Speicherverbrauch und die Zähler `overflow_dropped`, `expired`,
+`pending` und `acceptance_unknown` beobachten. Gesendete Datensätze bleiben bis
+zur Alters-/Platzgrenze erhalten; ein erfolgreicher Socket-Schreibvorgang wird
+nicht als TTN-Annahmenachweis ausgegeben. Der Replay ist auf 50 Frames/s begrenzt.
+
+Ohne Internet startet die Funkstation mit dem letzten vom konfigurierten LNS
+empfangenen Kanalplan. Vor dem allerersten erfolgreichen Onlinebetrieb gibt es
+keinen solchen Plan; es wird kein erfundener Frequenzplan gesendet. Veraltete
+Class-A-Downlinks werden verworfen. Joins werden nur live weitergegeben.
+
+## Automatischen Rücksprung installieren
+
+Nach erfolgreichem Start der neuen Bridge-Version auf dem Pi:
+
+```bash
+sudo bash scripts/install-guardian
+sudo systemctl status kamue-gateway-guardian --no-pager
+```
+
+Der Dienst läuft auf dem Host und bleibt daher bei defekten Gateway-Images
+handlungsfähig. Er merkt sich den ersten Docker-gesunden Stand mit aktiver
+LNS-Verbindung. Neue Images werden erst nach 180 Sekunden durchgehend gesundem
+Betrieb übernommen. Nach insgesamt 360 Sekunden ohne ausreichenden Nachweis
+wird auf das lokal vorgehaltene gute Image zurückgeschaltet. Die Prüfung gilt
+lokaler Funkbereitschaft, nicht der Verfügbarkeit von TTN.
+
+Beim Rücksprung wird Watchtower gestoppt und `GATEWAY_IMAGE` in derselben `.env`
+auf einen lokalen Rücksprungtag festgesetzt. Zugangsdaten werden nicht in eine
+zweite Konfigurationsdatei kopiert. Fehlerhafte Versionen werden nicht endlos
+wieder installiert. Nach Reparatur neue Pilotversion bewusst einspielen,
+Guardian-Zustand prüfen und die Pause unter `/var/lib/kamue-gateway-guardian/`
+gezielt aufheben, bevor Watchtower wieder gestartet wird. Alte Images nicht
+bereinigen, solange sie als Rücksprungstand benötigt werden.

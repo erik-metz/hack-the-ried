@@ -3,3 +3,5 @@
 !scripts/
 !scripts/gateway-start
 !scripts/gateway-healthcheck
+!bridge/
+!bridge/*.py

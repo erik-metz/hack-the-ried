@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Liveness only: this does NOT prove radio reception or an established LNS link.
+# Local radio/bridge readiness. External LNS outages do not cause reboot loops.
 set -euo pipefail
-[[ $(readlink /proc/1/exe) == /app/artifacts/corecell/station ]]
-test -s /app/config/station.conf
-test -s /app/config/tc.key
+exec python3 - <<'PY'
+import json, os, time
+from pathlib import Path
+d = json.loads(Path('/var/lib/kamue-gateway/health.json').read_text())
+assert time.time()-d['at'] < 20 and d['radio_ready'] and d['station_connected']
+assert Path('/proc',str(d['station_pid']),'exe').resolve() == Path('/app/artifacts/corecell/station')
+os.kill(d['station_pid'],0)
+PY

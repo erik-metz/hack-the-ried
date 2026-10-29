@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo' >&2; exit 1; }
+root=$(cd "$(dirname "$0")/.." && pwd)
+[[ $root =~ ^/[A-Za-z0-9/_-]+$ ]] || { echo 'Unsupported installation path' >&2; exit 1; }
+install -d -m 700 /var/lib/kamue-gateway-guardian
+install -d -m 755 /usr/local/lib/kamue-gateway
+install -m 755 "$root/scripts/gateway-guardian.py" /usr/local/lib/kamue-gateway/guardian.py
+cat > /etc/systemd/system/kamue-gateway-guardian.service <<UNIT
+[Unit]
+Description=HackTheRied gateway image rollback guard
+After=docker.service
+Requires=docker.service
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/kamue-gateway/guardian.py --directory $root
+Restart=on-failure
+RestartSec=10
+UMask=0077
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now kamue-gateway-guardian.service

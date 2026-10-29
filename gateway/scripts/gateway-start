@@ -24,8 +24,8 @@ jq '.SX1302_conf.device = ("spi:" + env.DEVICE)
     | .SX1302_conf.radio_0.antenna_gain = (env.ANTENNA_GAIN_DBI | tonumber)
     | .station_conf.routerid = env.GATEWAY_EUI
     | .station_conf.log_level = "INFO"' /app/station.corecell.conf > /app/config/station.conf
-printf '%s\n' "$TC_URI" > /app/config/tc.uri
+printf '%s\n' 'ws://127.0.0.1:3001' > /app/config/tc.uri
 # Accept only a raw, single-line TTN gateway API key, never application keys.
 printf 'Authorization: Bearer %s\r\n' "$TC_KEY" > /app/config/tc.key
-unset TC_KEY
-exec /app/start
+if [[ ${1:-} == --render-only ]]; then exit 0; fi
+exec python3 /app/gateway-bridge/bridge.py
