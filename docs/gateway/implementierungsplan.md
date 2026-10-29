@@ -1,14 +1,15 @@
 # LoRaWAN-Gateway: Implementierungs- und Betriebsplan
 
-Stand: 29.10.2026. Status: Gateway-Grundaufbau unter `gateway/` angelegt;
-noch keine Installation oder Funkprüfung auf dem Pi. Annahme: Standort Deutschland, EU868, Internet per Ethernet/PoE.
+Stand: 29.10.2026. Status: Pilot auf dem Pi installiert; Hardwareabnahme läuft.
+Aktuelle Testergebnisse stehen im [Betriebsnachweis](betriebsnachweis.md). Annahme: Standort Deutschland, EU868, Internet per Ethernet/PoE.
 
 Die [Recherche vorhandener Container und Projekte](vorhandene-projekte.md)
 führt zum vorhandenen Basics-Station-Container als Grundlage. Der Nutzer hat
 GitHub Actions → GHCR → Watchtower als Updatepfad gewählt; balena und ein eigener
 Updater sind für den Grundaufbau nicht vorgesehen. Konkrete Einrichtung und
 Grenzen stehen in [gateway/README.md](../../gateway/README.md).
-Store-and-forward bleibt verbindliches Abnahmeziel und ist noch nicht implementiert.
+Store-and-forward ist als SQLite-Journal mit lokalem LNS-Zwischenprozess implementiert;
+die vollständige Hardware-/TTN-Abnahme bleibt verbindliches Ziel.
 
 ## 1. Ziel und Entscheidungen
 
@@ -39,7 +40,8 @@ Vorgeschlagene Entscheidungen:
 - Watchtower mit festem Scope und expliziter Containerfreigabe auf dem Pi;
   vorhandener gepflegter Fork statt archiviertem Ursprungsprojekt.
 - Gepinnte Upstream-Images und GHCR-Pilotkanal plus feste Commit-Tags.
-  Signaturprüfung bei Aktivierung und automatischer Rollback sind noch offen.
+  Ein hostseitiger Rollback-Dienst ist implementiert; Signaturprüfung bei Aktivierung
+  bleibt offen.
 - Automatisch ausrollen, sobald eine Version für den Standort freigegeben ist;
   ein beliebiger Code-Push ist noch keine Produktionsfreigabe.
 - Host-Betriebssystem, Container-Anwendung und Sensor-Firmware haben getrennte
@@ -336,16 +338,14 @@ Compose-Overlay bindet ausschließlich lesende Registry-Zugangsdaten für privat
 GHCR-Pakete ein. EUI bleibt explizit festgelegt; kein Host-Netzwerk erforderlich.
 Compose-/Host-Konfigurationsänderungen müssen gesondert übertragen werden.
 
-Automatischer Rollback ist durch Watchtower allein nicht gegeben. Der erste
-Healthcheck erkennt lediglich den laufenden Station-Prozess und vorhandene
-Konfiguration, keine funktionierende Funkverbindung. Alte Images bleiben erhalten;
-manueller Rücksprung und Updatepause sind dokumentiert. Vor Dachfreigabe einen
-lokalen, auch ohne Cloudzugriff funktionierenden Rücksprung entwickeln bzw.
-integrieren und mit defektem Kandidaten sowie Stromausfällen testen. Kein
-Rollback-Erfolg nur aufgrund eines laufenden Containers behaupten.
+Watchtower wird durch einen hostseitigen Guardian ergänzt. Der Healthcheck prüft
+Bridge-Lebenszeichen, lokale Station-Verbindung und protokollierten HAL-Start.
+Der Guardian behält ein gutes Image lokal und pausiert nach einem Rücksprung
+weitere Updates. Hardwareempfang, defekten Kandidaten und Stromausfälle vor
+Dachfreigabe separat testen; Container-Liveness allein belegt keinen Funkempfang.
 
-Der spätere persistente Funkpuffer muss außerhalb des austauschbaren Containers
-liegen und Updates/Rollbacks einschließlich Schemawechsel überstehen. Kein
+Der persistente Funkpuffer liegt außerhalb des austauschbaren Containers und muss
+Updates/Rollbacks einschließlich Schemawechsel überstehen. Kein
 Löschen der Queue beim Versionswechsel. Ein erfolgreiches CI-/GHCR-Ergebnis
 ersetzt weder diese Abnahme noch einen Hardware-/TTN-Test.
 
@@ -359,14 +359,17 @@ gateway/
   compose.yml                 # Gateway und scoped Watchtower
   compose.registry-auth.yml   # optionaler privater GHCR-Lesezugang
   .env.example                # Parameter und leerer TC_KEY-Platzhalter
-  scripts/                    # Startkonfiguration und Prozess-Liveness
-  tests/                      # ungültige Konfiguration und Compose-Vertrag
+  bridge/                     # LNS-Brücke und SQLite-Empfangsjournal
+  scripts/                    # Start, Healthcheck und hostseitiger Guardian
+  tests/                      # Konfiguration, Offlinebetrieb, Replay, Rücksprung
   README.md
 .github/workflows/gateway.yml # ARM64-Prüfung und Pilotveröffentlichung
 docs/gateway/
 ```
 
-Ein späteres `spool/` für Store-and-forward ist noch nicht angelegt.
+Die Queue liegt in `bridge/spool.py`; persistenter Zustand in `gateway/state/`
+und hostseitige Image-Metadaten unter `/var/lib/kamue-gateway-guardian/`.
+Beides gehört nicht ins Repository.
 
 PR-Prüfungen: Konfiguration validieren, Secrets ausschließen, Skripte prüfen,
 Im Grundaufbau Fehlerfälle der Konfiguration und ARM64-Image prüfen;

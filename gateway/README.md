@@ -2,7 +2,8 @@
 
 Stand: 29.10.2026. Dieser Stand bereitet einen zugänglichen **Pilotbetrieb** vor.
 Vorhandene Basics Station wird weiterverwendet; kein eigener Funk-Forwarder,
-kein Application-Decoder und keine Installation auf einem Pi durch diesen Commit.
+kein Application-Decoder. Installation und Hardwareabnahme werden im
+[Betriebsnachweis](../docs/gateway/betriebsnachweis.md) getrennt dokumentiert.
 
 ## Enthalten und noch offen
 
@@ -26,6 +27,12 @@ bis zu drei Mal versucht. Frame-Counter-Schutz, andere Gateways und Sessionwechs
 können die nachträgliche TTN-Verarbeitung verhindern. Keine Garantie einer
 verlustfreien TTN-Application-Zustellung oder eines nachgeholten Joins/Downlinks.
 Ein vollständiger 72-Stunden-/Stromausfalltest bleibt separate Dachabnahme.
+
+Beim vorhandenen HAT ist `RESET_GPIO=25` erforderlich und am realen
+Konzentratorstart bestätigt. GPIO17 führte nach Neustarts zum SX1250-Fehler.
+RAK beschreibt diese Belegung für bestimmte ehemalige Helium-HATs im
+[Herstellerforum](https://forum.rakwireless.com/t/using-helium-rak-hotspot-as-reguillar-gateway/11187).
+Die Herkunft unseres HATs wird daraus nicht als gesichert abgeleitet.
 
 ## Image und Updatepfad
 
@@ -61,7 +68,7 @@ Der Docker-Socket ist ausschließlich dem Updater zugänglich. Keine eingehenden
 Ports oder öffentlich erreichbare Docker-API nötig. Ein Docker-Socket-Mount gibt
 dem Updater weitgehende Hostrechte; keine fremden Images damit betreiben.
 
-## Vorbereitung auf dem Pi (später ausführen)
+## Vorbereitung auf dem Pi
 
 Voraussetzungen: Pi 4 mit 64-Bit-Linux (`uname -m`: `aarch64`), Docker Engine und
 Compose v2, aktives SPI mit `/dev/spidev0.0`, Internet, korrekte Uhrzeit und DNS.
@@ -220,6 +227,8 @@ Beim Rücksprung wird Watchtower gestoppt und `GATEWAY_IMAGE` in derselben `.env
 auf einen lokalen Rücksprungtag festgesetzt. Zugangsdaten werden nicht in eine
 zweite Konfigurationsdatei kopiert. Fehlerhafte Versionen werden nicht endlos
 wieder installiert. Nach Reparatur neue Pilotversion bewusst einspielen,
-Guardian-Zustand prüfen und die Pause unter `/var/lib/kamue-gateway-guardian/`
-gezielt aufheben, bevor Watchtower wieder gestartet wird. Alte Images nicht
+Guardian-Zustand prüfen und den Dienst kurz stoppen. Nach geprüftem Funkstart
+die Zustandsdatei sichern und darin ausschließlich `paused`, `reason`,
+`rollback_at` und `candidate` entfernen; `good` erhalten. Danach den Guardian
+und erst anschließend Watchtower starten. Alte Images nicht
 bereinigen, solange sie als Rücksprungstand benötigt werden.

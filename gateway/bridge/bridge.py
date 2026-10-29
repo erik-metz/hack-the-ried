@@ -9,6 +9,7 @@ import time
 import uuid
 from urllib.parse import urlsplit
 
+from websockets.exceptions import ConnectionClosed
 from websockets.legacy.client import connect
 from websockets.legacy.server import serve
 
@@ -98,7 +99,7 @@ class Bridge:
                             self.spool.increment('offline_joins_not_replayed')
                 elif self.ready:
                     await self.remote.send(raw)
-        except (OSError, ValueError, asyncio.TimeoutError):
+        except (OSError, ValueError, asyncio.TimeoutError, ConnectionClosed):
             print('Local station connection failed', flush=True)
         finally:
             if cloud:
