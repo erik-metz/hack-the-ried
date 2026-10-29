@@ -3,6 +3,10 @@
 Stand: 29.10.2026. Status: Pilot auf dem Pi installiert; Hardwareabnahme läuft.
 Aktuelle Testergebnisse stehen im [Betriebsnachweis](betriebsnachweis.md). Annahme: Standort Deutschland, EU868, Internet per Ethernet/PoE.
 
+Die [Hardwarefähigkeiten und der Vergleich zum Heltec-Testgateway](hardware-faehigkeiten.md)
+erklären den vollwertigen Achtkanalbetrieb, seine Grenzen und die weiterhin
+separat zu prüfenden Single-Channel-Einstellungen bestehender Sensor-Firmware.
+
 Die [Recherche vorhandener Container und Projekte](vorhandene-projekte.md)
 führt zum vorhandenen Basics-Station-Container als Grundlage. Der Nutzer hat
 GitHub Actions → GHCR → Watchtower als Updatepfad gewählt; balena und ein eigener
