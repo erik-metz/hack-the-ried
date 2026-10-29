@@ -40,7 +40,7 @@ Bridge wurde mit vollständig getrenntem Docker-Netz ausgeführt: Funkstart und
 lokale Station-Verbindung bleiben aktiv, LNS wird korrekt als getrennt gemeldet.
 
 Am 29.10.2026 um 14:03:30 UTC wurde bei komplett getrenntem Container-Netz
-ein Uplink gespeichert (633 Byte, `pending=1`). Ein weiterer Offline-Neustart
+ein Uplink mit FCnt 1942 gespeichert (633 Byte, `pending=1`). Ein weiterer Offline-Neustart
 behielt den Datensatz. Um 14:05:08 UTC wurde das Netz wieder verbunden.
 Um 14:05:29 UTC zeigte die TTN-Application `my-gps-tracker-2026` für
 `rak3112-002` ein „Forward uplink data message“ mit dekodiertem Payload,
@@ -58,6 +58,9 @@ Er stellte das gesicherte Image ohne Registry-Pull wieder her, setzte
 waren Docker-Healthcheck, Funkbereitschaft und LNS-Verbindung wieder gesund.
 Die Testpause wurde nach Prüfung aufgehoben; der reguläre Dienst verwendet
 wieder das Standardfenster von 180/360 Sekunden.
+
+Nach dem Watchtower-Update wurde am 29.10.2026 um 14:13:30 UTC erneut
+ein regulärer Uplink empfangen und gesendet (FCnt 1944).
 
 Die `.env` ist nach einem rootseitigen Rücksprung Eigentum von root und hat
 Modus 600; danach für Änderungen/Compose `sudo` verwenden. Es entsteht keine
