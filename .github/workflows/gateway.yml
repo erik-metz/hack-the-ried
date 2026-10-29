@@ -30,6 +30,7 @@ jobs:
       - name: Validate configuration and failure paths
         env:
           GATEWAY_EUI: '0102030405060708'
+          TC_KEY: 'NNSXS.synthetic-ci-key'
           GATEWAY_COMPOSE_JSON: /tmp/gateway-compose.json
         run: |
           bash -n gateway/scripts/gateway-start gateway/scripts/gateway-healthcheck
@@ -52,10 +53,8 @@ jobs:
             exit 1
           fi
           docker run --rm --entrypoint bash kamue-gateway:test -euc '
-            mkdir -p /run/secrets
-            printf "NNSXS.synthetic-ci-key\n" > /run/secrets/tc.key
             printf "#!/bin/sh\nexit 0\n" > /app/start
-            GATEWAY_EUI=a102030405060708 TC_URI=wss://eu1.cloud.thethings.network:8887 gateway-start
+            GATEWAY_EUI=a102030405060708 TC_KEY=NNSXS.synthetic-ci-key TC_URI=wss://eu1.cloud.thethings.network:8887 gateway-start
             jq -e '\''.station_conf.routerid == "A102030405060708" and .SX1302_conf.radio_0.antenna_gain == 3'\'' /app/config/station.conf
             test "$(cat /app/config/tc.uri)" = wss://eu1.cloud.thethings.network:8887
             grep -q "Authorization: Bearer NNSXS.synthetic-ci-key" /app/config/tc.key

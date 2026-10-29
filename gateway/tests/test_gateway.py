@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class GatewayConfigTests(unittest.TestCase):
     def run_start(self, **overrides):
         env = dict(os.environ, GATEWAY_EUI="0102030405060708",
+                   TC_KEY="NNSXS.synthetic-unit-key",
                    TC_URI="wss://eu1.cloud.thethings.network:8887")
         env.update(overrides)
         return subprocess.run(["bash", str(ROOT / "scripts/gateway-start")],
@@ -26,9 +27,18 @@ class GatewayConfigTests(unittest.TestCase):
                 result = self.run_start(**values)
                 self.assertEqual(result.returncode, 64)
                 self.assertIn("Gateway configuration error:", result.stderr)
-                self.assertNotIn("mount the non-empty", result.stderr)
 
-    def test_compose_is_scoped_and_does_not_embed_keys(self):
+    def test_missing_or_malformed_keys_fail_without_echoing_the_key(self):
+        for key in ("", "private-invalid-value", "NNSXS.first\nsecond",
+                    "Authorization: Bearer NNSXS.synthetic-key"):
+            with self.subTest(key_type="empty" if not key else "malformed"):
+                result = self.run_start(TC_KEY=key)
+                self.assertEqual(result.returncode, 64)
+                self.assertIn("TC_KEY must contain", result.stderr)
+                if key:
+                    self.assertNotIn(key, result.stdout + result.stderr)
+
+    def test_compose_passes_key_only_to_gateway_and_scopes_updater(self):
         # CI renders Compose; inspect its normalized contract instead of YAML text.
         if "GATEWAY_COMPOSE_JSON" not in os.environ:
             self.skipTest("run after docker compose config --format json")
@@ -37,7 +47,9 @@ class GatewayConfigTests(unittest.TestCase):
         updater = data["services"]["watchtower"]
         self.assertFalse(station.get("privileged", False))
         self.assertNotEqual(station.get("network_mode"), "host")
-        self.assertNotIn("TC_KEY", station["environment"])
+        self.assertTrue(station["environment"]["TC_KEY"].startswith("NNSXS."))
+        self.assertNotIn("secrets", station)
+        self.assertNotIn("TC_KEY", updater["environment"])
         self.assertEqual(station["platform"], "linux/arm64")
         self.assertEqual(updater["environment"]["WATCHTOWER_SCOPE"], "kamue-gateway")
         self.assertEqual(updater["environment"]["WATCHTOWER_MONITOR_ONLY"], "false")

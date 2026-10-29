@@ -11,13 +11,11 @@ services:
       - /dev/${GPIO_CHIP:-gpiochip0}:/dev/${GPIO_CHIP:-gpiochip0}
     environment:
       GATEWAY_EUI: ${GATEWAY_EUI:?Set the permanent gateway EUI in .env}
+      TC_KEY: ${TC_KEY:?Set the gateway LNS key in .env}
       TC_URI: ${TC_URI:-wss://eu1.cloud.thethings.network:8887}
       RESET_GPIO: ${RESET_GPIO:-17}
       GPIO_CHIP: ${GPIO_CHIP:-gpiochip0}
       ANTENNA_GAIN_DBI: ${ANTENNA_GAIN_DBI:-3}
-    secrets:
-      - source: ttn_gateway_key
-        target: tc.key
     tmpfs:
       - /app/config:mode=0700,size=4m
       - /tmp:size=16m
@@ -52,7 +50,3 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
-
-secrets:
-  ttn_gateway_key:
-    file: ./secrets/ttn-lns.key

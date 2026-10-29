@@ -326,8 +326,12 @@ Upstream- und Watchtower-Basis sind per Digest fixiert. Die CI erstellt feste
 `sha-<commit>`-Tags und einen beweglichen `pilot`-Tag für den zugänglichen Testaufbau.
 Es gibt noch keinen Dach-/Produktionskanal.
 
-TTN-Zugangsdaten bleiben als lokale, ignorierte Secret-Datei außerhalb von Git
-und Image. Generierte Konfiguration wird pro Start neu erstellt. Ein optionales
+TTN-Zugangsdaten werden als `TC_KEY` in der lokalen, ignorierten `.env` mit
+Dateirechten 600 abgelegt und ausschließlich an den Funkcontainer übergeben.
+Keine zusätzliche LNS-Schlüsseldatei ist nötig. Der Key ist dadurch in
+Container-Metadaten und aufgelöster Compose-Konfiguration sichtbar; normale
+Validierung mit `docker compose config --quiet`. Generierte Konfiguration wird
+pro Start neu erstellt. Ein optionales
 Compose-Overlay bindet ausschließlich lesende Registry-Zugangsdaten für private
 GHCR-Pakete ein. EUI bleibt explizit festgelegt; kein Host-Netzwerk erforderlich.
 Compose-/Host-Konfigurationsänderungen müssen gesondert übertragen werden.
@@ -354,7 +358,7 @@ gateway/
   Dockerfile                  # gepinnte vorhandene Basics Station + Startwrapper
   compose.yml                 # Gateway und scoped Watchtower
   compose.registry-auth.yml   # optionaler privater GHCR-Lesezugang
-  .env.example                # Hardware-/Standortparameter ohne Schlüssel
+  .env.example                # Parameter und leerer TC_KEY-Platzhalter
   scripts/                    # Startkonfiguration und Prozess-Liveness
   tests/                      # ungültige Konfiguration und Compose-Vertrag
   README.md

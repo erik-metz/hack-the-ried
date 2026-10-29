@@ -7,7 +7,7 @@ kein Application-Decoder und keine Installation auf einem Pi durch diesen Commit
 ## Enthalten und noch offen
 
 Enthalten: ARM64-Image auf gepinnter Upstream-Basis, überprüfte
-Hardware-/LNS-Konfiguration, TTN-Schlüssel als lokale Datei, begrenzte Logs und
+Hardware-/LNS-Konfiguration, TTN-Schlüssel in der lokalen `.env`, begrenzte Logs und
 Watchtower für automatische Updates ausschließlich dieses Gateways.
 
 Noch **nicht** implementiert oder abgenommen: persistentes Store-and-forward,
@@ -62,29 +62,37 @@ Kein zweiter Forwarder darf auf den Konzentrator zugreifen.
 
 1. Repository auschecken und in `gateway/` wechseln. `.env.example` nach `.env`
    kopieren. Eindeutige, dauerhaft zugeordnete Gateway-EUI eintragen; keine
-   Beispiel-EUI verwenden. Über `.env` werden ausschließlich nicht geheime
-   Parameter gesetzt.
+   Beispiel-EUI verwenden. `.env` enthält auch den LNS-Key und bleibt lokal:
+
+   ```bash
+   cp .env.example .env
+   chmod 600 .env
+   nano .env
+   ```
+
+   Eine vorhandene `.env` bearbeiten, nicht durch das Beispiel überschreiben.
 2. Gateway in TTN im passenden Cluster registrieren. EU868-Kanalplan sowie
    Standort, Montagehöhe und Antennengewinn eintragen. Der Default-Endpunkt hier
    ist `wss://eu1.cloud.thethings.network:8887`.
 3. Einen gatewaybezogenen API-Key für „Link as Gateway to a Gateway Server for
    traffic exchange“ erzeugen. Keinen Application-Key und keinen persönlichen
-   Account-Schlüssel verwenden. Auf dem Pi vorbereiten:
+   Account-Schlüssel verwenden. Den rohen einzeiligen Key in `.env` eintragen:
 
-   ```bash
-   mkdir -p secrets
-   chmod 700 secrets
-   install -m 600 /dev/null secrets/ttn-lns.key
-   nano secrets/ttn-lns.key
+   ```dotenv
+   TC_KEY=NNSXS.…vollständiger-Gateway-LNS-Key…
    ```
 
-   Nur den rohen einzeiligen `NNSXS.…`-Key eintragen. Keine Schlüssel ins Chat,
-   Image oder Git kopieren. `secrets/` ist ignoriert. Compose bindet die Datei
-   als `/run/secrets/tc.key` ein. Generierte Zugangsdaten liegen in einem
-   flüchtigen, auf root beschränkten Konfigurationsverzeichnis; bei jedem Start
-   werden sie aus der lokalen Secret-Datei neu erzeugt. Der Puffer ist hierdurch
-   nicht implementiert. `ANTENNA_GAIN_DBI=3` berücksichtigt konservativ den
-   Bruttogewinn; genaue Leitungsverluste und zulässige Leistung vor Funkbetrieb prüfen.
+   Kein `Authorization: Bearer` voranstellen. Eine zusätzliche LNS-Schlüsseldatei
+   ist nicht erforderlich. `.env` ist von Git und Docker-Builds ausgeschlossen.
+   Compose übergibt den Key nur an Basics Station, nicht an Watchtower. Unser
+   Startskript erzeugt daraus die temporäre LNS-Konfiguration bei jedem Start
+   neu. Keine echten Schlüssel in Chat, Image oder Git kopieren.
+
+   Der Key ist damit in Container-Metadaten (`docker inspect`) und in ungekürzten
+   Ausgaben von `docker compose config` sichtbar. Zur normalen Prüfung deshalb
+   `docker compose config --quiet` verwenden und keine solchen Ausgaben teilen.
+   `ANTENNA_GAIN_DBI=3` berücksichtigt konservativ den Bruttogewinn; genaue
+   Leitungsverluste und zulässige Leistung vor Funkbetrieb prüfen.
 4. Für ein öffentlich lesbares GHCR-Paket:
 
    ```bash
@@ -104,6 +112,15 @@ Kein zweiter Forwarder darf auf den Konzentrator zugreifen.
 
    Die Gateway-EUI bleibt unabhängig von Docker-Netzwerkadressen. Keine
    Payload-Formatter oder Zugänge zum Sensor-Backend werden benötigt.
+
+## Umstieg von der separaten LNS-Datei
+
+Vor einem laufenden Pilotupdate zuerst Watchtower stoppen. Den bisherigen Key
+als `TC_KEY` in `.env` übernehmen, `chmod 600 .env` setzen und die neue
+`compose.yml` auf den Pi übertragen. Danach Basics Station mit
+`docker compose up -d --force-recreate basicstation` neu erstellen und prüfen.
+Erst anschließend Watchtower wieder starten. Der neue Container erwartet
+`TC_KEY`; ein Austausch nur des Images migriert die alte Secret-Konfiguration nicht.
 
 ## Private GHCR-Pakete
 
@@ -138,14 +155,14 @@ bei jedem weiteren Befehl verwenden. Keine persönlichen Schreibzugänge mounten
    Fehlerbehebung wieder setzen und Watchtower anschließend starten.
 
 Bei privater Registry jeweils den obigen `--config`-Pfad und beide `-f`-Dateien
-verwenden. Schlüsselrotation: Secret-Datei ändern, danach
+verwenden. Schlüsselrotation: `TC_KEY` in `.env` ändern, danach
 `docker compose up -d --force-recreate basicstation`; eine normale
 Konfigurationsprüfung oder ein Registry-Poll allein rotiert keinen Schlüssel.
 
 ## Lokale Prüfung ohne Funkhardware
 
 ```bash
-GATEWAY_EUI=0102030405060708 docker compose --env-file .env.example -f compose.yml config --format json > /tmp/gateway-compose.json
+GATEWAY_EUI=0102030405060708 TC_KEY=NNSXS.synthetic-local-test docker compose --env-file .env.example -f compose.yml config --format json > /tmp/gateway-compose.json
 GATEWAY_COMPOSE_JSON=/tmp/gateway-compose.json python3 -m unittest discover -s tests -v
 bash -n scripts/gateway-start scripts/gateway-healthcheck
 ```

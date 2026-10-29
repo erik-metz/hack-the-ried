@@ -1,3 +1,4 @@
 .env
+/tc.key
 secrets/
 state/
