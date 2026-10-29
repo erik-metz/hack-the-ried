@@ -20,7 +20,11 @@ const statsSource = fs.readFileSync(new URL("../lib/regionalStats.ts", import.me
 const statsContext = {
   exports: {},
   require: (id) => {
-    if (id === "./collectedBackend") return { collectedFetch: globalThis.fetch };
+    if (id === "./collectedBackend") return { collectedFetch: (input, ...args) => {
+      const url = new URL(input);
+      url.pathname = url.pathname.replace("/api/v1/", "/api/v1/collected/");
+      return statsContext.fetch(url, ...args);
+    } };
     if (id === "@/env") return { env: { BACKEND_API_URL: "http://localhost:8000" } };
     if (id === "./mapData") return mapData;
     throw new Error(`Unknown require in test context: ${id}`);
@@ -37,6 +41,7 @@ const statsContext = {
   URL: globalThis.URL,
   URLSearchParams: globalThis.URLSearchParams,
 };
+statsContext.fetch = globalThis.fetch;
 vm.runInNewContext(
   ts.transpileModule(statsSource, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -102,6 +107,21 @@ test("all event URLs are valid and do not have broken placeholder subpaths", () 
 });
 
 // Fetch failure and empty-state contracts are tested in collectedData.test.mjs.
+
+test("event fetch falls back to the live API when the collected publication is unavailable", async () => {
+  const requests = [];
+  const directEvents = [{ id: "live", title: "Live event" }];
+  statsContext.fetch = async (url) => {
+    requests.push(String(url));
+    if (requests.length === 1) throw new Error("publication expired");
+    return { ok: true, json: async () => directEvents };
+  };
+
+  assert.deepEqual(await regionalStats.fetchCulturalEvents({ includePast: true }), directEvents);
+  assert.equal(requests.length, 2);
+  assert.match(requests[0], /collected\/social\/events/);
+  assert.match(requests[1], /social\/events\?include_past=true/);
+});
 
 test("generateIcsCalendar produces valid RFC 5545 calendar format", () => {
   const event = regionalStats.BASELINE_EVENTS.find((e) => e.title.includes("Bürstädter Kerwe"));

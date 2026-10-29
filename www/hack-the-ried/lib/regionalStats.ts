@@ -1206,22 +1206,31 @@ export interface FetchCulturalEventsOptions {
 export async function fetchCulturalEvents(options?: string | FetchCulturalEventsOptions): Promise<CulturalEvent[]> {
   const opts: FetchCulturalEventsOptions = typeof options === "string" ? { municipality: options } : (options || {});
 
-    const url = new URL("/api/v1/social/events", env.BACKEND_API_URL);
-    if (opts.municipality && opts.municipality !== "all") url.searchParams.set("municipality", opts.municipality);
-    if (opts.category && opts.category !== "all") url.searchParams.set("category", opts.category);
-    if (opts.search) url.searchParams.set("search", opts.search);
-    if (opts.includePast) url.searchParams.set("include_past", "true");
-    if (opts.fromDate) url.searchParams.set("from_date", opts.fromDate);
-    if (opts.toDate) url.searchParams.set("to_date", opts.toDate);
+  const url = new URL("/api/v1/social/events", env.BACKEND_API_URL);
+  if (opts.municipality && opts.municipality !== "all") url.searchParams.set("municipality", opts.municipality);
+  if (opts.category && opts.category !== "all") url.searchParams.set("category", opts.category);
+  if (opts.search) url.searchParams.set("search", opts.search);
+  if (opts.includePast) url.searchParams.set("include_past", "true");
+  if (opts.fromDate) url.searchParams.set("from_date", opts.fromDate);
+  if (opts.toDate) url.searchParams.set("to_date", opts.toDate);
 
+  try {
     const res = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error("Collected events unavailable");
+    return await res.json();
+  } catch {
+    // The live database can still serve events when its combined publication expires.
+    const res = await globalThis.fetch(url, {
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) throw new Error("Events request failed");
     return await res.json();
+  }
 
-  throw new Error("Collected data unavailable");
 }
 
 /**
