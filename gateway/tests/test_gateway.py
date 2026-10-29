@@ -45,6 +45,8 @@ class GatewayConfigTests(unittest.TestCase):
         data = json.loads(Path(os.environ["GATEWAY_COMPOSE_JSON"]).read_text())
         station = data["services"]["basicstation"]
         updater = data["services"]["watchtower"]
+        self.assertFalse(station.get("ports"))
+        self.assertFalse(updater.get("ports"))
         self.assertFalse(station.get("privileged", False))
         self.assertTrue(any(v.startswith("/var/tmp:") for v in station["tmpfs"]))
         self.assertNotEqual(station.get("network_mode"), "host")

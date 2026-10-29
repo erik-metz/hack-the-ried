@@ -34,7 +34,7 @@ jobs:
           TC_KEY: 'NNSXS.synthetic-ci-key'
           GATEWAY_COMPOSE_JSON: /tmp/gateway-compose.json
         run: |
-          bash -n gateway/scripts/gateway-start gateway/scripts/gateway-healthcheck
+          bash -n gateway/scripts/gateway-start gateway/scripts/gateway-healthcheck gateway/scripts/install-host-hardening
           docker compose --env-file gateway/.env.example -f gateway/compose.yml config --format json > "$GATEWAY_COMPOSE_JSON"
           python -m unittest discover -s gateway/tests -v
       - uses: docker/setup-buildx-action@v3

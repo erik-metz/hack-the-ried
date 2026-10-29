@@ -5,6 +5,10 @@ Vorhandene Basics Station wird weiterverwendet; kein eigener Funk-Forwarder,
 kein Application-Decoder. Installation und Hardwareabnahme werden im
 [Betriebsnachweis](../docs/gateway/betriebsnachweis.md) getrennt dokumentiert.
 
+Die [Host-Härtung](../docs/gateway/host-sicherheit.md) beschreibt den
+Connect-Zugang, die IPv4-/IPv6-Firewall, deaktivierte Dienste, Systemupdates
+und die zeitgesteuerte Rücknahme zum Schutz vor Aussperren.
+
 ## Enthalten und noch offen
 
 Enthalten: ARM64-Image auf gepinnter Upstream-Basis, überprüfte

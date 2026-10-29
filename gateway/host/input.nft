@@ -1,0 +1,15 @@
+# Only our host INPUT chain: never flush Docker's NAT/FORWARD rules.
+table inet kamue_gateway_host {
+    chain input {
+        type filter hook input priority 0; policy drop;
+        iifname "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+        # Includes IPv6 neighbour discovery, router advertisements and PMTU.
+        meta l4proto { icmp, ipv6-icmp } accept
+        # DHCP lease renewal and IPv6 autoconfiguration remain possible.
+        udp sport 67 udp dport 68 accept
+        udp sport 547 udp dport 546 accept
+        counter drop
+    }
+}
