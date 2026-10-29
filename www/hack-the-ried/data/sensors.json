@@ -1,0 +1,47 @@
+[
+  {
+    "id": "1",
+    "name": "Umweltsensor 1",
+    "model": "RAK3112",
+    "commissionedAt": null,
+    "location": null,
+    "modules": [],
+    "description": "Die öffentlichen Stammdaten zu diesem Sensor werden ergänzt."
+  },
+  {
+    "id": "2",
+    "name": "Umweltsensor 2",
+    "model": "RAK3112",
+    "commissionedAt": null,
+    "location": null,
+    "modules": [],
+    "description": "Die öffentlichen Stammdaten zu diesem Sensor werden ergänzt."
+  },
+  {
+    "id": "3",
+    "name": "Umweltsensor 3",
+    "model": "RAK3112",
+    "commissionedAt": null,
+    "location": null,
+    "modules": [],
+    "description": "Die öffentlichen Stammdaten zu diesem Sensor werden ergänzt."
+  },
+  {
+    "id": "4",
+    "name": "Umweltsensor 4",
+    "model": "RAK3112",
+    "commissionedAt": null,
+    "location": null,
+    "modules": [],
+    "description": "Die öffentlichen Stammdaten zu diesem Sensor werden ergänzt."
+  },
+  {
+    "id": "5",
+    "name": "Umweltsensor 5",
+    "model": "RAK3112",
+    "commissionedAt": null,
+    "location": null,
+    "modules": [],
+    "description": "Die öffentlichen Stammdaten zu diesem Sensor werden ergänzt."
+  }
+]
