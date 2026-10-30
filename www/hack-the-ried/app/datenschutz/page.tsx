@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Informationen zur Verarbeitung personenbezogener Daten auf HackTheRied.",
 };
 
-const updatedAt = "27. Oktober 2026";
+const updatedAt = "30. Oktober 2026";
 
 export default function DatenschutzPage() {
   return (
@@ -18,7 +18,7 @@ export default function DatenschutzPage() {
           <header className="space-y-3">
             <p className="text-sm font-medium text-emerald-400">Stand: {updatedAt}</p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Datenschutzerklärung</h1>
-            <p className="text-slate-300">Hier erklären wir, welche personenbezogenen Daten beim Besuch von HackTheRied, bei einer Newsletter-Anmeldung und bei einer Workshop-Vormerkung verarbeitet werden.</p>
+            <p className="text-slate-300">Hier erklären wir, welche personenbezogenen Daten beim Besuch von HackTheRied, bei einer Newsletter-Anmeldung, einer Workshop-Vormerkung und bei Aufrufen unserer Marketing-QR-Codes verarbeitet werden.</p>
           </header>
 
           <section className="space-y-3">
@@ -38,6 +38,11 @@ export default function DatenschutzPage() {
             <h2 className="text-xl font-semibold">Vormerkung für den Sensor-Bau-Workshop</h2>
             <p className="text-slate-300 leading-relaxed">Wenn du dich für einen Sensor-Bau-Workshop vormerkst, speichern wir deine E-Mail-Adresse sowie optional deinen Namen, Wohnort und Interessenschwerpunkt in unserer Projektdatenbank. Wir verwenden diese Angaben ausschließlich, um dich über Termine und Bausätze des Sensor-Bau-Workshops zu informieren. Es wird keine automatische Bestätigungsmail versendet. Die Verarbeitung erfolgt auf Grundlage deiner Einwilligung (Art. 6 Abs. 1 lit. a DSGVO).</p>
             <p className="text-slate-300 leading-relaxed">Du kannst deine Einwilligung jederzeit widerrufen und die Löschung deiner Angaben verlangen, indem du an <a className="text-emerald-300 underline underline-offset-2 hover:text-emerald-200" href="mailto:info@kamue.me">info@kamue.me</a> schreibst. Wir löschen deine Vormerkung dann aus der aktiven Liste.</p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold">Marketing-QR-Codes</h2>
+            <p className="text-slate-300 leading-relaxed">Wenn du einen Marketing-QR-Code aufrufst, speichern wir den Zeitpunkt, die Kennung des QR-Codes, den Referrer-Host, die Browserkennung (User-Agent) und gegebenenfalls ausgewählte Kampagnenparameter (UTM). Wir speichern für diese Auswertung keine IP-Adresse. Die öffentlichen Statistiken im <a className="text-emerald-300 underline underline-offset-2 hover:text-emerald-200" href="/branding">Markenportal</a> zeigen ausschließlich tägliche Summen je QR-Code. Die Ereignisdaten liegen auf unserem Projektserver und dienen der Auswertung und Verbesserung unserer Öffentlichkeitsarbeit.</p>
           </section>
 
           <section className="space-y-3">

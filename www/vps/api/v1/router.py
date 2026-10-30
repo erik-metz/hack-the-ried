@@ -9,11 +9,12 @@ from endpoints import (
     map_sensors,
     newsletter,
     pitch,
+    qr_scans,
     satellite,
     satellite_tracking,
-    sky,
     sensor_integrations,
     sensors,
+    sky,
     social_daily_life,
     street_closures,
     telemetry,
@@ -36,6 +37,7 @@ api_router.include_router(archives.router)
 api_router.include_router(data_exports.router)
 api_router.include_router(map_sensors.router)
 api_router.include_router(pitch.router)
+api_router.include_router(qr_scans.router)
 api_router.include_router(waste_trucks.router)
 api_router.include_router(buses.router)
 api_router.include_router(bikes.router)

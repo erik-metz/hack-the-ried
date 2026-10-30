@@ -4,6 +4,9 @@ import Link from "next/link";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 import { AssetActions, ColorCopyButton } from "./MarketingAssets";
+import QrScanStats from "./QrScanStats";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Markenportal | HackTheRied",
@@ -97,6 +100,8 @@ export default function MarketingPage() {
             })}
           </div>
         </section>
+
+        <QrScanStats />
 
         <section id="logos" className="scroll-mt-24 pt-16 sm:pt-20">
           <div className="mb-7">

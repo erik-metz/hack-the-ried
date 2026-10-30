@@ -166,6 +166,8 @@ eckigem und rundem Format auf Tiefgrün (`#102F26`) und Creme (`#F6F1DE`),
 unter `public/brand/logos/`.
 
 Die bisherige Route `/marketing` leitet dauerhaft auf `/branding` weiter.
+Aufrufe werden ohne IP-Adresse als Ereignisse gespeichert; das Markenportal
+zeigt öffentliche Tagesaggregate je QR-Code für die letzten 30 Tage.
 
 Zusätzliche Query-Parameter am QR-Aufruf werden an das Ziel angehängt. Unbekannte
 IDs liefern eine 404-Seite. Die Ziele werden bewusst im Quellcode festgelegt;
