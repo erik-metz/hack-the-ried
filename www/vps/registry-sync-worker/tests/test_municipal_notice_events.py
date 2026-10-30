@@ -17,6 +17,12 @@ BODY = (
 NOW = datetime(2026, 10, 8, tzinfo=UTC)
 
 
+class FrozenDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return NOW if tz else NOW.replace(tzinfo=None)
+
+
 def test_official_notice_preserves_local_dates_without_inventing_end_or_price():
     events = notice_events(BODY, SOURCE, NOW)
     assert [e["title"] for e in events] == [
@@ -55,13 +61,14 @@ class MunicipalNoticeDatabaseTests(DatabaseCase):
     async def test_archived_import_replays_without_duplicates_and_failure_keeps_good_data(
         self,
     ):
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(
-                lambda request: httpx.Response(200, text=BODY)
-            )
-        ) as client:
-            await import_municipal_notice_events(self.conn, client, SOURCE)
-            await import_municipal_notice_events(self.conn, client, SOURCE)
+        with patch("municipal_notice_events.datetime", FrozenDateTime):
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(
+                    lambda request: httpx.Response(200, text=BODY)
+                )
+            ) as client:
+                await import_municipal_notice_events(self.conn, client, SOURCE)
+                await import_municipal_notice_events(self.conn, client, SOURCE)
         self.assertEqual(await self.scalar("SELECT count(*) FROM cultural_events"), 2)
         data = await self.scalar(
             "SELECT data FROM collected_datasets WHERE dataset='social/events'"
