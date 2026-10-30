@@ -153,3 +153,15 @@ API falls back to metadata-only markers with an explicit message that readings a
 unavailable; it does not invent status or fetch measurements separately per station.
 
 Validation: `npm run test:map`, `npm run test:security`, `npm run build`.
+# Marketing-QR-Codes
+
+Marketing-QR-Codes verwenden `/qr/<id>`, getrennt von den Sensorseiten unter
+`/q/<id>`. Die Zuordnung der IDs zu Zielseiten steht in
+`lib/marketingQr.ts`. Dort beispielsweise `sommerfest:
+"https://hack-the-ried.de/termine"` ergänzen und anschließend den QR-Code
+`https://hack-the-ried.de/qr/sommerfest` drucken.
+
+Query-Parameter am QR-Code werden an das Ziel angehängt. Damit funktionieren
+zum Beispiel Kampagnenlinks wie `/qr/sommerfest?utm_source=flyer`. Unbekannte
+IDs liefern eine 404-Seite. Die Ziele werden bewusst im Quellcode festgelegt;
+ein frei übergebener `url`-Parameter kann keine Weiterleitung bestimmen.
