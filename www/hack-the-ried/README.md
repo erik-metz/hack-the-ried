@@ -93,6 +93,22 @@ from `BACKEND_API_URL` at build time and permits only the required public
 namespaces in the Content Security Policy; credentials are not bundled.
 The VPS must remain reachable over HTTPS and allow browser CORS requests.
 
+All public page shells are prerendered, including the atlas, forecasts, source
+status and archive catalogue. Their existing tables and filters load public VPS
+publications in the browser. Collected publications get a fresh request and a
+display deadline bounded by the upstream Cache-Control TTL (available through
+CORS even when custom expiry headers are hidden). Expired batches are removed
+before another batch is displayed; failed sources remain unavailable.
+
+Telemetry charts poll only while the chart intersects the viewport and the tab
+is visible. Current values refresh every 30 seconds (10 seconds for movement
+entities); ordinary full histories refresh every five minutes. Current-only
+telemetry calls skip history queries. Public successful telemetry responses can
+be shared in the Vercel CDN for ten seconds. Fuel, sky, Autobahn inventories and
+archived satellite imagery are also loaded directly from the VPS. Warning
+normalization remains in its validated API route, but hidden tabs do not poll it.
+Archived raster scenes refresh every 15 minutes, FIRMS every five minutes.
+
 Hidden tabs release live streams and pause sensor refreshes. Existing same-origin
 map API routes and rewrites remain available for compatibility, but the current
 map does not send its bulk payloads through Vercel. This reduces Vercel compute,

@@ -50,6 +50,7 @@ test('map renders only inventory locations without an existing occupancy marker,
   if(id==='react') return {useState:()=>[[{areas:[{...area,observedAt},unmatched],unavailableRoads:[]},false,now][stateIndex++],()=>{}],useEffect:fn=>{if(effectIndex++===1)fn();}};
   if(id==='react/jsx-runtime') return {jsx:()=>null,jsxs:()=>null};
   if(id==='leaflet') return {layerGroup:()=>({addTo(){return this;},remove(){}}),divIcon:options=>options,marker:(coords,options)=>{markers.push({coords,options});return {bindPopup(){return this;},addTo(){return this;}};}};
+  if(id.endsWith('publicAutobahn') || id.endsWith('visiblePolling')) return {};
   if(id.endsWith('autobahnRestAreas'))return lib;
   if(id.endsWith('mapData'))return {CATEGORIES:{parking:{color:'#a78bfa'}}};
   if(id.endsWith('mapMarker'))return {createMarkerContent:(...args)=>({sharedParkingIcon:args})};

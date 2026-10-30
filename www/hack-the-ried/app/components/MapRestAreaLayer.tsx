@@ -1,5 +1,7 @@
 "use client";
 import L from "leaflet";
+import { loadPublicRestAreas } from "@/lib/publicAutobahn";
+import { pollVisible } from "@/lib/visiblePolling";
 import { useEffect, useState } from "react";
 import { restAreaFresh, restAreaRows, restAreaMatch, type AutobahnRestArea } from "@/lib/autobahnRestAreas";
 import { CATEGORIES, type SensorNode } from "@/lib/mapData";
@@ -11,21 +13,16 @@ export default function MapRestAreaLayer({ map, nodes }: { map: L.Map; nodes: Se
   const [failed, setFailed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function load() {
+    const stop = pollVisible(async signal => {
+      const controller = { signal };
       try {
-        const response = await fetch("/api/autobahn-rest-areas", { signal: controller.signal, cache: "no-store" });
-        if (!response.ok) throw new Error("Unavailable");
-        const data = await response.json();
+        const data = await loadPublicRestAreas(signal);
         if (!Array.isArray(data.areas) || !Array.isArray(data.unavailableRoads)) throw new Error("Invalid inventory");
         if (!controller.signal.aborted) { setSnapshot(data); setFailed(false); }
       } catch { if (!controller.signal.aborted) { setSnapshot(null); setFailed(true); } }
-      if (!controller.signal.aborted) timer = setTimeout(load, 300_000);
-    }
-    void load();
-    const clock = setInterval(() => setNow(Date.now()), 30_000);
-    return () => { controller.abort(); clearTimeout(timer); clearInterval(clock); };
+    }, 300_000);
+    const stopClock = pollVisible(async () => { setNow(Date.now()); }, 30000);
+    return () => { stop(); stopClock(); };
   }, []);
   useEffect(() => {
     const group = L.layerGroup().addTo(map);

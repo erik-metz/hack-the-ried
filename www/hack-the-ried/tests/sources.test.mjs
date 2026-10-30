@@ -27,7 +27,8 @@ test("All 8 public & admin pages render the unified SiteFooter", () => {
   ];
 
   for (const pageRel of pages) {
-    const pageSource = fs.readFileSync(new URL(pageRel, import.meta.url), "utf8");
+    let pageSource = fs.readFileSync(new URL(pageRel, import.meta.url), "utf8");
+    if (pageSource.includes("./PageContent")) pageSource += fs.readFileSync(new URL(pageRel.replace("page.tsx", "PageContent.tsx"), import.meta.url), "utf8");
     assert.ok(
       pageSource.includes("<SiteFooter") || pageSource.includes("<SiteFooter />"),
       `Page ${pageRel} must render <SiteFooter />`
@@ -36,8 +37,8 @@ test("All 8 public & admin pages render the unified SiteFooter", () => {
 });
 
 test("Quellen page renders collected status without invented totals", () => {
-  const source = fs.readFileSync(new URL("../app/quellen/page.tsx", import.meta.url), "utf8");
-  assert.ok(source.includes('proxyBackend("collection/status", 30)'));
+  const source = fs.readFileSync(new URL("../app/quellen/PageContent.tsx", import.meta.url), "utf8");
+  assert.ok(source.includes('["collection/status"], 30000)'));
   assert.ok(source.includes('sources.map'));
   assert.ok(source.includes('source.last_success_at'));
   assert.ok(source.includes('source.interval_seconds'));

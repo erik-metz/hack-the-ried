@@ -1,5 +1,7 @@
 "use client";
 import L from "leaflet";
+import { loadPublicChargers } from "@/lib/publicAutobahn";
+import { pollVisible } from "@/lib/visiblePolling";
 import { useEffect, useState } from "react";
 import type { FeatureCollection, GeoJsonObject } from "geojson";
 import { SUPPLEMENTARY_SOURCES, retainedWarning, type SupplementaryId } from "@/lib/supplementaryLayers";
@@ -30,9 +32,8 @@ export default function MapSupplementaryLayer({ map, id, primary }: { map: L.Map
   }, [map]);
   useEffect(() => {
     if (!visible) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function load() {
+    const stop = pollVisible(async signal => {
+      const controller = { signal };
       try {
         const response = await fetch(`/api/supplementary-layers?layer=${id}`, { signal: controller.signal, ...(id === "warnings" ? { cache: "no-store" as const } : {}) });
         if (!response.ok) throw new Error("Unavailable");
@@ -41,31 +42,24 @@ export default function MapSupplementaryLayer({ map, id, primary }: { map: L.Map
       } catch {
         if (!controller.signal.aborted) setState({ data: null, failed: true });
       }
-      if (id === "warnings" && !controller.signal.aborted) timer = setTimeout(load, 60_000);
-    }
-    void load();
-    const clock = id === "warnings" ? setInterval(() => setNow(Date.now()), 30_000) : null;
-    return () => { controller.abort(); clearTimeout(timer); if (clock) clearInterval(clock); };
+    }, 60_000, { once: id !== "warnings" });
+    const stopClock = pollVisible(async () => { setNow(Date.now()); }, 30000);
+    return () => { stop(); stopClock(); };
   }, [id, visible, attempt]);
   useEffect(() => {
     if (id !== "chargers" || !visible) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function load() {
+    const stop = pollVisible(async signal => {
+      const controller = { signal };
       try {
-        const response = await fetch("/api/autobahn-chargers", { signal: controller.signal, cache: "no-store" });
-        if (!response.ok) throw new Error("Unavailable");
-        const data: AutobahnChargerSnapshot = await response.json();
+        const data = await loadPublicChargers(signal);
         if (!Array.isArray(data.offers) || !Array.isArray(data.unavailableRoads)) throw new Error("Invalid inventory");
         if (!controller.signal.aborted) { setAutobahn(data); setAutobahnFailed(false); }
       } catch {
         if (!controller.signal.aborted) { setAutobahn(null); setAutobahnFailed(true); }
       }
-      if (!controller.signal.aborted) timer = setTimeout(load, 300_000);
-    }
-    void load();
-    const clock = setInterval(() => setNow(Date.now()), 60_000);
-    return () => { controller.abort(); clearTimeout(timer); clearInterval(clock); };
+    }, 300_000);
+    const stopClock = pollVisible(async () => { setNow(Date.now()); }, 60000);
+    return () => { stop(); stopClock(); };
   }, [id, visible, attempt]);
   const fresh = id !== "warnings" || warningsFresh(state.data, now);
   useEffect(() => {

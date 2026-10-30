@@ -6,14 +6,14 @@ import { createRequire } from 'node:module';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 const require=createRequire(import.meta.url);
-const source=fs.readFileSync(new URL('../app/components/AdoptedBudgetSection.tsx',import.meta.url),'utf8');
+const source=fs.readFileSync(new URL('../app/components/BudgetPublication.tsx',import.meta.url),'utf8');
 async function render(budget,review) {
  const context={exports:{},Date,require(id){
   if(id==='@/lib/collectedBackend')return{readCollected:async(dataset)=>{const data=dataset.includes('budget-review')?review:budget;if(!data)throw Error('Unavailable');return data;}};
   return require(id);
  }};
  vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,context);
- return renderToStaticMarkup(await context.exports.default());
+ return renderToStaticMarkup(context.exports.default({budget,review}));
 }
 const budget={municipality:'Biblis',fiscal_year:2026,adopted_at:'2026-02-11T00:00:00Z',source_url:'https://example.org/plan.pdf',source_page:4,quality:'reconciled',total_revenue_eur:1234,total_expense_eur:1000,net_result_eur:234};
 test('only reconciled budget totals are rendered, with document provenance',async()=>{

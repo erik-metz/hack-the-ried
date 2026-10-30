@@ -1,4 +1,5 @@
-import { env } from "@/env";
+"use client";
+import { usePublicDatasets } from "@/lib/hooks/usePublicDatasets";
 
 type Archive = {
   month: string;
@@ -8,17 +9,11 @@ type Archive = {
   files: { filename: string; url: string; size_bytes: number }[];
 };
 
-export default async function ArchiveDownloads() {
-  let archives: Archive[] | null = null;
-  try {
-    const response = await fetch(new URL("/api/v1/archives", env.BACKEND_API_URL), {
-      cache: "no-store", signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) throw new Error("Archive catalogue unavailable");
-    const data = await response.json();
-    if (!Array.isArray(data)) throw new Error("Invalid archive catalogue");
-    archives = data;
-  } catch { archives = null; }
+export default function ArchiveDownloads() {
+  const publication = usePublicDatasets<[Archive[]]>(["archives"]);
+  if (!publication) return <p role="status">Sensorarchive werden geladen…</p>;
+  const result = publication.results[0];
+  const archives = result.status === "fulfilled" && Array.isArray(result.value) ? result.value : null;
 
   const years = new Map<string, Archive[]>();
   for (const archive of (archives ?? []).filter(archive => archive.files.length > 0)

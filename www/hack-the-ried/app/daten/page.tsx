@@ -9,6 +9,8 @@ import ArchiveDownloads from "./ArchiveDownloads";
 import ApiDevToolsSection from "./ApiDevToolsSection";
 import CommunitySection from "./CommunitySection";
 
+export const dynamic = "error";
+
 export const metadata: Metadata = {
   title: "Daten herunterladen & API | HackTheRied",
   description: "Stichprobe, Themen-Exporte und Sensorarchive für eigene Auswertungen und den Hackathon im Hessischen Ried.",

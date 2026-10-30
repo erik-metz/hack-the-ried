@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     return [{ source: "/((?!pitch(?:/|$)).*)", headers: [{
       key: "Content-Security-Policy",
       // Network boundary for browser data and automatically loaded imagery.
-      value: `connect-src 'self' ${liveApiOrigin}/api/v1/movements/ ${liveApiOrigin}/api/v1/satellites/ ${liveApiOrigin}/api/v1/map/ ${liveApiOrigin}/api/v1/collected/civic/; img-src 'self' data: blob: ${liveApiOrigin}/api/v1/map-tiles/ https://td50285-wdw.s3-de.teledata.cloud; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'self'`,
+      value: `connect-src 'self' ${liveApiOrigin}/api/v1/movements/ ${liveApiOrigin}/api/v1/satellites/ ${liveApiOrigin}/api/v1/map/ ${liveApiOrigin}/api/v1/collected/ ${liveApiOrigin}/api/v1/environment/measurements/ ${liveApiOrigin}/api/v1/collection/status ${liveApiOrigin}/api/v1/archives ${liveApiOrigin}/api/v1/fuel ${liveApiOrigin}/api/v1/sky ${liveApiOrigin}/api/v1/satellite/; img-src 'self' data: blob: ${liveApiOrigin}/api/v1/map-tiles/ ${liveApiOrigin}/api/v1/satellite/ https://td50285-wdw.s3-de.teledata.cloud; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'self'`,
     }] }, { source: "/pitch/:path*", headers: [{
       key: "Content-Security-Policy",
       value: "connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'self' https://smartcity-system.de https://hack-the-ried.de; object-src 'none'; base-uri 'self'",

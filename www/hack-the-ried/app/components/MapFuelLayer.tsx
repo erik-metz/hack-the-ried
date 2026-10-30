@@ -1,5 +1,7 @@
 "use client";
 import L from "leaflet";
+import { publicApiUrl } from "@/lib/publicRequests";
+import { pollVisible } from "@/lib/visiblePolling";
 import { useEffect, useRef, useState } from "react";
 import { detailCard, placeMarker } from "@/lib/mapPresentation";
 import { decodeFuel, formatFuelPrice, fuelFresh, FUEL_LABELS, type Fuel, type FuelSnapshot } from "@/lib/fuelData";
@@ -17,20 +19,17 @@ export default function MapFuelLayer({ map, clustered, onSelectStation }: { map:
     return () => { map.off("moveend", update); };
   }, [map]);
   useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function load() {
+    const stop = pollVisible(async signal => {
+      const controller = { signal };
       try {
-        const response = await fetch("/api/fuel", { cache: "no-store", signal: controller.signal });
+        const response = await fetch(publicApiUrl("fuel"), { cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error("Unavailable");
         const data = decodeFuel(await response.json());
         if (!controller.signal.aborted) { setSnapshot(data); setNow(Date.now()); }
       } catch { /* Keep the last snapshot; freshness marks old prices. */ }
-      if (!controller.signal.aborted) timer = setTimeout(load, 60_000);
-    }
-    void load();
-    const clock = setInterval(() => setNow(Date.now()), 30_000);
-    return () => { controller.abort(); clearTimeout(timer); clearInterval(clock); };
+    }, 60_000);
+    const stopClock = pollVisible(async () => { setNow(Date.now()); }, 30000);
+    return () => { stop(); stopClock(); };
   }, []);
   const fresh = fuelFresh(snapshot, now);
   useEffect(() => {

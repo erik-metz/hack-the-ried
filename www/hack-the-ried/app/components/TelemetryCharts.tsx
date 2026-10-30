@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
 import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel, measurementGroupDescription } from "@/lib/telemetryData";
+import { pollVisible } from "@/lib/visiblePolling";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import { ChartContainer } from "@/components/ui/chart";
@@ -12,7 +13,7 @@ type Reading = { metric: string; unit: string; value: number; timestamp: string 
 type Bucket = { metric: string; unit: string; bucket: string; avg_value: number | null };
 type WindowMetric = { metric: string; unit: string; min_value: number | null; mean_value: number; max_value: number | null; sample_count: number };
 type SensorWindow = { window_start: string; window_end: string; window_seconds: number; metrics: WindowMetric[] };
-type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyInterval?: string | null; historyDays?: number; historyUnavailable?: boolean; historyTruncated?: boolean };
+type Telemetry = { readings: Reading[]; history: Bucket[]; window?: SensorWindow | null; start: string; end: string; historyMode?: string; historyInterval?: string | null; historyDays?: number; historyUnavailable?: boolean; historyTruncated?: boolean; historyOmitted?: boolean };
 const number = (value: number, reading: { metric: string; unit: string }) => formatMeasurement(value, reading);
 const time = (value: string) => new Date(value).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const seriesColors = ["#34d399", "#38bdf8", "#fbbf24", "#c084fc", "#fb7185", "#a3e635", "#22d3ee", "#f97316"];
@@ -36,6 +37,7 @@ export default function TelemetryCharts({
   selectedMetric?: string;
   onSelectMetric?: (metric: string) => void;
 }) {
+  const section = useRef<HTMLElement>(null);
   const [data, setData] = useState<Telemetry | null>(null);
   const [error, setError] = useState(false);
   const [localSelectedSeries, setLocalSelectedSeries] = useState(selectedMetric ?? "");
@@ -46,32 +48,28 @@ export default function TelemetryCharts({
   const snapshots = fuelEntity || node.categories.some(c => c === "parking" || c === "traffic" || c === "bikes");
   const [now, setNow] = useState(0);
   useEffect(() => {
-    if (!mobilityEntity) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const update = () => {
-      setNow(Date.now());
-      timer = setTimeout(update, 5000);
-    };
-    timer = setTimeout(update, 0);
-    return () => clearTimeout(timer);
+    if (!mobilityEntity || !section.current) return;
+    return pollVisible(async () => { setNow(Date.now()); }, 5000, { target: section.current });
   }, [mobilityEntity]);
   useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
+    if (!section.current) return;
+    let lastHistoryAt = 0;
+    return pollVisible(async signal => {
+      const currentOnly = !mobilityEntity && lastHistoryAt > 0 && Date.now() - lastHistoryAt < 300000;
+      const query = new URLSearchParams({ sensor_id: node.id, history_mode: snapshots ? "snapshots" : "averages", ...(currentOnly ? { current_only: "1" } : {}) });
       try {
-        const response = await fetch(`/api/telemetry?${new URLSearchParams({ sensor_id: node.id, history_mode: snapshots ? "snapshots" : "averages" })}`, { signal: controller.signal });
+        const response = await fetch(`/api/telemetry?${query}`, { signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]) });
         if (!response.ok) throw new Error("Telemetry unavailable");
         const result: Telemetry = await response.json();
-        if (!controller.signal.aborted) { setData(result); setError(false); }
-      } catch {
-        if (!controller.signal.aborted) setError(true);
-      } finally {
-        if (!controller.signal.aborted) timer = setTimeout(refresh, mobilityEntity ? 10000 : 30000);
-      }
-    }
-    void refresh();
-    return () => { controller.abort(); clearTimeout(timer); };
+        if (!signal.aborted) {
+          if (!result.historyOmitted && !result.historyUnavailable) lastHistoryAt = Date.now();
+          setData(previous => result.historyOmitted ? { ...result, history: previous?.history ?? [],
+            historyUnavailable: previous?.historyUnavailable, historyTruncated: previous?.historyTruncated,
+            historyInterval: previous?.historyInterval } : result);
+          setNow(Date.now()); setError(false);
+        }
+      } catch { if (!signal.aborted) setError(true); }
+    }, mobilityEntity ? 10000 : 30000, { target: section.current });
   }, [node.id, snapshots, mobilityEntity]);
 
   const readings = mobilityEntity ? (error ? [] : (data?.readings ?? node.readings).filter(r => Date.parse(r.timestamp) + 30000 > now)) : node.isAggregate ? node.readings : mergeReadings(node.readings, data?.readings ?? []);
@@ -118,7 +116,7 @@ export default function TelemetryCharts({
     return `${Math.round(data!.window!.window_seconds / 60)}-Minuten-Fenster · ${range} · n=${summary.sample_count}`;
   };
   return (
-    <section id="messwerte" className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-6 space-y-6">
+    <section ref={section} id="messwerte" className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-6 space-y-6">
       <div className="grid gap-5 lg:grid-cols-2 border-b border-slate-800 pb-5">
         <div>
           <h3 className="flex items-center gap-2 text-lg font-bold"><Activity className="size-5 text-emerald-400" /> Messwerte & Zeitverlauf</h3>

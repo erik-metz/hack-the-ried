@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       return Response.json({ error: "Mobilitätsdaten konnten nicht geladen werden." }, { status: 502 });
     }
   }
+  const currentOnly = params.get("current_only") === "1";
   const snapshots = params.get("history_mode") === "snapshots";
   const end = new Date();
   const civicDaily = sensorId.startsWith("civic-");
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
     if (!response.ok) throw new Error("Backend unavailable");
     return response.json();
   };
-  const results = await Promise.allSettled([fetchJson(latest), loadHistory(), fetchJson(latestWindow)]);
+  const results = await Promise.allSettled([fetchJson(latest), currentOnly ? Promise.resolve({ buckets: [], interval: null }) : loadHistory(), fetchJson(latestWindow)]);
   if (results[0].status === "rejected" || (Array.isArray(results[0].value) && results[0].value.length === 0)) {
     if (results[0].status === "rejected") {
       return Response.json({ error: "Messdaten konnten nicht geladen werden." }, { status: 502 });
@@ -66,8 +67,8 @@ export async function GET(request: Request) {
   return Response.json({ readings,
     window,
     history: Array.isArray(filteredHistory) ? filteredHistory.filter((r: RawReading) => !HIDDEN_METRICS.has(r.metric)) : filteredHistory,
-    historyMode: snapshots ? "snapshots" : "averages", historyUnavailable: results[1].status === "rejected",
+    historyOmitted: currentOnly, historyMode: snapshots ? "snapshots" : "averages", historyUnavailable: results[1].status === "rejected",
     historyInterval,
     historyTruncated: snapshots && buckets.length >= 5000, historyDays, start: start.toISOString(), end: end.toISOString(),
-  });
+  }, { headers: { "Cache-Control": "public, max-age=0, s-maxage=10" } });
 }

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { env } from "@/env";
 
 type Observation = {
   id: number; scientific_name: string; taxon_rank: string; observed_on: string;
@@ -7,7 +6,7 @@ type Observation = {
   coordinate_uncertainty_m: number | null; license: string; license_url: string;
   attribution: string | null; gbif_ids: number[];
 };
-type Data = {
+export type InaturalistData = {
   status: string; observations: Observation[]; matched: number; scanned: number;
   count: number; additional_count: number; gbif_overlap_count: number; truncated: boolean;
   fetched_at: string; has_more: boolean; deduplication?: { status: string; origin_records_inspected?: number; gbif_records?: number };
@@ -15,20 +14,9 @@ type Data = {
 const QUALITY = { research: "Forschungsqualität", needs_id: "Bestimmung ausstehend", casual: "Sonstige Meldung" };
 const LICENSE = { cc0: "CC0", "cc-by": "CC BY 4.0", "cc-by-sa": "CC BY-SA 4.0" };
 
-export async function loadInaturalist(offset: number, includeDuplicates: boolean): Promise<Data | null> {
-  try {
-    const url = new URL("/api/v1/environment/measurements/inaturalist", env.BACKEND_API_URL);
-    url.searchParams.set("offset", String(offset));
-    url.searchParams.set("include_duplicates", String(includeDuplicates));
-    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
-    return response.ok ? await response.json() as Data : null;
-  } catch { return null; }
-}
-
-export default async function InaturalistSection({ dataPromise, offset, includeDuplicates }: {
-  dataPromise: Promise<Data | null>; offset: number; includeDuplicates: boolean;
+export default function InaturalistSection({ data, offset, includeDuplicates }: {
+  data: InaturalistData | null; offset: number; includeDuplicates: boolean;
 }) {
-  const data = await dataPromise;
   const query = (nextOffset: number, duplicates = includeDuplicates) =>
     `/umwelt/biodiversitaet?inat_offset=${nextOffset}&inat_duplicates=${duplicates ? "1" : "0"}#inaturalist`;
   return <section id="inaturalist" className="space-y-4 border-t border-slate-700 pt-8">

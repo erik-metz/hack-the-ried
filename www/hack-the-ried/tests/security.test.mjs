@@ -164,3 +164,16 @@ test("telemetry excludes historical BME688/SCD41 climate series in averages and 
     assert.deepEqual(data.history.map(r => r.metric), retained);
   }
 });
+
+test("current-only telemetry refresh never reloads the full history", async () => {
+  const calls = [];
+  const route = load("app/api/telemetry/route.ts", { "@/env": { env: { BACKEND_API_URL: "https://backend.example" } } }, {
+    URL, URLSearchParams, Response, AbortSignal,
+    fetch: async url => { calls.push(url.pathname); return Response.json(url.pathname.endsWith('/window') ? null : [{ metric: 'temperature', value: 20, unit: '°C', timestamp: '2026-10-30T08:00:00Z' }]); },
+  });
+  const response = await route.GET(new Request('https://site.example/api/telemetry?sensor_id=station&current_only=1'));
+  assert.deepEqual(calls.sort(), ['/api/v1/telemetry/latest/metrics', '/api/v1/telemetry/latest/window']);
+  const result = await response.json();
+  assert.equal(result.historyOmitted, true); assert.equal(result.historyUnavailable, false); assert.deepEqual(result.history, []);
+  assert.equal(response.headers.get('cache-control'), 'public, max-age=0, s-maxage=10');
+});

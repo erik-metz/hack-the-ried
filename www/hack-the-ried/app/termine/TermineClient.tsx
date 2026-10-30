@@ -111,6 +111,8 @@ const MUNICIPALITIES = [
 
 export default function TermineClient({ initialEvents, now: initialNow, eventsUnavailable = false }: TermineClientProps) {
   const [events, setEvents] = useState<CulturalEvent[]>(initialEvents);
+  const [sourceEvents, setSourceEvents] = useState(initialEvents);
+  if (sourceEvents !== initialEvents) { setSourceEvents(initialEvents); setEvents(initialEvents); }
   const [selectedMuni, setSelectedMuni] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");

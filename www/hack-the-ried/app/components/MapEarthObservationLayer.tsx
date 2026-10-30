@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import L from "leaflet";
+import { pollVisible } from "@/lib/visiblePolling";
+import { publicApiUrl } from "@/lib/publicRequests";
 import { acquisitionTime, inFirmsWindow, latestRasterScenes, type EarthScene, type EarthObservationMode } from "@/lib/earthObservation";
 
 type Detection = { latitude: number; longitude: number; acquired_at: string; confidence: "l" | "n" | "h"; frp_mw: number };
@@ -31,15 +33,12 @@ export default function MapEarthObservationLayer({ map, mode }: { map: L.Map; mo
     };
     legend.addTo(map);
     let disposed = false;
-    let controller: AbortController | undefined;
-    async function refresh() {
-      controller?.abort();
-      const request = new AbortController();
-      controller = request;
+    async function refresh(signal: AbortSignal) {
+      const request = { signal };
       group.clearLayers();
       setStatus(`${description} · Daten werden geladen …`);
       try {
-        const endpoint = mode === "firms" ? "/api/firms?days=3" : mode === "ecostress" ? "/api/ecostress/scenes" : "/api/satellite/scenes";
+        const endpoint = publicApiUrl(mode === "firms" ? "satellite/firms?days=3" : mode === "ecostress" ? "satellite/ecostress/scenes" : "satellite/scenes");
         const response = await fetch(endpoint, { signal: request.signal, cache: "no-store" });
         if (!response.ok) throw new Error("API unavailable");
         const data = await response.json();
@@ -73,7 +72,7 @@ export default function MapEarthObservationLayer({ map, mode }: { map: L.Map; mo
           setStatus(`${description} · Letzte auswertbare Aufnahme: ${new Date(acquisition).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" })} · keine Liveaufnahme`);
           for (const scene of scenes) {
             const id = encodeURIComponent(scene.id);
-            const url = mode === "ecostress" ? `/api/ecostress/tiles/${id}/{z}/{x}/{y}` : `/api/satellite/tiles/${id}/{z}/{x}/{y}.png?layer=${mode}`;
+            const url = mode === "ecostress" ? publicApiUrl(`satellite/ecostress/tiles/${id}/{z}/{x}/{y}.png`) : publicApiUrl(`satellite/tiles/${id}/{z}/{x}/{y}.png?layer=${mode}`);
             const tiles = L.tileLayer(url, { maxZoom: 19, opacity: mode === "rgb" ? 1 : 0.82, bounds: [[49.54, 8.33], [49.75, 8.58]], attribution: mode === "ecostress" ? "NASA ECOSTRESS" : "ESA / Copernicus Sentinel-2" });
             tiles.on("tileerror", () => {
               if (!disposed && !request.signal.aborted) setStatus(`${description} · Aufnahme: ${acquisition.slice(0, 10)} · Einzelne Bildkacheln konnten nicht geladen werden.`);
@@ -85,9 +84,8 @@ export default function MapEarthObservationLayer({ map, mode }: { map: L.Map; mo
         if (!disposed && !request.signal.aborted) setStatus(`${description} · Daten konnten nicht geladen werden.`);
       }
     }
-    void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 60_000);
-    return () => { disposed = true; controller?.abort(); window.clearInterval(timer); legend.remove(); group.remove(); };
+    const stop = pollVisible(refresh, mode === "firms" ? 300000 : 900000);
+    return () => { disposed = true; stop(); legend.remove(); group.remove(); };
   }, [map, mode]);
   return null;
 }

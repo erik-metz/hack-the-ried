@@ -1,23 +1,26 @@
+"use client";
 import BorisPublishedSection, { type PublishedBorisZone } from "./BorisPublishedSection";
 import AdoptedBudgetSection from "./AdoptedBudgetSection";
-import { readCollected } from "@/lib/collectedBackend";
+import { usePublicDatasets } from "@/lib/hooks/usePublicDatasets";
+import PublicPageLoading from "./PublicPageLoading";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import OfficialStatisticsClient, { type StatisticsData } from "./OfficialStatisticsClient";
 
-export default async function OfficialStatisticsPage({
+export default function OfficialStatisticsPage({
   domain,
   title,
 }: {
   domain: string;
   title: string;
 }) {
-  const [data, boris] = await Promise.all([
-    readCollected<StatisticsData>(`statistics/${domain}`).catch(() => null),
-    domain === "realestate"
-      ? readCollected<PublishedBorisZone[]>("realestate/boris").catch(() => null)
-      : Promise.resolve(null),
+  const publication = usePublicDatasets<[StatisticsData, PublishedBorisZone[]]>([
+    `collected/statistics/${domain}`, ...(domain === "realestate" ? ["collected/realestate/boris"] : []),
   ]);
+  if (!publication) return <PublicPageLoading title={title} />;
+  const [dataResult, borisResult] = publication.results;
+  const data = dataResult.status === "fulfilled" ? dataResult.value : null;
+  const boris = borisResult?.status === "fulfilled" ? borisResult.value : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">

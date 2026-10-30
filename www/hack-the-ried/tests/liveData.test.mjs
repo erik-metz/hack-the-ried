@@ -93,7 +93,7 @@ test('public configuration strips credentials and limits CSP to live namespaces'
   assert.equal(config.env.NEXT_PUBLIC_LIVE_API_ORIGIN, 'https://vps.example');
   const headers = await config.headers();
   const csp = headers[0].headers[0].value;
-  assert.match(csp, /connect-src 'self' https:\/\/vps.example\/api\/v1\/movements\/ https:\/\/vps.example\/api\/v1\/satellites\/ https:\/\/vps.example\/api\/v1\/map\/ https:\/\/vps.example\/api\/v1\/collected\/civic\/;/);
+  assert.match(csp, /connect-src 'self' https:\/\/vps.example\/api\/v1\/movements\/ https:\/\/vps.example\/api\/v1\/satellites\/ https:\/\/vps.example\/api\/v1\/map\/ https:\/\/vps.example\/api\/v1\/collected\//);
   assert.doesNotMatch(JSON.stringify(config.env) + csp, /user|secret|private/);
   const rewrites = await config.rewrites();
   assert.equal(rewrites.beforeFiles.find(rule => rule.source === '/api/map-layers').destination, 'https://vps.example/api/v1/map/collected-layers');
@@ -146,7 +146,7 @@ test('the CSP permits public VPS map endpoints and tiles without exposing admin 
   assert.match(csp, /img-src[^;]*https:\/\/vps.example\/api\/v1\/map-tiles\//);
   const connect = csp.split(';')[0];
   assert.ok(connect.includes('https://vps.example/api/v1/map/'));
-  assert.ok(connect.includes('https://vps.example/api/v1/collected/civic/'));
+  assert.ok(connect.includes('https://vps.example/api/v1/collected/'));
   assert.equal(connect.includes('https://vps.example;'), false);
   assert.equal(connect.includes('/admin'), false);
 });

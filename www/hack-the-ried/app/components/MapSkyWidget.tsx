@@ -1,4 +1,6 @@
 "use client";
+import { publicApiUrl } from "@/lib/publicRequests";
+import { pollVisible } from "@/lib/visiblePolling";
 
 import { useEffect, useState } from "react";
 
@@ -34,12 +36,11 @@ export default function MapSkyWidget() {
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
+    const stop = pollVisible(async signal => {
+      const controller = { signal };
       if (!document.hidden) {
         try {
-          const response = await fetch("/api/sky", { signal: controller.signal, cache: "no-store" });
+          const response = await fetch(publicApiUrl("sky"), { signal: controller.signal, cache: "no-store" });
           if (!response.ok) throw new Error("Unavailable");
           const body = await response.json() as SkySnapshot;
           if (!body.readings?.sun_azimuth || !body.readings?.moon_phase_angle) throw new Error("Incomplete");
@@ -51,10 +52,8 @@ export default function MapSkyWidget() {
           if (!controller.signal.aborted) setUnavailable(true);
         }
       }
-      if (!controller.signal.aborted) timer = setTimeout(refresh, 60_000);
-    }
-    void refresh();
-    return () => { controller.abort(); clearTimeout(timer); };
+    }, 60_000);
+    return stop;
   }, []);
 
   if (!snapshot) {
