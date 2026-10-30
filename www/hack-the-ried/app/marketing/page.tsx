@@ -19,12 +19,24 @@ const qrCodes = [
 ];
 
 const logos = [
-  { title: "Geometric Ox Coding", src: "/brand/logos/geometric-ox-symbol.png", round: "/brand/logos/geometric-ox-round.png", filename: "hacktheried-geometric-ox-ohne-text.png", roundFilename: "hacktheried-geometric-ox-rund-ohne-text.png", description: "Primäre Bildmarke · ohne Wortmarke" },
-  { title: "Bull Mascot", src: "/brand/logos/bull-mascot-symbol.png", round: "/brand/logos/bull-mascot-round.png", filename: "hacktheried-bull-mascot-ohne-text.png", roundFilename: "hacktheried-bull-mascot-rund-ohne-text.png", description: "Maskottchen · ohne Wortmarke" },
-  { title: "Circuit Bull", src: "/brand/logos/circuit-bull-symbol.png", round: "/brand/logos/circuit-bull-round.png", filename: "hacktheried-circuit-bull-ohne-text.png", roundFilename: "hacktheried-circuit-bull-rund-ohne-text.png", description: "Technikmotiv · ohne Wortmarke" },
+  { title: "Geometric Ox Coding", slug: "geometric-ox", description: "Primäre Bildmarke · ohne Wortmarke" },
+  { title: "Bull Mascot", slug: "bull-mascot", description: "Maskottchen · ohne Wortmarke" },
+  { title: "Circuit Bull", slug: "circuit-bull", description: "Technikmotiv · ohne Wortmarke" },
+];
+
+const logoBackgrounds = [
+  { id: "dark", title: "Tiefgrün", value: "#102F26" },
+  { id: "light", title: "Creme", value: "#F6F1DE" },
+];
+
+const logoShapes = [
+  { id: "square", title: "Eckig", width: 1536, height: 1024 },
+  { id: "round", title: "Rund", width: 1200, height: 1200 },
 ];
 
 const colors = [
+  { name: "Tiefgrün · Logo-Hintergrund", value: "#102F26", use: "Dunkle Logohintergrundfarbe" },
+  { name: "Creme · Logo-Hintergrund", value: "#F6F1DE", use: "Helle Logohintergrundfarbe" },
   { name: "Emerald 400", value: "#34D399", use: "Häufige Akzentfarbe für Links, Icons und Hervorhebungen" },
   { name: "Emerald 500", value: "#10B981", use: "Akzentflächen und interaktive Elemente" },
   { name: "Slate 950", value: "#020617", use: "Hintergrundfarbe vieler Seiten" },
@@ -49,8 +61,8 @@ export default function MarketingPage() {
               </div>
             </div>
             <div className="mx-auto w-full max-w-[260px] rounded-3xl border border-white/15 bg-slate-900 p-3 shadow-2xl shadow-black/30">
-              <Image src="/brand/logos/geometric-ox-symbol.png" alt="Geometric Ox Bildmarke ohne Wortmarke" width={800} height={730} priority className="h-auto w-full rounded-2xl" />
-              <div className="px-1 pt-1"><AssetActions src="/brand/logos/geometric-ox-symbol.png" filename="hacktheried-geometric-ox-ohne-text.png" /></div>
+              <Image src="/brand/logos/geometric-ox-dark-square.png" alt="Geometric Ox Bildmarke ohne Wortmarke auf tiefgrünem Hintergrund" width={1536} height={1024} priority className="h-auto w-full rounded-2xl" />
+              <div className="px-1 pt-1"><AssetActions src="/brand/logos/geometric-ox-dark-square.png" filename="hacktheried-geometric-ox-dark-square.png" /></div>
             </div>
           </div>
         </section>
@@ -90,25 +102,27 @@ export default function MarketingPage() {
           <div className="mb-7">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-400">Offizielle Bildmarken</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Ein Ried. Drei Charaktere.</h2>
-            <p className="mt-3 max-w-2xl text-slate-400">Das Geometric Ox ist unser primäres Logo. Die beiden Bullenvarianten ergänzen es für passende Themen und Formate.</p>
+            <p className="mt-3 max-w-2xl text-slate-400">Alle drei Bildmarken gibt es ohne Wortmarke, jeweils auf Tiefgrün und Creme sowie in eckigem Originalformat und rund. Jede Datei kann einzeln kopiert oder heruntergeladen werden.</p>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
-            {logos.map((logo, index) => <article key={logo.src} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/65">
-              <div className="flex h-64 items-center justify-center bg-[radial-gradient(ellipse_at_center,_rgba(16,185,129,0.12),_transparent_62%),linear-gradient(135deg,_#064e3b,_#020617)] p-4">
-                <Image src={logo.src} alt={`${logo.title} Bildmarke ohne Wortmarke`} width={800} height={730} className="h-[220px] w-full object-contain" />
-              </div>
-              <div className="p-5">
+            {logos.map((logo, index) => <article key={logo.slug} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/65 p-4 sm:p-5">
+              <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-400">{index === 0 ? "Primärlogo" : "Weitere Variante"}</p>
                 <h3 className="mt-1 text-xl font-semibold text-white">{logo.title}</h3>
                 <p className="mt-2 min-h-10 text-sm text-slate-400">{logo.description}</p>
-                <AssetActions src={logo.src} filename={logo.filename} />
-                <div className="mt-5 flex items-center gap-4 border-t border-slate-800 pt-4">
-                  <Image src={logo.round} alt={`${logo.title} als rundes Logo ohne Wortmarke`} width={96} height={96} className="h-20 w-20 rounded-full bg-slate-950 object-contain" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-200">Runde Version</p>
-                    <AssetActions src={logo.round} filename={logo.roundFilename} />
-                  </div>
-                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {logoBackgrounds.flatMap((background) => logoShapes.map((shape) => {
+                  const src = `/brand/logos/${logo.slug}-${background.id}-${shape.id}.png`;
+                  const filename = `hacktheried-${logo.slug}-${background.id}-${shape.id}.png`;
+                  return <div key={`${background.id}-${shape.id}`} className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/60 p-2">
+                    <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-slate-950 p-2">
+                      <Image src={src} alt={`${logo.title}, ${shape.title}, ${background.title}`} width={shape.width} height={shape.height} className="h-full w-full object-contain" />
+                    </div>
+                    <p className="mt-2 min-h-8 text-xs font-medium leading-4 text-slate-200">{background.title} · {shape.title}</p>
+                    <AssetActions src={src} filename={filename} />
+                  </div>;
+                }))}
               </div>
             </article>)}
           </div>
@@ -120,7 +134,7 @@ export default function MarketingPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-400">Gestaltungsfarben</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Die Farben des Rieds</h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {colors.map((color) => <article key={color.value} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/65">
               <div className="h-24" style={{ backgroundColor: color.value }} aria-label={`${color.name}: ${color.value}`} />
               <div className="p-4">
