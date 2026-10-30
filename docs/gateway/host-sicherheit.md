@@ -43,7 +43,7 @@ und [Debian-Konfiguration für unattended-upgrades](https://sources.debian.org/s
 Nur über eine funktionierende Connect-Sitzung und bei zugänglichem Testaufbau:
 
 ```bash
-cd ~/hack-the-ried/gateway
+cd ~/hack-the-ried/hardware/gateway
 sudo apt-get update
 sudo apt-get install -y nftables unattended-upgrades
 sudo bash scripts/install-host-hardening alpha

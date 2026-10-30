@@ -3,19 +3,12 @@
 import { useState } from "react";
 import {
   Activity,
-  ArrowRight,
   BookOpen,
-  CloudRain,
-  Cpu,
   Flame,
   Globe2,
-  Info,
-  Lightbulb,
   Radio,
-  Sparkles,
   TreePine,
   Volume2,
-  Waves,
   Wind,
   Zap,
 } from "lucide-react";
@@ -34,8 +27,10 @@ export default function EducationalHubSection() {
         </h2>
         <p className="text-slate-300 text-sm max-w-3xl leading-relaxed">
           HackTheRied ist auch ein Bildungsprojekt für Schulen, Jugendliche und interessierte
-          Bürger. Hier erklären wir anschaulich, wie LoRaWAN-Funk funktioniert, wie Sensoren
-          physikalische Naturphänomene in Zahlen umwandeln und warum viele Messpunkte so wertvoll sind.
+          Bürger. Die Firmware v15 überträgt Temperatur und relative Luftfeuchtigkeit vom SHT41.
+          Außerdem sendet sie unter anderem CO₂-, Partikel-, Licht-, Gas-, Akustik- und optionale
+          Versorgungswerte. Temperatur- und Feuchtewerte anderer Sensoren bleiben lokal und werden
+          nicht als Ersatz übertragen.
         </p>
       </div>
 
@@ -151,8 +146,8 @@ export default function EducationalHubSection() {
                 Schallwellen lenken eine wenige Nanometer dicke Silizium-Membran aus. Die Kapazitätsänderung
                 wird sofort on-chip digitalisiert (I²S-Schnittstelle). Der Microcontroller führt
                 eine mathematische Frequenzzerlegung (Schnelle Fourier-Transformation / FFT) durch.
-                So kann die Station tieffrequente Güterzüge auf der Riedbahn von Vogelgezwitscher,
-                Stimmen oder prasselndem Regen unterscheiden.
+                Die Firmware kann zusätzlich einen experimentellen Klassifikator lokal ausführen.
+                Der Schallpegel wird als dBFS übertragen und ist kein kalibrierter dB(A)-Wert.
               </p>
             </div>
 
@@ -165,29 +160,12 @@ export default function EducationalHubSection() {
                 <span className="text-[10px] font-mono text-purple-300">Metalloxid-Halbleiter (MOX)</span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Eine mikrostrukturierte Schicht aus Metalloxid wird auf 300–400 °C erhitzt. Treffen
-                flüchtige organische Verbindungen (z. B. Lösemittel, Ausdünstungen, Grillrauch) oder
-                Stickoxide (NOx aus Dieselabgasen) auf die heiße Schicht, reagieren sie mit dem
-                Sauerstoff und verändern den elektrischen Durchgangswiderstand.
+                BME688 und SGP41 erfassen Gaswiderstands- beziehungsweise VOC- und NOx-Indexwerte.
+                Die v15-Firmware überträgt BME688-Gaswiderstandswerte und SGP41-Indizes; daraus
+                werden keine validierten Stoffkonzentrationen abgeleitet.
               </p>
             </div>
 
-            {/* RG-11 */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-100 text-sm flex items-center gap-2">
-                  <CloudRain className="w-4 h-4 text-amber-400" /> Regen &amp; Niederschlag (RG-11)
-                </span>
-                <span className="text-[10px] font-mono text-amber-300">Optische Totalreflexion</span>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Infrarot-Strahlen werden von innen in eine durchsichtige Kunststoffkuppel gesendet.
-                Bei trockener Oberfläche wird das Licht an der Außenseite komplett reflektiert
-                (Totalreflexion) und landet auf einem Empfänger. Trifft ein Regentropfen auf die
-                Kuppel, bricht das Licht durch den Wassertropfen nach außen weg. Der Sensor
-                erkennt sofort den ersten Tropfen und berechnet die Niederschlagsrate.
-              </p>
-            </div>
           </div>
         </div>
       )}

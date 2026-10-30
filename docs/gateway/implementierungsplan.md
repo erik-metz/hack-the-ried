@@ -11,7 +11,7 @@ Die [Recherche vorhandener Container und Projekte](vorhandene-projekte.md)
 führt zum vorhandenen Basics-Station-Container als Grundlage. Der Nutzer hat
 GitHub Actions → GHCR → Watchtower als Updatepfad gewählt; balena und ein eigener
 Updater sind für den Grundaufbau nicht vorgesehen. Konkrete Einrichtung und
-Grenzen stehen in [gateway/README.md](../../gateway/README.md).
+Grenzen stehen in [hardware/gateway/README.md](../../hardware/gateway/README.md).
 Store-and-forward ist als SQLite-Journal mit lokalem LNS-Zwischenprozess implementiert;
 die vollständige Hardware-/TTN-Abnahme bleibt verbindliches Ziel.
 
@@ -358,7 +358,7 @@ ersetzt weder diese Abnahme noch einen Hardware-/TTN-Test.
 Angelegter Grundaufbau und vorgesehene Erweiterung:
 
 ```text
-gateway/
+hardware/gateway/
   Dockerfile                  # gepinnte vorhandene Basics Station + Startwrapper
   compose.yml                 # Gateway und scoped Watchtower
   compose.registry-auth.yml   # optionaler privater GHCR-Lesezugang
@@ -371,7 +371,7 @@ gateway/
 docs/gateway/
 ```
 
-Die Queue liegt in `bridge/spool.py`; persistenter Zustand in `gateway/state/`
+Die Queue liegt in `hardware/gateway/bridge/spool.py`; persistenter Zustand in `hardware/gateway/state/`
 und hostseitige Image-Metadaten unter `/var/lib/kamue-gateway-guardian/`.
 Beides gehört nicht ins Repository.
 
@@ -388,7 +388,7 @@ Bei nur einem Pi zunächst am zugänglichen Pi testen; für spätere Releases na
 Dachmontage ist ein zweites gleich ausgestattetes Testgerät sinnvoll.
 Emulierte ARM64-Builds ersetzen keine Prüfung von SPI und GPIO.
 
-Der künftige Workflow reagiert gezielt auf `gateway/**`, seinen eigenen Pfad und
+Der Gateway-Workflow reagiert gezielt auf `hardware/gateway/**`, seinen eigenen Pfad und
 gegebenenfalls explizit genutzte gemeinsame Builddateien. Gateway-Images erhalten
 eigene Registry-Namen und Releasekanäle, unabhängig vom VPS-Stack.
 

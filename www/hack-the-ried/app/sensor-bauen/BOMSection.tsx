@@ -2,15 +2,8 @@
 
 import { useState } from "react";
 import {
-  Activity,
-  Cpu,
   Layers,
-  Radio,
   ShieldCheck,
-  Sparkles,
-  Volume2,
-  Wind,
-  Zap,
 } from "lucide-react";
 
 interface BOMItem {
@@ -25,28 +18,28 @@ interface BOMItem {
 
 const BOM_ITEMS: BOMItem[] = [
   {
-    name: "RAK3113 WisDuo LoRaWAN SiP",
+    name: "RAK3112 auf RAK3212",
     category: "core",
     categoryLabel: "Steuerung & Funk",
-    interface: "I²C, I²S, GPIO, UART",
+    interface: "LoRaWAN, I²C, I²S, GPIO",
     whatItMeasures: "System-Controller & Funkübertragung",
-    physicsPrinciple: "Integriertes Modul: Microcontroller + Semtech SX1262 LoRa-Funk in einem Baustein.",
+    physicsPrinciple: "ESP32-S3-Steuerung und SX1262-LoRa-Funkmodul auf dem RAK3212-Board.",
     highlight: true,
   },
   {
-    name: "TX868-BLG-26 LoRa-Antenne",
+    name: "EU868-LoRa-Antenne",
     category: "core",
     categoryLabel: "Steuerung & Funk",
     interface: "SMA / Koaxial",
     whatItMeasures: "868 MHz Funkreichweite (EU868)",
-    physicsPrinciple: "Optimierte Rundstrahlantenne für Distanzen bis 15 km zu TTN-Gateways im Ried.",
+    physicsPrinciple: "Die erreichbare Funkstrecke hängt von Antenne, Montage, Gelände und Gateway ab.",
   },
   {
     name: "SHT41 Präzisions-Klimasensor",
     category: "climate",
     categoryLabel: "Klima & Wetter",
     interface: "I²C (0x44)",
-    whatItMeasures: "Temperatur (°C) & Luftfeuchtigkeit (% r.F.)",
+    whatItMeasures: "Übertragene Temperatur (°C) und relative Luftfeuchtigkeit (%)",
     physicsPrinciple: "Kapazitiver Polymersensor (Feuchte) und Silizium-Bandgap-Widerstand (Temperatur).",
   },
   {
@@ -54,24 +47,16 @@ const BOM_ITEMS: BOMItem[] = [
     category: "climate",
     categoryLabel: "Klima & Wetter",
     interface: "I²C (0x76)",
-    whatItMeasures: "Luftdruck (hPa), Feuchte & VOC-Gas",
-    physicsPrinciple: "Piezoresistive Druckmessung und beheizter Metalloxid-Gassensor (MOX).",
+    whatItMeasures: "Luftdruck (hPa) und Gaswiderstand (Ω); Temperatur/Feuchte nur lokal",
+    physicsPrinciple: "Druckmessung und beheizter Metalloxid-Gassensor; keine BSEC-IAQ- oder CO₂-Äquivalentwerte.",
   },
   {
     name: "LTR390-UV Sensor",
     category: "climate",
     categoryLabel: "Klima & Wetter",
     interface: "I²C (0x53)",
-    whatItMeasures: "UV-Index (0–11+) & Umgebungslicht (Lux)",
+    whatItMeasures: "UV-Index und Umgebungslicht (Lux)",
     physicsPrinciple: "Spektral gefilterte Silizium-Photodioden für UV-A und UV-B Strahlung.",
-  },
-  {
-    name: "RG-11 Optischer Regensensor",
-    category: "climate",
-    categoryLabel: "Klima & Wetter",
-    interface: "GPIO / Puls",
-    whatItMeasures: "Regenbeginn & Niederschlagsmenge (mm)",
-    physicsPrinciple: "Infrarot-Strahlen werden an der transparenten Kuppel gebrochen, sobald Tropfen auftreffen.",
   },
   {
     name: "SPS30 Feinstaub-Sensor",
@@ -103,24 +88,24 @@ const BOM_ITEMS: BOMItem[] = [
     category: "sound",
     categoryLabel: "Akustik",
     interface: "I²S Digital",
-    whatItMeasures: "Schallpegel (dB) & Lärmklassifizierung",
-    physicsPrinciple: "MEMS-Kondensatormembran; On-Device Frequenzanalyse unterscheidet Autos, Stimmen und Regen.",
+    whatItMeasures: "Digitaler Schallpegel (dBFS); experimentelle lokale Ereignisklassifikation",
+    physicsPrinciple: "MEMS-Mikrofon mit I²S-Ausgabe. dBFS ist nicht mit kalibriertem dB(A) gleichzusetzen.",
   },
   {
-    name: "INA226 Diagnose-Chip",
+    name: "INA226 (optional)",
     category: "power",
     categoryLabel: "Versorgung",
     interface: "I²C (0x40)",
-    whatItMeasures: "Spannung (V), Strom (mA) & Leistung (mW)",
-    physicsPrinciple: "Misst den Spannungsabfall über einen Präzisions-Shunt-Widerstand (Systemgesundheit).",
+    whatItMeasures: "Busspannung, Shuntspannung, Strom und Leistung",
+    physicsPrinciple: "Werte hängen von korrekter Shunt-Kalibrierung und Einbindung in den Versorgungspfad ab.",
   },
   {
-    name: "USB-C Buchse & 10m Kabel",
+    name: "USB-C-Versorgung (Aufbau)",
     category: "power",
     categoryLabel: "Versorgung",
     interface: "5V USB-C",
-    whatItMeasures: "Kontinuierliche 5V Außenstromversorgung",
-    physicsPrinciple: "Wetterfestes Flach- oder Rundkabel zur einfachen Durchführung durch Fenster oder Türen.",
+    whatItMeasures: "Versorgung des Sensorknotens und der angeschlossenen Module",
+    physicsPrinciple: "Die endgültige Stromversorgung für den Außeneinsatz ist noch festzulegen.",
   },
 ];
 
@@ -142,40 +127,41 @@ export default function BOMSection() {
             <Layers className="w-3.5 h-3.5" /> Stückliste &amp; Hardware
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-100">
-            Bill of Materials (BOM) v2 mit RAK3113
+            Aktuelle Hardware mit RAK3112 und Firmware v15
           </h2>
           <p className="text-slate-300 text-sm max-w-3xl leading-relaxed">
-            In der zweiten Hardware-Generation ersetzt das integrierte <strong>RAK3113-Modul</strong>{" "}
-            die frühere Kombination aus separatem ESP32 und Funk-Shield. Das spart Platz, senkt den
-            Verdrahtungsaufwand und minimiert den Stromverbrauch.
+            Der Sensorknoten nutzt ein <strong>RAK3112 auf RAK3212</strong>. Die Firmware v15 sendet
+            Temperatur und Luftfeuchtigkeit ausschließlich vom SHT41. Weitere Messwerte kommen von
+            CO₂-, Partikel-, Licht-, Gas- und Akustiksensoren; optionale INA226-Werte setzen eine
+            korrekt angeschlossene Messstrecke voraus. Sensoren und tatsächlich übertragene Werte
+            sind in der Firmware-Dokumentation versioniert.
           </p>
         </div>
 
         {/* PRICE SUMMARY CARD */}
         <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 shrink-0 space-y-1 sm:text-right">
           <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider block">
-            Gesamter Hardware-Kostenrahmen
+            Kostenrahmen
           </span>
           <div className="text-3xl font-extrabold text-slate-100">
-            ca. 100 € <span className="text-sm font-normal text-slate-400">(+/-)</span>
+            Noch offen
           </div>
           <p className="text-[11px] text-slate-400 max-w-xs">
-            Abhängig von aktuellen Bauteil-Tagespreisen und Losgröße bei Sammelbestellung für Workshops.
+            Wird nach Bestätigung der Bauteile, Gehäuse- und Versorgungslösung ergänzt.
           </p>
         </div>
       </div>
 
       {/* WORKSHOP BULK ORDER BENEFIT NOTE */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-start gap-3">
+        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-start gap-3">
         <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
         <div>
           <strong className="text-slate-200">
-            Tipp für Selberbauer &amp; Workshop-Teilnehmende:
+            Stückliste im Aufbau:
           </strong>{" "}
-          Einzelbestellungen aus verschiedenen Shops verursachen hohe Versandkosten. Bei unseren
-          Mitmach-Events im <strong>Kulturzentrum KAMÜ</strong> bestellen wir alle Sensoren, das
-          RAK3113-Board und die Antennen gesammelt im Voraus als Bausatz (10–30 Sets) – das spart
-          rund 20–30 % der Kosten im Vergleich zum Einzeleinkauf!
+          Die Liste beschreibt Sensoren und Messwerte der aktuellen RAK3112-Firmware. Verfügbarkeit,
+          genaue Modulvarianten und Preise werden ergänzt, sobald sie für den konkreten Bausatz
+          bestätigt sind. Optionale Komponenten sind in der Liste entsprechend markiert.
         </div>
       </div>
 
@@ -209,7 +195,7 @@ export default function BOMSection() {
               : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200"
           }`}
         >
-          Klima, UV &amp; Regen
+          Klima, UV &amp; Licht
         </button>
         <button
           onClick={() => setActiveFilter("air")}

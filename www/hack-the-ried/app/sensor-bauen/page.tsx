@@ -7,27 +7,21 @@ import BOMSection from "./BOMSection";
 import AssemblyGuideSection from "./AssemblyGuideSection";
 import DownloadsAndMediaSection from "./DownloadsAndMediaSection";
 import EducationalHubSection from "./EducationalHubSection";
+import BuildProgressGallery from "./BuildProgressGallery";
 import {
   BookOpen,
-  Calendar,
-  CheckCircle2,
-  Cpu,
-  Download,
   ExternalLink,
-  Flame,
   HeartHandshake,
   Layers,
   MapPin,
-  Radio,
   Sparkles,
   Wrench,
-  Zap,
 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Umweltsensor selber bauen (LoRaWAN & Citizen Science) | HackTheRied",
   description:
-    "Bauanleitung, Stückliste (BOM) & DIY-Workshops im Hessischen Ried (Bürstadt & Lampertheim). Baue deine eigene Wetter- & Klimastation mit RAK3113, Feinstaub, CO2 & LoRaWAN.",
+    "Bauanleitung, Stückliste und Einblicke in den Bau unserer RAK3112-LoRaWAN-Umweltstation mit Klima-, Luftqualitäts-, Licht-, Partikel- und Akustikmessung.",
   keywords: [
     "Umweltsensor selber bauen",
     "LoRaWAN Sensor DIY",
@@ -35,7 +29,7 @@ export const metadata: Metadata = {
     "Kulturzentrum KAMÜ",
     "Citizen Science Ried",
     "Wetterstation bauen",
-    "RAK3113 LoRaWAN",
+    "RAK3112 LoRaWAN",
     "Feinstaub Sensor SPS30",
     "CO2 Sensor SCD41",
     "Lampertheim Umweltdaten",
@@ -64,40 +58,34 @@ export default function SensorBauenPage() {
     "@graph": [
       {
         "@type": "HowTo",
-        "name": "LoRaWAN Umweltsensor-Station v2 selber bauen",
+        "name": "LoRaWAN-Umweltstation mit RAK3112 bauen",
         "description":
-          "Schritt-für-Schritt-Anleitung zum Aufbau einer autarken LoRaWAN-Multisensor-Station für das Hessische Ried mit RAK3113, Feinstaub-, CO2- und Klimasensoren.",
-        "totalTime": "PT3H",
-        "estimatedCost": {
-          "@type": "MonetaryAmount",
-          "currency": "EUR",
-          "value": "100",
-        },
+          "Schritt-für-Schritt-Anleitung zum Aufbau einer LoRaWAN-Multisensor-Station für das Hessische Ried mit RAK3112, SHT41, SCD41, BME688, SGP41, LTR390, SPS30 und ICS-43434.",
         "step": [
           {
             "@type": "HowToStep",
             "name": "Werkzeug & Bauteile vorbereiten",
-            "text": "Lötkolben, Zinn, Abisolierzange und RAK3113 Bausatz bereitstellen.",
+            "text": "Lötkolben, Zinn, Abisolierzange und RAK3112-Sensorknoten bereitstellen.",
           },
           {
             "@type": "HowToStep",
-            "name": "I²C-Sensoren an RAK3113 anlöten",
-            "text": "Klimasensoren SHT41, BME688, SCD41, SGP41 und SPS30 über gemeinsame 3.3V, GND, SDA und SCL Busleitungen verbinden.",
+            "name": "I²C-Sensoren am RAK3112 anschließen",
+            "text": "SHT41, BME688, SCD41, SGP41, LTR390, SPS30 und optional INA226 entsprechend der dokumentierten Pinbelegung am RAK3112 anschließen.",
           },
           {
             "@type": "HowToStep",
-            "name": "Gehäusemontage im Stevenson Screen",
-            "text": "Sensoren und Platine im wetterfesten 3D-Druck-Lamellengehäuse befestigen.",
+            "name": "Gehäuse planen und montieren",
+            "text": "Ein geeignetes Gehäuse für den RAK3112-Sensorknoten und die Sensoren entwickeln und anschließend im Außeneinsatz prüfen.",
           },
           {
             "@type": "HowToStep",
             "name": "Firmware flashen & TTN Keys einrichten",
-            "text": "Arduino/PlatformIO Firmware auf RAK3113 aufspielen und mit The Things Network verbinden.",
+            "text": "Die aktuelle Firmware v15 auf das RAK3112 flashen und mit The Things Network verbinden.",
           },
           {
             "@type": "HowToStep",
             "name": "Außenmontage & Inbetriebnahme",
-            "text": "868 MHz Antenne anbringen, 5V USB-C Strom anschließen und Messwerte live auf HackTheRied verfolgen.",
+            "text": "Eine EU868-Antenne und eine geeignete Stromversorgung anschließen, dann Join und Messwertübertragung über Gateway und The Things Network prüfen.",
           },
         ],
       },
@@ -166,8 +154,8 @@ export default function SensorBauenPage() {
             <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
               Mache deinen Garten oder Balkon zum offiziellen Messpunkt für das Hessische Ried!
               Gemeinsam mit dem Kulturzentrum <strong>KAMÜ</strong> in Bürstadt bauen wir ein
-              bürgerschaftliches Sensornetzwerk auf. Lerne, wie du eine professionelle
-              Multisensor-Station (Temperatur, Feinstaub, CO₂, UV, Lärm &amp; Regen) zusammenbaust,
+              bürgerschaftliches Sensornetzwerk auf. Lerne den Aufbau unseres RAK3112-Sensorknotens
+              und die Messung von Temperatur, Feinstaub, CO₂, UV, Licht, Gaswerten und Geräuschpegeln kennen,
               über The Things Network (TTN) verbindest und live in unser offenes Datenportal
               einspeist.
             </p>
@@ -210,20 +198,22 @@ export default function SensorBauenPage() {
             {/* Feature Highlights Badges */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs text-slate-300">
               <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="font-bold text-emerald-400 block">Kostenrahmen</span>
-                <p className="text-slate-400">ca. 100 € (+/-) pro Bausatz (Sammelbestellung möglich).</p>
+                <span className="font-bold text-emerald-400 block">Bausatzpreis</span>
+                <p className="text-slate-400">Wird nach Abschluss der Bauteil- und Gehäuseauswahl ergänzt.</p>
               </div>
               <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="font-bold text-teal-400 block">0 € laufende Kosten</span>
-                <p className="text-slate-400">LoRaWAN-Funk über The Things Network – keine SIM-Karte.</p>
+                <span className="font-bold text-teal-400 block">LoRaWAN statt SIM-Karte</span>
+                <p className="text-slate-400">Der Betrieb setzt ein erreichbares Gateway und eine passende Stromversorgung voraus.</p>
               </div>
               <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
-                <span className="font-bold text-blue-400 block">Open Source &amp; Open Data</span>
-                <p className="text-slate-400">100 % freie Schaltpläne, Code und Messwerte unter CC BY 4.0.</p>
+                <span className="font-bold text-blue-400 block">Code &amp; Dokumentation</span>
+                <p className="text-slate-400">Firmware, Decoder und Aufbauhinweise sind im Repository dokumentiert.</p>
               </div>
             </div>
           </div>
         </section>
+
+        <BuildProgressGallery />
 
         {/* 1. WORKSHOP REGISTRATION FORM (RESEND INTEGRATION) */}
         <WorkshopRegistrationForm />

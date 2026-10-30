@@ -3,12 +3,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'gateway/**'
+      - 'hardware/gateway/**'
       - '.github/workflows/gateway.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'gateway/**'
+      - 'hardware/gateway/**'
       - '.github/workflows/gateway.yml'
 permissions:
   contents: read
@@ -34,14 +34,14 @@ jobs:
           TC_KEY: 'NNSXS.synthetic-ci-key'
           GATEWAY_COMPOSE_JSON: /tmp/gateway-compose.json
         run: |
-          bash -n gateway/scripts/gateway-start gateway/scripts/gateway-healthcheck gateway/scripts/install-host-hardening
-          docker compose --env-file gateway/.env.example -f gateway/compose.yml config --format json > "$GATEWAY_COMPOSE_JSON"
-          python -m unittest discover -s gateway/tests -v
+          bash -n hardware/gateway/scripts/gateway-start hardware/gateway/scripts/gateway-healthcheck hardware/gateway/scripts/install-host-hardening
+          docker compose --env-file hardware/gateway/.env.example -f hardware/gateway/compose.yml config --format json > "$GATEWAY_COMPOSE_JSON"
+          python -m unittest discover -s hardware/gateway/tests -v
       - uses: docker/setup-buildx-action@v3
       - name: Build existing forwarder with gateway configuration wrapper
         uses: docker/build-push-action@v6
         with:
-          context: gateway
+          context: hardware/gateway
           platforms: linux/arm64
           load: true
           tags: kamue-gateway:test
@@ -49,7 +49,7 @@ jobs:
       - name: Smoke test without radio hardware
         run: |
           docker run --rm --entrypoint /app/artifacts/corecell/station kamue-gateway:test --version
-          docker run --rm -v "$PWD/gateway/tests:/app/tests:ro" -v "$PWD/gateway/bridge:/app/bridge:ro" -v "$PWD/gateway/scripts:/app/scripts:ro" --entrypoint python3 kamue-gateway:test -m unittest discover -s /app/tests -p test_spool.py -v
+          docker run --rm -v "$PWD/hardware/gateway/tests:/app/tests:ro" -v "$PWD/hardware/gateway/bridge:/app/bridge:ro" -v "$PWD/hardware/gateway/scripts:/app/scripts:ro" --entrypoint python3 kamue-gateway:test -m unittest discover -s /app/tests -p test_spool.py -v
           if docker run --rm -e GATEWAY_EUI=invalid kamue-gateway:test; then
             echo 'Invalid configuration was unexpectedly accepted' >&2
             exit 1

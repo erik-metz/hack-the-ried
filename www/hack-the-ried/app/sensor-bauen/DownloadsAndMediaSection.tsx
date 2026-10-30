@@ -8,10 +8,8 @@ import {
   ExternalLink,
   FileText,
   Hammer,
-  Layers,
   Play,
   Printer,
-  Sparkles,
   Video,
 } from "lucide-react";
 
@@ -49,7 +47,7 @@ export default function DownloadsAndMediaSection() {
             </h3>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               In diesem ca. 15-minütigen Video zeigen wir dir in Nahaufnahme: das Anlöten der
-              I²C-Sensoren an das RAK3113-Board, den Einbau in das Lamellengehäuse und die
+              I²C-Sensoren am RAK3112, den späteren Gehäusebau und die
               Live-Überprüfung auf der HackTheRied Karte.
             </p>
           </div>
@@ -106,7 +104,7 @@ export default function DownloadsAndMediaSection() {
                 Stevenson Screen Gehäuse (STL)
               </h4>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Wetterfeste Lamellenkonstruktion mit Montageplatte für das RAK3113, SPS30-Kanal und
+                Wetterfeste Lamellenkonstruktion mit Montageplatte für das RAK3112, SPS30-Kanal und
                 Sensoren. Das 3D-Modell wird aktuell konstruiert und getestet.
               </p>
             </div>

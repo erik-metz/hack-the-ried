@@ -3,9 +3,9 @@
 Stand: 29.10.2026. Dieser Stand bereitet einen zugänglichen **Pilotbetrieb** vor.
 Vorhandene Basics Station wird weiterverwendet; kein eigener Funk-Forwarder,
 kein Application-Decoder. Installation und Hardwareabnahme werden im
-[Betriebsnachweis](../docs/gateway/betriebsnachweis.md) getrennt dokumentiert.
+[Betriebsnachweis](../../docs/gateway/betriebsnachweis.md) getrennt dokumentiert.
 
-Die [Host-Härtung](../docs/gateway/host-sicherheit.md) beschreibt den
+Die [Host-Härtung](../../docs/gateway/host-sicherheit.md) beschreibt den
 Connect-Zugang, die IPv4-/IPv6-Firewall, deaktivierte Dienste, Systemupdates
 und die zeitgesteuerte Rücknahme zum Schutz vor Aussperren.
 
@@ -40,7 +40,7 @@ Die Herkunft unseres HATs wird daraus nicht als gesichert abgeleitet.
 
 ## Image und Updatepfad
 
-GitHub Actions baut bei Änderungen an `gateway/**` oder am Gateway-Workflow
+GitHub Actions baut bei Änderungen an `hardware/gateway/**` oder am Gateway-Workflow
 auf einem ARM64-Runner, prüft Konfiguration und Container und veröffentlicht
 exakt das getestete Image:
 
@@ -80,7 +80,7 @@ RAK2287 muss EU868/SPI sein. RAK-/PoE+-HAT mechanisch und elektrisch zuerst
 prüfen. `RESET_GPIO=17` und `gpiochip0` sind die zu verifizierenden Profilwerte.
 Kein zweiter Forwarder darf auf den Konzentrator zugreifen.
 
-1. Repository auschecken und in `gateway/` wechseln. `.env.example` nach `.env`
+1. Repository auschecken und in `hardware/gateway/` wechseln. `.env.example` nach `.env`
    kopieren. Eindeutige, dauerhaft zugeordnete Gateway-EUI eintragen; keine
    Beispiel-EUI verwenden. `.env` enthält auch den LNS-Key und bleibt lokal:
 

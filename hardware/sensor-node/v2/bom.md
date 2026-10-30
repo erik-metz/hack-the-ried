@@ -1,55 +1,49 @@
-# HackTheRied – Bill of Materials (BOM) v2
+# HackTheRied – Sensorknoten und Stückliste
 
-Stückliste, Sensorauswahl und Kostenrahmen für den Bau einer autonomen LoRaWAN-Multisensor-Station (Version v2) im Hessischen Ried (Bürstadt & Lampertheim).
+Dieser Überblick folgt dem aktuellen RAK3112-Aufbau und der Firmware v15. Die
+Firmwareversion und ihr TTN-Decoder sind unter
+[`hardware/sensor-node/rak3112/`](../rak3112/README.md) dokumentiert. Die
+Messwerte unten beschreiben die Firmware-Ausgaben; ob ein optionales Modul in
+einem konkreten Gerät vorhanden und angeschlossen ist, muss separat geprüft
+werden.
 
----
+## Bauteile und übertragene Messwerte
 
-## 📊 Komponenten- & Funktionsübersicht
+| Bauteil | Messwerte / Funktion | Hinweise |
+| --- | --- | --- |
+| RAK3112 auf RAK3212 | Steuerung und LoRaWAN-Funk | ESP32-S3 und SX1262; I²C-SDA GPIO14, SCL GPIO13 |
+| EU868-LoRa-Antenne | Funkverbindung im EU868-Band | Reichweite hängt von Antenne, Montage, Gelände und Gateway ab |
+| SHT41 | Temperatur (°C) und relative Luftfeuchtigkeit (%) | Firmware v15 nutzt ausschließlich diese Quelle für die übertragenen Klimawerte |
+| SCD41 | CO₂ (ppm) | Temperatur- und Feuchtewerte werden nicht übertragen |
+| SPS30 | PM1.0, PM2.5, PM4, PM10, Partikelanzahl und typische Partikelgröße | Partikelstatistik wird als Mittelwert übertragen |
+| LTR390 | UV-Index und Umgebungslicht (Lux) | Rohkanäle sind zusätzliche Diagnosewerte |
+| BME688 | Luftdruck und Gaswiderstand | Temperatur und Feuchte bleiben lokal; keine validierten IAQ- oder CO₂-Äquivalentwerte |
+| SGP41 | VOC-Index und NOx-Index | Indexwerte, keine Stoffkonzentrationen |
+| ICS-43434 | Digitaler Schallpegel (dBFS) | Kein kalibrierter dB(A)-Messwert; lokale Ereignisklassifikation ist experimentell |
+| INA226 (optional) | Busspannung, Shuntspannung, Strom und Leistung | Aussagekräftige Werte erfordern korrekte Identifikation, Kalibrierung und Verdrahtung im Versorgungspfad |
 
-> [!NOTE]
-> **Kostenrahmen:** **ca. 100 € (+/-)** pro Station.
-> Die Hardware-Preise unterliegen aktuellen Markt- und Bauteilschwankungen. Für unsere gemeinsamen Bau-Workshops im **Kulturzentrum KAMÜ** führen wir Sammelbestellungen (10–30 Bausätze) durch, wodurch Versandkosten und Staffelpreise deutlich günstiger ausfallen.
+## Aufbau und Firmware
 
-| Bauteil / Modul | Sensor-Art & Messgröße | Schnittstelle | Messprinzip / Funktion |
-| :--- | :--- | :--- | :--- |
-| **RAK3113** | **Microcontroller & LoRaWAN (All-in-One)** | SPI/UART intern, I²C, I²S, GPIO | Integriertes LoRaWAN-Systemmodul (ersetzt separaten ESP32 + Funkmodul). Extrem energieeffizient, vereinfacht den Aufbau drastisch. |
-| **SHT41** | Temperatur & rel. Luftfeuchtigkeit | I²C (`0x44`) | Hochpräzise CMOSens-Technologie mit kapazitivem Feuchtesensor und Bandgap-Temperatursensor. |
-| **SCD41** | Kohlendioxid ($CO_2$) | I²C (`0x62`) | Photoakustisches NDIR-Messprinzip: Miniaturisierte optische Absorptionsmessung. |
-| **ICS-43434** | Digitales MEMS-Mikrofon | I²S | Akustische Lärm- & Frequenzanalyse (Klassifizierung von Fahrzeugen, Sprache, Starkregen). |
-| **SPS30** | Feinstaub (PM1.0, PM2.5, PM4, PM10) | I²C (`0x69`) | Laser-Streulichtverfahren mit integriertem Selbstreinigungs-Lüfter gegen Verschmutzung. |
-| **BME688** | Luftdruck, rel. Feuchte & VOC-Gas | I²C (`0x76` / `0x77`) | Piezoresistiver Barometer-Drucksensor + Metalloxid-Sensor (MOX) für Luftgüte und flüchtige organische Verbindungen. |
-| **SGP41** | VOC- & Stickoxid-Index ($NO_x$) | I²C (`0x59`) | Multi-Pixel-Gassensor für Verbrennungsabgase, Rauch und Industrieemissionen. |
-| **LTR390** | UV-Index & Umgebungslicht | I²C (`0x53`) | Optische Photodioden mit spektraler Filterung für UV-A und UV-B Strahlungsintensität. |
-| **RG-11** | Niederschlag & Regenbeginn | GPIO / Puls | Optischer Infrarot-Regensensor (erkennt Tropfen durch Brechungsindex-Änderung an der Kuppel). |
-| **INA226** | Strom- & Spannungsüberwachung | I²C (`0x40`) | High-Side Strommessung zur kontinuierlichen Diagnose von Leistungsaufnahme und Solareinspeisung. |
-| **TX868-BLG-26** | LoRaWAN Stabantenne (868 MHz) | SMA | Abgestimmte EU868-Antenne für maximale Reichweiten zu TTN-Gateways im Ried. |
-| **SMA F to IPEX/RF** | Antennen-Pigtail | Koax | Verbindungskabel vom RAK3113 zum Außengehäuse. |
-| **USB-C Buchse & Kabel** | 5V Stromversorgung (10m Zuleitung) | USB-C | Robuste Außenstromversorgung (witterungsbeständiges Kabel für Balkon oder Garten). |
+Der Sensorknoten und das Gateway sind getrennte Geräte. Das Gateway nutzt einen
+RAK2287-LoRa-Konzentrator; seine Implementierung und Betriebsanleitung liegen
+unter [`hardware/gateway/`](../../gateway/README.md).
 
----
+Das Gehäuse und die Halterungen werden noch entwickelt. Der SPS30 benötigt
+einen geeigneten Luftweg; Temperatur- und Gassensoren brauchen eine Montage,
+die ihre Messung nicht durch Wärmestau verfälscht. Der 3D-Drucker auf den
+Werkstattfotos dokumentiert die Vorbereitung, kein bereits fertiges
+wetterfestes Gehäuse.
 
-## 🛠️ Gehäuse & 3D-Druck (Stevenson Screen)
+Die Firmware-Dokumentation enthält Pinbelegung, Protokoll und Messwertdetails:
 
-Die Sensoren werden in einem wetterfesten, weiß lackierten oder UV-beständigen 3D-Druck-Lamellengehäuse (Stevenson Screen) montiert:
-* **Freie Luftzirkulation** für SHT41, BME688 und SGP41 ohne Stauwärme
-* **Regen- und Sonnenschutz** gegen direkte Einstrahlung
-* **Separate Kammer** für RAK3113 und INA226 Elektronik
-* STL-Dateien liegen unter `hardware/sensor-node/v2/3d-prints/`.
+- [RAK3112 Gesamtübersicht](../rak3112/README.md)
+- [Firmware v15](../rak3112/v15/README.md)
+- [Firmware v13: Messwertcodes und Einheiten](../rak3112/v13/README.md)
+- [Firmware v14: optionale INA226](../rak3112/v14/README.md)
 
-### Mikrofongehäuse
+## Werkstatt und offene Punkte
 
-Für den Aufbau eines geeigneten Mikrofongehäuses bietet die Anleitung von Sensor.Community eine gute Orientierung: [DNMS – Digital Noise Measurement Sensor](https://sensor.community/de/sensors/dnms/). Sie beschreibt einen praxiserprobten Gehäuseaufbau für einen Außensensor mit Mikrofon.
-
----
-
-## 📡 Funk & Anbindung (LoRaWAN / TTN)
-
-* **Funkfrequenz:** EU868 Band (868.1 – 868.5 MHz)
-* **Protokoll:** LoRaWAN 1.0.3 / 1.0.4 via **The Things Network (TTN)**
-* **Reichweite:** Bis zu 5–15 km zu den umliegenden LoRa-Gateways im Ried (z. B. auf dem Kulturzentrum KAMÜ in Bürstadt)
-* **Kosten:** 100 % kostenfrei im Betrieb – keine SIM-Karte, keine monatlichen Gebühren, kein WLAN-Passwort nötig.
-
----
-
-**HackTheRied** – Eine Bürgerinitiative mit dem Kulturzentrum **KAMÜ** in Bürstadt.
-Website: [hack-the-ried.de](https://hack-the-ried.de) • DIY-Portal: [/sensor-bauen](https://hack-the-ried.de/sensor-bauen)
+Die Fotos auf der [Mitmach-Seite](https://hack-the-ried.de/sensor-bauen)
+zeigen den dokumentierten Zwischenstand. Preis, Gehäusematerial,
+Außenversorgung und endgültige Montage werden erst festgeschrieben, wenn sie
+für den konkreten Aufbau bestätigt sind.
