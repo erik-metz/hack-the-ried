@@ -3,7 +3,7 @@
 import { Check, RefreshCw, Share2, Zap } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { CATEGORIES, CATEGORY_IDS, DEFAULT_MAP_CATEGORIES, parseStoredCategories, visibleNodes, categoriesForMode, hasCoordinates, type Category, type MapMode, type StationNode, type SensorNode } from "@/lib/mapData";
+import { CATEGORY_IDS, DEFAULT_MAP_CATEGORIES, parseStoredCategories, visibleNodes, categoriesForMode, hasCoordinates, type Category, type MapMode, type StationNode, type SensorNode } from "@/lib/mapData";
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_LAYERS,
@@ -14,6 +14,7 @@ import {
   updateUrlDebounced,
 } from "@/lib/urlState";
 import TelemetryCharts from "./TelemetryCharts";
+import { saveSensorCount } from "@/lib/sensorCountCache";
 import MapDarstellungBar from "./MapDarstellungBar";
 
 const MapComponent = dynamic(() => import("./MapComponent"), {
@@ -35,9 +36,10 @@ function saveCategories(categories: Category[]) {
   window.dispatchEvent(new Event("ried-map-filter"));
 }
 
-type Props = { nodes: StationNode[]; loadFailed?: boolean; readingsAvailable?: boolean; showIntro?: boolean };
-export default function DashboardClient({ nodes: initialNodes, loadFailed = false, readingsAvailable = true, showIntro = true }: Props) {
-  const [data, setData] = useState({ nodes: initialNodes, readingsAvailable });
+type Props = { nodes?: StationNode[]; loadFailed?: boolean; readingsAvailable?: boolean; showIntro?: boolean };
+export default function DashboardClient({ nodes: initialNodes, loadFailed = false, readingsAvailable = false, showIntro = true }: Props) {
+  const [data, setData] = useState({ nodes: initialNodes ?? [], readingsAvailable });
+  const [loading, setLoading] = useState(initialNodes === undefined);
   const [updateFailed, setUpdateFailed] = useState(loadFailed);
   const [now, setNow] = useState(() => Date.now());
   const [mode, setMode] = useState<MapMode>("category");
@@ -82,6 +84,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlState = parseMapSessionState(window.location.search);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore browser URL preferences after static hydration.
     if (urlState.mode) setMode(urlState.mode);
     if (urlState.cats) saveCategories(urlState.cats);
     if (urlState.node) setSelectedNodeId(urlState.node);
@@ -163,22 +166,34 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
   };
 
   useEffect(() => {
-    const controller = new AbortController();
+    let controller: AbortController | undefined;
+    let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     async function refresh() {
+      if (disposed || document.hidden) return;
+      controller?.abort();
+      const current = new AbortController();
+      controller = current;
       try {
-        const response = await fetch("/api/map-sensors", { signal: controller.signal });
+        const response = await fetch("/api/map-sensors", { signal: AbortSignal.any([current.signal, AbortSignal.timeout(15000)]) });
         if (!response.ok) throw new Error("Map unavailable");
         const updated: { nodes: StationNode[]; readingsAvailable: boolean } = await response.json();
-        if (!controller.signal.aborted) { setData(updated); setUpdateFailed(false); }
-      } catch { if (!controller.signal.aborted) setUpdateFailed(true); }
+        if (!Array.isArray(updated.nodes)) throw new Error("Invalid map response");
+        if (!current.signal.aborted) { setData(updated); setUpdateFailed(false); saveSensorCount(updated.nodes.length); }
+      } catch { if (!current.signal.aborted) setUpdateFailed(true); }
       finally {
-        if (!controller.signal.aborted) { setNow(Date.now()); timer = setTimeout(refresh, 60_000); }
+        if (!current.signal.aborted) { setLoading(false); setNow(Date.now()); timer = setTimeout(refresh, 60_000); }
       }
     }
-    timer = setTimeout(refresh, loadFailed ? 0 : 60_000);
-    return () => { controller.abort(); clearTimeout(timer); };
-  }, [loadFailed]);
+    const visibility = () => {
+      clearTimeout(timer);
+      controller?.abort();
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", visibility);
+    timer = setTimeout(refresh, initialNodes === undefined || loadFailed ? 0 : 60_000);
+    return () => { disposed = true; controller?.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", visibility); };
+  }, [loadFailed, initialNodes]);
 
   const reset = () => {
     saveCategories(DEFAULT_MAP_CATEGORIES);
@@ -197,7 +212,7 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
       <p className="mt-2 text-sm text-slate-400">Entdecke die Region nach Themen: Filtere Sensorstationen, aktiviere Kartenebenen für ÖPNV-Busse, Straßensperrungen, Bahnübergänge, ZAKB-Touren oder Unternehmen und teile individuelle Ansichten per Link.</p>
     </div>}
     {updateFailed ? <p role="alert" className="rounded-xl border border-amber-700/50 bg-amber-950/20 p-3 text-sm text-amber-200">Die Kartendaten konnten nicht aktualisiert werden. {nodes.length ? "Zuletzt geladene Standorte bleiben sichtbar." : "Bitte versuche es später erneut."}</p> : null}
-    {!data.readingsAvailable ? <p role="status" className="text-sm text-amber-200">Messwerte sind derzeit nicht verfügbar. Du kannst die Standorte auf der Karte erkunden.</p> : null}
+    {loading ? <p role="status" className="text-sm text-slate-400">Sensorstandorte und Messwerte werden geladen…</p> : !data.readingsAvailable ? <p role="status" className="text-sm text-amber-200">Messwerte sind derzeit nicht verfügbar. Du kannst die Standorte auf der Karte erkunden.</p> : null}
     <div className="space-y-4">
       <MapDarstellungBar
         actions={<div className="flex justify-end">

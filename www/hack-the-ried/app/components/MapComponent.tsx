@@ -1,6 +1,7 @@
 "use client";
 
 import L from "leaflet";
+import { subscribeLiveData } from "@/lib/liveData";
 import { corridorLabel, trafficFeatureVisible } from "@/lib/trafficPresentation";
 import { updateMarkerDialogs } from "@/lib/mapDialogs";
 import MapContextLayer from "./MapContextLayer";
@@ -129,39 +130,25 @@ export default function MapComponent(props: MapProps) {
     return () => { resize.disconnect(); instance.remove(); map.current = null; };
   }, []);
 
-  // One batch for all vehicles, no browser simulator and no per-vehicle requests.
+  const movementEnabled = layers.buses || layers.waste || layers.trains || layers.ships || layers.aircraft || layers.crossings;
+  // One direct VPS subscription for all enabled movement layers.
   useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    let streaming = false;
-    let lastEvent = 0;
-    const stream = new EventSource("/api/mobility/stream");
-    const accept = (body: { positions: Position[]; crossings?: Crossing[]; ship_source?: { status: string; last_contact?: string }; aircraft_source?: { status: string; last_contact?: string }; ogn_source?: { status: string; last_contact?: string } }) => {
-      if (!Array.isArray(body.positions)) throw new Error("Invalid response");
-      setPositions(body.positions); setCrossings(body.crossings ?? []); setShipSource(body.ship_source ?? null); setAircraftSource(body.aircraft_source ?? null); setMovementFailed(false);
-      setOgnSource(body.ogn_source ?? null);
-    };
-    stream.onmessage = event => {
-      try { accept(JSON.parse(event.data)); streaming = true; lastEvent = Date.now(); } catch { streaming = false; }
-    };
-    stream.onerror = () => { streaming = false; };
-    async function poll() {
-      if (!document.hidden && (!streaming || Date.now() - lastEvent > 25000)) {
-        try {
-          const response = await fetch("/api/mobility", { signal: controller.signal });
-          if (!response.ok) throw new Error("Unavailable");
-          const body = await response.json();
-          if (!Array.isArray(body.positions)) throw new Error("Invalid response");
-          if (!controller.signal.aborted) accept(body);
-        } catch {
-          if (!controller.signal.aborted) { setPositions([]); setCrossings([]); setShipSource(null); setAircraftSource(null); setMovementFailed(true); }
-        }
-      }
-      if (!controller.signal.aborted) timer = setTimeout(poll, MOVEMENT_POLL_MS);
-    }
-    void poll();
-    return () => { stream.close(); controller.abort(); clearTimeout(timer); };
-  }, []);
+    if (!movementEnabled) return;
+    return subscribeLiveData({
+      kind: "movements", pollMs: MOVEMENT_POLL_MS, staleMs: 25000,
+      onData(value) {
+        const body = value as { positions: Position[]; crossings?: Crossing[]; ship_source?: { status: string; last_contact?: string }; aircraft_source?: { status: string; last_contact?: string }; ogn_source?: { status: string; last_contact?: string } };
+        if (!body || !Array.isArray(body.positions)) throw new Error("Invalid response");
+        setPositions(body.positions); setCrossings(body.crossings ?? []);
+        setShipSource(body.ship_source ?? null); setAircraftSource(body.aircraft_source ?? null);
+        setOgnSource(body.ogn_source ?? null); setMovementFailed(false);
+      },
+      onError() {
+        setPositions([]); setCrossings([]); setShipSource(null); setAircraftSource(null);
+        setOgnSource(null); setMovementFailed(true);
+      },
+    });
+  }, [movementEnabled]);
 
   useEffect(() => {
     const controller = new AbortController();

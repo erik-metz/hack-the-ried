@@ -1,4 +1,3 @@
-import { fetchMapData } from "@/lib/mapBackend";
 import { CORE_TEAM_MEMBERS } from "@/lib/pitchData";
 import { ArrowDown, ArrowRight, BarChart3, CarFront, CloudSun, Database } from "lucide-react";
 import type { Metadata } from "next";
@@ -9,7 +8,7 @@ import SiteFooter from "./components/SiteFooter";
 import NewsletterSignup from "./components/NewsletterSignup";
 import SiteHeader from "./components/SiteHeader";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "error";
 
 export const metadata: Metadata = {
   title: "HackTheRied | Entdecke das Ried in Daten",
@@ -44,21 +43,10 @@ const TOPICS = [
   },
 ];
 
-async function fetchSensors() {
-  try {
-    return await fetchMapData();
-  } catch {
-    return null;
-  }
-}
-
-export default async function Home() {
-  const sensors = await fetchSensors();
-  const nodes = sensors?.nodes ?? [];
-
+export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
-      <SiteHeader sensorCount={sensors === null ? undefined : nodes.length} />
+      <SiteHeader />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-14 space-y-12 sm:space-y-16">
         <section id="hero" aria-labelledby="hero-title" className="relative py-2 sm:py-6">
@@ -96,12 +84,7 @@ export default async function Home() {
             </Link>
           </div>
           <div id="dashboard" className="space-y-5">
-            <DashboardClient
-              showIntro={false}
-              nodes={nodes}
-              loadFailed={sensors === null}
-              readingsAvailable={sensors?.readingsAvailable ?? false}
-            />
+            <DashboardClient showIntro={false} />
           </div>
         </section>
 

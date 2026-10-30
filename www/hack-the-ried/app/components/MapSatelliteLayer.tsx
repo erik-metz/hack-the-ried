@@ -1,5 +1,6 @@
 "use client";
 import L from "leaflet";
+import { subscribeLiveData } from "@/lib/liveData";
 import { updateMarkerDialogs } from "@/lib/mapDialogs";
 import { useEffect, useRef, useState } from "react";
 import { detailCard, placeMarker } from "@/lib/mapPresentation";
@@ -23,32 +24,20 @@ export default function MapSatelliteLayer({ map, clustered }: { map: L.Map; clus
     return () => { layer.remove(); registry.clear(); group.current = null; };
   }, [map, clustered]);
   useEffect(() => {
-    const stream = new EventSource("/api/satellites/stream");
-    const controller = new AbortController();
-    let lastEvent = 0, lastStamp = 0;
-    const accept = (body: unknown) => {
-      const data = decodeSatellites(body);
-      const stamp = Date.parse(data.timestamp);
-      if (stamp < lastStamp) return;
-      lastStamp = stamp; lastEvent = Date.now();
-      setSnapshot(data); setNow(Date.now()); setFailed(false);
-    };
-    stream.onmessage = event => {
-      try { accept(JSON.parse(event.data)); } catch { setFailed(true); }
-    };
-    stream.onerror = () => setFailed(true);
-    async function fallback() {
-      if (Date.now()-lastEvent < SATELLITE_FRESH_MS) return;
-      try {
-        const response = await fetch("/api/satellites", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("Unavailable");
-        const data = await response.json(); if (!controller.signal.aborted) accept(data);
-      } catch { if (!controller.signal.aborted) { setFailed(true); setSnapshot(null); } }
-    }
-    void fallback();
-    const freshnessTimer = setInterval(() => setNow(Date.now()), 1000);
-    const timer = setInterval(() => { if (!document.hidden) void fallback(); }, SATELLITE_FRESH_MS);
-    return () => { stream.close(); controller.abort(); clearInterval(timer); clearInterval(freshnessTimer); };
+    let lastStamp = 0;
+    const unsubscribe = subscribeLiveData({
+      kind: "satellites", pollMs: SATELLITE_FRESH_MS, staleMs: SATELLITE_FRESH_MS,
+      onData(body) {
+        const data = decodeSatellites(body);
+        const stamp = Date.parse(data.timestamp);
+        if (stamp < lastStamp) return;
+        lastStamp = stamp;
+        setSnapshot(data); setNow(Date.now()); setFailed(false);
+      },
+      onError() { setFailed(true); setSnapshot(null); },
+    });
+    const freshnessTimer = setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 1000);
+    return () => { unsubscribe(); clearInterval(freshnessTimer); };
   }, [map]);
   useEffect(() => {
     const layer = group.current;
