@@ -11,7 +11,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
             <a href="mailto:info@kamue.me" className="hover:text-emerald-300">Kontakt</a>
             <Link href="/datenschutz" className="hover:text-emerald-300">Datenschutz</Link>
             <Link href="/quellen" className="hover:text-emerald-300">Quellen</Link>
-            <Link href="/marketing" className="hover:text-emerald-300">Markenportal</Link>
+            <Link href="/branding" className="hover:text-emerald-300">Markenportal</Link>
             <Link href="/daten" className="hover:text-emerald-300">Daten &amp; API</Link>
             <a href="https://kamue.me" target="_blank" rel="noreferrer" className="hover:text-emerald-300">KAMÜ</a>
             <a href="https://github.com/erik-metz/hack-the-ried" target="_blank" rel="noreferrer" className="hover:text-emerald-300">GitHub</a>
@@ -55,7 +55,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
               Datenquellen
             </Link>
             <span>•</span>
-            <Link href="/marketing" className="hover:text-slate-200 transition-colors">
+            <Link href="/branding" className="hover:text-slate-200 transition-colors">
               Markenportal
             </Link>
           </div>
