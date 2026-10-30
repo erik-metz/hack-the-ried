@@ -1,13 +1,13 @@
 /**
- * Ziele für Marketing-QR-Codes. Die IDs werden als /qr/<id> gedruckt;
- * Ziel-URLs können interne Seiten oder externe Kampagnenseiten sein.
+ * Ziele für Marketing-QR-Codes. Die IDs werden als /qr/<id> gedruckt.
+ * Der QR-Parameter auf der Homepage ordnet Zugriffe dem jeweiligen Code zu.
  */
 const marketingQrTargets: Record<string, string> = {
-  entdecken: "https://hack-the-ried.de/?utm_source=qr&utm_medium=print&utm_campaign=allgemein",
-  karte: "https://hack-the-ried.de/karte?utm_source=qr&utm_medium=print&utm_campaign=karte",
-  umwelt: "https://hack-the-ried.de/umwelt?utm_source=qr&utm_medium=print&utm_campaign=umwelt",
-  termine: "https://hack-the-ried.de/termine?utm_source=qr&utm_medium=print&utm_campaign=termine",
-  daten: "https://hack-the-ried.de/daten?utm_source=qr&utm_medium=print&utm_campaign=daten",
+  "1": "https://hack-the-ried.de/?qr=1",
+  "2": "https://hack-the-ried.de/?qr=2",
+  "3": "https://hack-the-ried.de/?qr=3",
+  "4": "https://hack-the-ried.de/?qr=4",
+  "5": "https://hack-the-ried.de/?qr=5",
 };
 
 export function getMarketingQrTarget(id: string): string | undefined {

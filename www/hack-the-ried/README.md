@@ -157,9 +157,10 @@ Validation: `npm run test:map`, `npm run test:security`, `npm run build`.
 
 Marketing-QR-Codes verwenden `/qr/<id>`, getrennt von den Sensorseiten unter
 `/q/<id>`. Das öffentliche Markenportal unter `/marketing` enthält QR-Codes,
-Logos und Gestaltungsfarben. Die fünf IDs `entdecken`, `karte`, `umwelt`,
-`termine` und `daten` leiten auf die zugehörigen Seiten. Ziele und Kampagnen-
-Parameter stehen in `lib/marketingQr.ts`; die druckfertigen QR-PNGs liegen in
+Logos und Gestaltungsfarben. Die fünf IDs `1` bis `5` leiten auf die
+Startseite und ergänzen `?qr=<id>`.
+QR 1 ist für Aufkleber, QR 2 für Flyer und QR 3 bis 5 sind reserviert. Ziele
+stehen in `lib/marketingQr.ts`; die druckfertigen QR-PNGs liegen in
 `public/brand/qr/`.
 
 Zusätzliche Query-Parameter am QR-Aufruf werden an das Ziel angehängt. Unbekannte

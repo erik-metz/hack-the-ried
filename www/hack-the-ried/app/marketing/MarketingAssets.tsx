@@ -67,3 +67,23 @@ export function AssetActions({ src, filename, copyLabel = "Bild kopieren", linkT
     </div>
   );
 }
+
+export function ColorCopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyColor() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button type="button" onClick={copyColor} className="mt-2 inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-100 hover:border-emerald-400/60 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400" aria-label={`${value} kopieren`}>
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied ? "Kopiert" : "Farbwert kopieren"}
+    </button>
+  );
+}
