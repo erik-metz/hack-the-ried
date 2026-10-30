@@ -2,9 +2,11 @@ import Image from "next/image";
 
 const buildPhotos = [
   {
-    src: "/sensor-bauen/werkbank-und-bauteile.webp",
-    alt: "Werkbank mit Elektronikwerkzeug, Sensormodulen und RAK3112-Board",
+    src: "/sensor-bauen/werkbank-und-bauteile-aufgeraeumt.webp",
+    alt: "Aufgeräumte Werkbank mit Elektronikwerkzeug, Sensormodulen und RAK3112-Board",
     caption: "Der erste Aufbau: Bauteile sichten und den Arbeitsplatz vorbereiten.",
+    width: 1086,
+    height: 1448,
   },
   {
     src: "/sensor-bauen/sensoren-und-rak3112.webp",

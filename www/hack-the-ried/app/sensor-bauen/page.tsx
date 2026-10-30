@@ -245,7 +245,9 @@ export default function SensorBauenPage() {
           </div>
           <div className="shrink-0 flex flex-col sm:flex-row gap-3">
             <a
-              href="mailto:info@kamue.me?subject=Kooperation%20Sensor-Bau-Workshops%20Open%20Ried%20Sens"
+              href="https://kamue.me/kontakt"
+              target="_blank"
+              rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-bold text-sm transition-colors shadow-md"
             >
               <span>Kontakt aufnehmen</span>
