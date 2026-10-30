@@ -96,6 +96,7 @@ test('public configuration strips credentials and limits CSP to live namespaces'
   assert.match(csp, /connect-src 'self' https:\/\/vps.example\/api\/v1\/movements\/ https:\/\/vps.example\/api\/v1\/satellites\/;/);
   assert.doesNotMatch(JSON.stringify(config.env) + csp, /user|secret|private/);
   const rewrites = await config.rewrites();
+  assert.equal(rewrites.beforeFiles.find(rule => rule.source === '/api/map-layers').destination, 'https://vps.example/api/v1/map/collected-layers');
   assert.equal(rewrites.beforeFiles[0].destination, 'https://vps.example/api/v1/map-tiles/:layer/:z/:x/:y.png');
   const { pathToRegexp } = (await import('next/dist/compiled/path-to-regexp/index.js')).default;
   const matcher = pathToRegexp(rewrites.beforeFiles[0].source);

@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
     return { beforeFiles: [{
       source: "/api/map-tiles/:layer(base|rain)/:z(\\d+)/:x(\\d+)/:y(\\d+).png",
       destination: `${liveApiOrigin}/api/v1/map-tiles/:layer/:z/:x/:y.png`,
+    }, {
+      // The combined GeoJSON exceeds Next's data-cache and function-body limits.
+      source: "/api/map-layers",
+      destination: `${liveApiOrigin}/api/v1/map/collected-layers`,
     }], afterFiles: [], fallback: [] };
   },
   async headers() {
