@@ -94,8 +94,8 @@ export default function MarketingPage() {
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
             {logos.map((logo, index) => <article key={logo.src} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/65">
-              <div className="flex h-56 items-center justify-center bg-white p-4 sm:h-64">
-                <Image src={logo.src} alt={`${logo.title} Bildmarke ohne Wortmarke`} width={800} height={730} className="max-h-full w-full rounded-lg object-contain" />
+              <div className="flex h-64 items-center justify-center bg-[radial-gradient(ellipse_at_center,_rgba(16,185,129,0.12),_transparent_62%),linear-gradient(135deg,_#064e3b,_#020617)] p-4">
+                <Image src={logo.src} alt={`${logo.title} Bildmarke ohne Wortmarke`} width={800} height={730} className="h-[220px] w-full object-contain" />
               </div>
               <div className="p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-400">{index === 0 ? "Primärlogo" : "Weitere Variante"}</p>
