@@ -41,6 +41,27 @@ const buildPhotos = [
     alt: "3D-Drucker mit roter Filamentrolle und gedruckten Druckerteilen",
     caption: "Der 3D-Drucker für die kommenden Gehäuse- und Halterungsteile.",
   },
+  {
+    src: "/sensor-bauen/gehaeuse-cad-innenleben.webp",
+    alt: "CAD-Ansicht des geöffneten Sensorgehäuses mit eingezeichneten Sensoren, RAK-Board und Luftführung",
+    caption: "Im CAD-Entwurf werden Sensoren, Elektronik und Luftführung im Gehäuse angeordnet.",
+    width: 1440,
+    height: 900,
+  },
+  {
+    src: "/sensor-bauen/gehaeuse-cad-gesamtansicht.webp",
+    alt: "CAD-Entwurf des Sensorgehäuses mit langem Luftkanal für den Partikelsensor",
+    caption: "Die Gesamtansicht zeigt den geplanten langen Ansaugkanal des SPS30-Gehäuses.",
+    width: 1440,
+    height: 900,
+  },
+  {
+    src: "/sensor-bauen/gehaeuse-petg-druckvorschau.webp",
+    alt: "Slicer-Vorschau des Gehäusebodens für den 3D-Druck aus PETG",
+    caption: "Druckvorschau für den Gehäuseboden: PETG, rund 4 Stunden 41 Minuten geschätzte Druckzeit.",
+    width: 1440,
+    height: 900,
+  },
 ];
 
 export default function BuildProgressGallery() {
@@ -69,8 +90,8 @@ export default function BuildProgressGallery() {
             <Image
               src={photo.src}
               alt={photo.alt}
-              width={1350}
-              height={1800}
+              width={photo.width ?? 1350}
+              height={photo.height ?? 1800}
               sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 25vw"
               className="h-auto w-full"
             />
