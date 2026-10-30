@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import HeaderLogo from "./HeaderLogo";
@@ -416,7 +417,7 @@ export default function SiteHeader({
         {/* Drawer Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/80 bg-slate-950/50">
           <div className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-emerald-400" />
+            <Image src="/icon.png" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
             <span className="font-bold text-sm text-slate-100 tracking-tight">
               HackTheRied
             </span>

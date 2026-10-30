@@ -156,12 +156,12 @@ Validation: `npm run test:map`, `npm run test:security`, `npm run build`.
 # Marketing-QR-Codes
 
 Marketing-QR-Codes verwenden `/qr/<id>`, getrennt von den Sensorseiten unter
-`/q/<id>`. Die Zuordnung der IDs zu Zielseiten steht in
-`lib/marketingQr.ts`. Dort beispielsweise `sommerfest:
-"https://hack-the-ried.de/termine"` ergänzen und anschließend den QR-Code
-`https://hack-the-ried.de/qr/sommerfest` drucken.
+`/q/<id>`. Das öffentliche Markenportal unter `/marketing` enthält QR-Codes,
+Logos und Gestaltungsfarben. Die fünf IDs `entdecken`, `karte`, `umwelt`,
+`termine` und `daten` leiten auf die zugehörigen Seiten. Ziele und Kampagnen-
+Parameter stehen in `lib/marketingQr.ts`; die druckfertigen QR-PNGs liegen in
+`public/brand/qr/`.
 
-Query-Parameter am QR-Code werden an das Ziel angehängt. Damit funktionieren
-zum Beispiel Kampagnenlinks wie `/qr/sommerfest?utm_source=flyer`. Unbekannte
+Zusätzliche Query-Parameter am QR-Aufruf werden an das Ziel angehängt. Unbekannte
 IDs liefern eine 404-Seite. Die Ziele werden bewusst im Quellcode festgelegt;
 ein frei übergebener `url`-Parameter kann keine Weiterleitung bestimmen.

@@ -1,10 +1,10 @@
-import { Radio } from "lucide-react";
+import Image from "next/image";
 
 export default function HeaderLogo() {
   return (
     <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 whitespace-nowrap select-none">
-      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 shadow-md shadow-emerald-500/20 shrink-0">
-        <Radio className="w-5 h-5 sm:w-6 sm:h-6 font-bold" />
+      <div className="relative w-9 h-9 sm:w-10 sm:h-10 overflow-hidden rounded-xl border border-emerald-400/30 shadow-md shadow-emerald-500/20 shrink-0">
+        <Image src="/icon.png" alt="" fill sizes="40px" className="object-cover" priority />
       </div>
       <div className="flex flex-col justify-center min-w-0">
         <div className="flex items-center gap-2">
