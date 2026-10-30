@@ -15,6 +15,7 @@ import {
 } from "@/lib/urlState";
 import TelemetryCharts from "./TelemetryCharts";
 import { saveSensorCount } from "@/lib/sensorCountCache";
+import { publicMapDataUrl, decodeMapSnapshot } from "@/lib/publicMapData";
 import MapDarstellungBar from "./MapDarstellungBar";
 
 const MapComponent = dynamic(() => import("./MapComponent"), {
@@ -175,10 +176,9 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
       const current = new AbortController();
       controller = current;
       try {
-        const response = await fetch("/api/map-sensors", { signal: AbortSignal.any([current.signal, AbortSignal.timeout(15000)]) });
+        const response = await fetch(publicMapDataUrl("sensors"), { signal: AbortSignal.any([current.signal, AbortSignal.timeout(15000)]) });
         if (!response.ok) throw new Error("Map unavailable");
-        const updated: { nodes: StationNode[]; readingsAvailable: boolean } = await response.json();
-        if (!Array.isArray(updated.nodes)) throw new Error("Invalid map response");
+        const updated = decodeMapSnapshot(await response.json());
         if (!current.signal.aborted) { setData(updated); setUpdateFailed(false); saveSensorCount(updated.nodes.length); }
       } catch { if (!current.signal.aborted) setUpdateFailed(true); }
       finally {

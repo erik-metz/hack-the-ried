@@ -82,6 +82,25 @@ the database or plaintext API ports. Set the VPS `ADMIN_API_KEY` to match
 `BACKEND_ADMIN_API_KEY`; it must differ from the ingestion `API_KEY`.
 
 Run security regression checks with `npm run test:security`.
+
+## Vercel resource usage
+
+The home page and map are prerendered. Sensor snapshots, shared map layers,
+base/rain tiles, civic map overlays and live movement/satellite streams are
+loaded directly from the public VPS API. The browser uses the same station
+normalization as the server. `next.config.ts` derives the public API origin
+from `BACKEND_API_URL` at build time and permits only the required public
+namespaces in the Content Security Policy; credentials are not bundled.
+The VPS must remain reachable over HTTPS and allow browser CORS requests.
+
+Hidden tabs release live streams and pause sensor refreshes. Existing same-origin
+map API routes and rewrites remain available for compatibility, but the current
+map does not send its bulk payloads through Vercel. This reduces Vercel compute,
+transfer and CDN requests; it shifts delivery to the existing VPS rather than
+reducing the underlying dataset. Changes affect new usage, not totals already
+accumulated in the billing period. Functions Storage also includes retained
+deployments across projects and should be inspected by project before cleanup.
+
 # Sensor map
 
 The dashboard uses clustered Leaflet markers without permanent sensor IDs.

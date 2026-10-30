@@ -3,6 +3,7 @@ import L from "leaflet";
 import { useEffect, useState } from "react";
 import type { FeatureCollection } from "geojson";
 import { detailCard } from "@/lib/mapPresentation";
+import { publicMapDataUrl } from "@/lib/publicMapData";
 
 type Report = { id?: string; category?: string | null; status?: string | null; reportedAt?: string | null; url?: string };
 type ReportDetails = { id: string; category: string | null; status: string | null; reportedAt: string | null; description: string | null; images: { preview: string; original: string }[] };
@@ -14,7 +15,7 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/collected/civic/maengelmelder", { signal: controller.signal, cache: "no-store" })
+    fetch(publicMapDataUrl("maengelmelder"), { signal: controller.signal, cache: "no-store" })
       .then(response => { if (!response.ok) throw new Error("unavailable"); return response.json(); })
       .then((body: Snapshot) => {
         if (body.type !== "FeatureCollection" || !Array.isArray(body.features) || body.features.length > 1000) throw new Error("invalid");

@@ -2,6 +2,7 @@
 
 import L from "leaflet";
 import { subscribeLiveData } from "@/lib/liveData";
+import { publicMapDataUrl, publicMapTileUrl } from "@/lib/publicMapData";
 import { corridorLabel, trafficFeatureVisible } from "@/lib/trafficPresentation";
 import { updateMarkerDialogs } from "@/lib/mapDialogs";
 import MapContextLayer from "./MapContextLayer";
@@ -116,7 +117,7 @@ export default function MapComponent(props: MapProps) {
     setMapInstance(instance);
     const resize = new ResizeObserver(() => instance.invalidateSize({ pan: false }));
     resize.observe(container.current);
-    const base = L.tileLayer("/api/map-tiles/base/{z}/{x}/{y}.png", {
+    const base = L.tileLayer(publicMapTileUrl("base"), {
       maxZoom: 19, maxNativeZoom: 14, minZoom: 8, bounds: [[49.55, 8.30], [49.80, 8.65]],
       attribution: '© <a href="https://www.bkg.bund.de">BKG</a> · <a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a> · <a href="https://sgx.geodatenzentrum.de/web_public/Datenquellen_TopPlus_Open.pdf">Datenquellen</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-Mitwirkende</a>',
     }).addTo(instance);
@@ -156,7 +157,7 @@ export default function MapComponent(props: MapProps) {
     async function poll() {
       if (!document.hidden) {
         try {
-          const response = await fetch("/api/map-layers", { signal: controller.signal });
+          const response = await fetch(publicMapDataUrl("layers"), { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
           if (!response.ok) throw new Error("Unavailable");
           const body = await response.json();
           if (!body.layers || !Array.isArray(body.unavailable)) throw new Error("Invalid response");
@@ -576,7 +577,7 @@ export default function MapComponent(props: MapProps) {
       vectorLayer.eachLayer(layer => addPublishedLayer(layer));
     }
     const starkregenMinZoom = LAYER_MIN_ZOOM.starkregen ?? 12;
-    if (layers.starkregen && zoom >= starkregenMinZoom) L.tileLayer("/api/map-tiles/rain/{z}/{x}/{y}.png", { opacity: .5 }).addTo(group);
+    if (layers.starkregen && zoom >= starkregenMinZoom) L.tileLayer(publicMapTileUrl("rain"), { opacity: .5 }).addTo(group);
 
     const loraMinZoom = LAYER_MIN_ZOOM.lora ?? 9;
     setLoraTilesFailed(false);

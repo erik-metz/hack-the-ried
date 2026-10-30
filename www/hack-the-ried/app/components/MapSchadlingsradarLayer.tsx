@@ -4,6 +4,7 @@ import L from "leaflet";
 import { useEffect, useState } from "react";
 import type { FeatureCollection, Point } from "geojson";
 import { detailCard } from "@/lib/mapPresentation";
+import { publicMapDataUrl } from "@/lib/publicMapData";
 
 type PeriodCounts = { d7: number; d30: number; d90: number; d365: number; dalle: number };
 type PostcodeFeature = GeoJSON.Feature<Point, {
@@ -46,7 +47,7 @@ export default function MapSchadlingsradarLayer({ map }: { map: L.Map }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/collected/civic/schaedlingsradar", { signal: controller.signal, cache: "no-store" })
+    fetch(publicMapDataUrl("schaedlingsradar"), { signal: controller.signal, cache: "no-store" })
       .then(response => { if (!response.ok) throw new Error("unavailable"); return response.json(); })
       .then((body: Snapshot) => {
         if (body.type !== "FeatureCollection" || !Array.isArray(body.features) || body.features.length > MAX_POSTCODE_FEATURES) {

@@ -93,7 +93,7 @@ test('public configuration strips credentials and limits CSP to live namespaces'
   assert.equal(config.env.NEXT_PUBLIC_LIVE_API_ORIGIN, 'https://vps.example');
   const headers = await config.headers();
   const csp = headers[0].headers[0].value;
-  assert.match(csp, /connect-src 'self' https:\/\/vps.example\/api\/v1\/movements\/ https:\/\/vps.example\/api\/v1\/satellites\/;/);
+  assert.match(csp, /connect-src 'self' https:\/\/vps.example\/api\/v1\/movements\/ https:\/\/vps.example\/api\/v1\/satellites\/ https:\/\/vps.example\/api\/v1\/map\/ https:\/\/vps.example\/api\/v1\/collected\/civic\/;/);
   assert.doesNotMatch(JSON.stringify(config.env) + csp, /user|secret|private/);
   const rewrites = await config.rewrites();
   assert.equal(rewrites.beforeFiles.find(rule => rule.source === '/api/map-layers').destination, 'https://vps.example/api/v1/map/collected-layers');
@@ -115,3 +115,38 @@ for (const [route, kind] of [['mobility', 'movements'], ['satellites', 'satellit
     assert.equal(response.headers.get('location'), `https://vps.example/api/v1/${kind}/stream`);
   });
 }
+
+const mapModel = load('../lib/mapData.ts');
+const publicMap = load('../lib/publicMapData.ts', { require: name => {
+  assert.equal(name, './mapData'); return mapModel;
+} });
+
+test('bulk map payloads and raster tiles bypass Vercel while addressing only public VPS endpoints', () => {
+  for (const [resource, path] of Object.entries({ sensors: 'map/sensors', layers: 'map/collected-layers', maengelmelder: 'collected/civic/maengelmelder', schaedlingsradar: 'collected/civic/schaedlingsradar' })) {
+    assert.equal(publicMap.publicMapDataUrl(resource), `https://vps.example/api/v1/${path}`);
+  }
+  assert.equal(publicMap.publicMapTileUrl('base'), 'https://vps.example/api/v1/map-tiles/base/{z}/{x}/{y}.png');
+  assert.equal(publicMap.publicMapTileUrl('rain'), 'https://vps.example/api/v1/map-tiles/rain/{z}/{x}/{y}.png');
+});
+
+test('direct sensor snapshots preserve server normalization, hidden-station filtering and zero counts', () => {
+  const sensor = { id: 'station', friendly_name: 'Station', latitude: 49.6, longitude: 8.4,
+    readings: [{ metric: 'temperature', value: 18, unit: '°C', timestamp: '2026-10-30T08:00:00Z' }] };
+  const sensors = [sensor, { ...sensor, id: 'hidden', is_hidden: true }];
+  const decoded = publicMap.decodeMapSnapshot({ sensors });
+  assert.equal(JSON.stringify(decoded.nodes), JSON.stringify(mapModel.toStationNodes(sensors)));
+  assert.equal(decoded.nodes.length, 1); assert.equal(decoded.readingsAvailable, true);
+  assert.equal(publicMap.decodeMapSnapshot({ sensors: [] }).nodes.length, 0);
+  for (const invalid of [null, [], {}, { sensors: null }, { sensors: {} }]) assert.throws(() => publicMap.decodeMapSnapshot(invalid), /Invalid map response/);
+});
+
+test('the CSP permits public VPS map endpoints and tiles without exposing admin endpoints', async () => {
+  const config = load('../next.config.ts', { process: { env: { BACKEND_API_URL: 'https://vps.example' } } }).default;
+  const csp = (await config.headers())[0].headers[0].value;
+  assert.match(csp, /img-src[^;]*https:\/\/vps.example\/api\/v1\/map-tiles\//);
+  const connect = csp.split(';')[0];
+  assert.ok(connect.includes('https://vps.example/api/v1/map/'));
+  assert.ok(connect.includes('https://vps.example/api/v1/collected/civic/'));
+  assert.equal(connect.includes('https://vps.example;'), false);
+  assert.equal(connect.includes('/admin'), false);
+});
