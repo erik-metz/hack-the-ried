@@ -89,6 +89,7 @@ Current-month snapshots are incomplete. Late arrivals require a refreshed snapsh
 Sources and licensing: see source_id and https://hack-the-ried.de/quellen.
 Text starting with spreadsheet formula characters is protected by an apostrophe.
 manifest.json contains the UTC period, snapshot, part and table counts.
+Each hour uses its own repeatable-read snapshot; late corrections require a refresh.
 If present, legacy_conflicts contains every distinct value for ambiguous legacy keys.
 These are alternatives, not verified readings. source_row_count retains their multiplicity.
 Do not select MIN/MAX or combine them with readings as independent observations.
@@ -126,6 +127,7 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
     const manifestPath = path.join(partDirectory, 'manifest.json');
     const readmePath = path.join(partDirectory, 'README.txt');
     await writeFile(manifestPath, JSON.stringify({ format_version: 3, format: 'csv', month, part, complete: true,
+      snapshot_consistency: 'hourly',
       reading_count: count, tables: { entities: entities.size, measurement_definitions: definitions.size,
         readings: readingCount, ...(conflictCount ? { legacy_conflicts: conflictCount } : {}) },
       generated_at: generatedAt, start: start.toISOString(), end_exclusive: end.toISOString(),

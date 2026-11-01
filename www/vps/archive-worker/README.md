@@ -1,7 +1,7 @@
 # Public monthly archives
 
 The opt-in Node 22 worker exports **all public canonical measurements**, bypassing the
-interactive API's 5,000-row cap. It streams a repeatable-read PostgreSQL snapshot
+interactive API's 5,000-row cap. It streams hourly repeatable-read PostgreSQL snapshots
 to CSV parts (64 MiB uncompressed by default), creates a matching Parquet ZIP for
 each part, uploads both variants to UploadThing and atomically publishes the month's catalogue record. No
 measurements are truncated. The API serves `GET /api/v1/archives`; the Daten page
@@ -124,17 +124,21 @@ legacy sensor visibility are checked at export, publication and catalogue read.
 Temporary disk accommodates one part's CSV, Parquet input, and ZIPs. Each matching
 CSV/Parquet pair is uploaded immediately, then its local files are removed.
 The catalogue is published only after the entire month succeeds; failed partial
-uploads are queued for deletion. Database reads use hourly windows within one
-repeatable-read snapshot to avoid sorting a whole month's JSON on local disk.
+uploads are queued for deletion. Database reads use hourly repeatable-read
+snapshots to avoid sorting a whole month's JSON on local disk or retaining
+relation locks for the entire export. The manifest declares
+`snapshot_consistency: hourly`; late corrections during the export can require
+a refresh.
 Memory is bounded by cursor batches, stream buffers, metadata, and SDK
 upload buffering. Files are uploaded one at a time using disk-backed Blobs;
 archives are served directly by UploadThing, never proxied through Next.js.
 Reduce `ARCHIVE_PART_MB` if a single part exceeds temporary disk capacity.
 Do not use a serverless request to run this worker.
 
-The read transaction lasts for CSV/ZIP generation and part uploads; catalogue
-publication happens after it ends. Plan large backfills for low-traffic periods. Long-lived database
-snapshots can delay vacuum cleanup. An empty month is recorded with zero files.
+Each hourly read transaction can span CSV/ZIP generation and part uploads, then
+releases its locks before the next window. Catalogue publication happens after
+all windows finish. Plan large backfills for low-traffic periods. An empty month
+is recorded with zero files.
 A crash after uploading but before publishing, or a failed old-file deletion,
 can leave unreferenced files in UploadThing; inspect the dedicated app for these
 before deleting anything. Catalogue entries only refer to fully uploaded sets.

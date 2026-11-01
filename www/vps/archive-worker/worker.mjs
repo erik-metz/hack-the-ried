@@ -69,17 +69,21 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
       const uploaded = [];
       let published = false;
       try {
-        await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-        await client.query("SET LOCAL TIME ZONE 'UTC'");
         const generatedAt = (await client.query('SELECT transaction_timestamp() AS time')).rows[0].time.toISOString();
         async function* periodRows() {
-          // Bound database sorts as well as local files, while keeping one snapshot.
+          // Release relation locks between windows so deployments and ingestion can proceed.
           for (let windowStart = start.getTime(); windowStart < end.getTime(); windowStart += 3600000) {
             if (signal?.aborted) throw new Error('Archive export interrupted');
+            await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+            await client.query("SET LOCAL TIME ZONE 'UTC'");
             const stream = client.query(new QueryStream(ROWS,
               [new Date(windowStart), new Date(Math.min(windowStart + 3600000, end.getTime()))], { batchSize: 2000 }));
-            try { yield* stream; }
-            finally { stream.destroy(); }
+            let complete = false;
+            try { yield* stream; complete = true; }
+            finally { stream.destroy(); await client.query(complete ? 'COMMIT' : 'ROLLBACK'); }
+            if ((windowStart - start.getTime()) % 86400000 === 23 * 3600000) {
+              console.log(`Read ${month} through ${new Date(windowStart + 3600000).toISOString()}`);
+            }
           }
         }
         const archive = await buildArchives(periodRows(), directory, month, generatedAt, partBytes, async files => {
@@ -89,7 +93,6 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
           }
           console.log(`Uploaded ${month} part ${uploaded.length / 2}: ${files[0].reading_count} readings in CSV and Parquet`);
         });
-        await client.query('COMMIT');
         // Lock station visibility until publication; downloads also filter current visibility.
         await client.query('BEGIN');
         const entityIds = archive.entity_ids;
