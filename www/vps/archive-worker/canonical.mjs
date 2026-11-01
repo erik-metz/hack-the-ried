@@ -56,6 +56,16 @@ const nativeGatewayCopy = (sensor, time, value, quality) => `EXISTS (
     AND nr.observed_at >= $1 AND nr.observed_at < $2
     AND NOT ne.is_hidden AND ne.metadata->>'legacy_deleted' IS DISTINCT FROM 'true')`;
 
+// The box-level UI projection is a copy of a known physical sensor reading.
+// Match source, metric, unit, timestamp, value and quality; unmatched history stays.
+const nativeSenseCopy = (sensor, metric, unit, time, value, quality) => `EXISTS (
+  SELECT 1 FROM measurement_definitions sd JOIN readings sr ON sr.measurement_id=sd.id
+  WHERE sd.entity_id='sensor:'||${sensor} AND sd.source_id='legacy-sensor:'||${sensor}
+    AND sd.basis='observed' AND sd.dimensions ? 'sensor_id'
+    AND sd.metric=${metric} AND sd.unit=${unit} AND sr.observed_at=${time}
+    AND sr.value=${value} AND sr.quality=${quality}
+    AND sr.observed_at >= $1 AND sr.observed_at < $2)`;
+
 const stamp = column => `CASE WHEN r.${column} IS NULL THEN NULL ELSE to_char(r.${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END`;
 export const ROWS = `SELECT entity,definition,reading FROM (SELECT
   jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata::text) AS entity,
@@ -70,6 +80,8 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
     AND NOT (d.entity_id LIKE 'sensor:ttn-gw-%' AND d.source_id='legacy-sensor:'||substr(d.entity_id,8)
       AND d.metric='online_status' AND d.unit='state' AND d.basis='unknown' AND d.dimensions='{}'
       AND ${nativeGatewayCopy('substr(d.entity_id,8)', 'r.observed_at', 'r.value', 'r.quality')})
+    AND NOT (d.entity_id LIKE 'sensor:osem-%' AND d.source_id='legacy-sensor:'||substr(d.entity_id,8)
+      AND d.dimensions='{}' AND ${nativeSenseCopy('substr(d.entity_id,8)','d.metric','d.unit','r.observed_at','r.value','r.quality')})
   UNION ALL SELECT
     jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata::text),
     to_jsonb(d) || jsonb_build_object('id',d.id::text,'minimum',d.minimum::text,'maximum',d.maximum::text,'dimensions',d.dimensions::text),
@@ -94,6 +106,8 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
   JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
     AND NOT (t.variants=1 AND t.sensor_id LIKE 'ttn-gw-%' AND t.metric='online_status' AND t.unit='state'
       AND ${nativeGatewayCopy('t.sensor_id', 't.timestamp', 't.value', "'valid'")})
+    AND NOT (t.variants=1 AND t.sensor_id LIKE 'osem-%'
+      AND ${nativeSenseCopy('t.sensor_id','t.metric','t.unit','t.timestamp','t.value',"'valid'")})
     AND (t.variants>1 OR NOT EXISTS (SELECT 1 FROM readings r
       WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp AND r.observed_at >= $1 AND r.observed_at < $2))
   ) samples ORDER BY sort_time,sort_id`;

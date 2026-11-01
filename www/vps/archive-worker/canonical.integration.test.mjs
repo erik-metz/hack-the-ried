@@ -4,6 +4,41 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { includeLegacy, ROWS } from './canonical.mjs';
 
+test('physical openSenseMap channels export separately without exact UI copies', {
+  skip: !process.env.ARCHIVE_TEST_DATABASE_URL,
+}, async () => {
+  const client = new pg.Client({ connectionString: process.env.ARCHIVE_TEST_DATABASE_URL });
+  await client.connect();
+  const schema = `archive_sense_test_${process.pid}`;
+  await client.query(`CREATE SCHEMA ${schema}; SET search_path TO ${schema}`);
+  const start = '2026-10-01', end = '2026-11-01';
+  try {
+    await client.query(`CREATE TABLE sensor_metadata(id text PRIMARY KEY,friendly_name text,latitude float,
+      longitude float,description text,is_hidden bool DEFAULT false);
+      CREATE TABLE sensor_data(timestamp timestamptz,sensor_id text,metric text,unit text,value float);
+      INSERT INTO sensor_metadata(id,friendly_name) VALUES('osem-box','Box');
+      INSERT INTO sensor_data VALUES ('2026-10-01','osem-box','temperature','C',19.2);`);
+    await client.query(await readFile(new URL('../api/v1/migrations/20260930_measurements.sql', import.meta.url), 'utf8'));
+    await includeLegacy(client, start, end);
+    await client.query(`SELECT write_measurement('sensor:osem-box','temperature','C','legacy-sensor:osem-box',
+      'observed','{"sensor_id":"BME280"}','2026-10-01',21.5,'2026-10-01','{}');
+      SELECT write_measurement('sensor:osem-box','temperature','C','legacy-sensor:osem-box',
+      'observed','{"sensor_id":"DHT22"}','2026-10-01',19.2,'2026-10-01','{}');
+      SELECT write_measurement('sensor:osem-box','temperature','C','legacy-sensor:osem-box',
+      'unknown','{}','2026-10-01',19.2,'2026-10-01','{}','valid',NULL,NULL,'unknown');`);
+    let rows = (await client.query(ROWS, [start,end])).rows;
+    assert.equal(rows.length, 2);
+    assert.deepEqual(rows.map(row => row.reading.value).sort(), ['19.2','21.5']);
+    assert.deepEqual(rows.map(row => JSON.parse(row.definition.dimensions).sensor_id).sort(), ['BME280','DHT22']);
+    await client.query("UPDATE sensor_data SET value=22; DELETE FROM readings WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE basis='unknown')");
+    rows = (await client.query(ROWS, [start,end])).rows;
+    assert.equal(rows.length, 3, 'Unmatched legacy values must remain available');
+  } finally {
+    await client.query(`DROP SCHEMA ${schema} CASCADE`);
+    await client.end();
+  }
+});
+
 test('weather conflicts require receipt-backed revision history and preserve source rows', {
   skip: !process.env.ARCHIVE_TEST_SOCKET && !process.env.ARCHIVE_TEST_DATABASE_URL,
 }, async () => {

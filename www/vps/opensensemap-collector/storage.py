@@ -3,6 +3,7 @@ Follows the Three-Table Core Schema (entities, measurement_definitions, readings
 and maintains sensor_metadata/sensor_latest for API and Map compatibility.
 """
 
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -14,6 +15,30 @@ from normalize import OpenSenseBoxObservation
 LOG = logging.getLogger("opensensemap-collector.storage")
 
 
+async def write_legacy(cur, sensor, metric, unit, stamp, value, attempt):
+    """Maintain the existing last-reported UI projection, with an exact audit.
+
+    Every physical sensor remains separate in the canonical measurement stream.
+    """
+    await cur.execute("""SELECT value FROM sensor_data WHERE sensor_id=%s AND metric=%s
+        AND unit=%s AND timestamp=%s""", (sensor, metric, unit, stamp))
+    rows = await cur.fetchall()
+    if rows == [(value,)]:
+        return
+    if rows:
+        if attempt is None:
+            raise RuntimeError("An openSenseMap receipt is required to replace legacy rows")
+        await cur.execute("""INSERT INTO opensensemap_legacy_repairs
+            (sensor_id,metric,unit,observed_at,original_rows,collection_attempt_id)
+            SELECT %s,%s,%s,%s,jsonb_agg(to_jsonb(t)),%s FROM sensor_data t
+            WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s""",
+            (sensor, metric, unit, stamp, attempt, sensor, metric, unit, stamp))
+        await cur.execute("DELETE FROM sensor_data WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s",
+                          (sensor, metric, unit, stamp))
+    await cur.execute("INSERT INTO sensor_data(timestamp,sensor_id,metric,value,unit) VALUES (%s,%s,%s,%s,%s)",
+                      (stamp, sensor, metric, value, unit))
+
+
 async def persist_boxes(
     conn: psycopg.AsyncConnection,
     boxes: list[OpenSenseBoxObservation],
@@ -22,6 +47,8 @@ async def persist_boxes(
     payload_bytes: bytes | None = None,
     payload_sha256: str | None = None,
 ) -> dict:
+    if payload_bytes is not None and hashlib.sha256(payload_bytes).hexdigest() != payload_sha256:
+        raise ValueError("openSenseMap source receipt checksum mismatch")
     now = now or datetime.now(UTC)
     stats = {
         "boxes_updated": 0,
@@ -67,10 +94,11 @@ async def persist_boxes(
             await cur.execute(
                 """
                 INSERT INTO collection_attempts (source_id, http_status, payload_sha256, status)
-                VALUES ('opensensemap', 200, %s, 'success')
+                VALUES ('opensensemap', 200, %s, 'success') RETURNING id
                 """,
                 (payload_sha256,),
             )
+            attempt_id = (await cur.fetchone())[0]
         else:
             await cur.execute(
                 """
@@ -78,6 +106,7 @@ async def persist_boxes(
                 VALUES ('opensensemap', 200, 'success')
                 """
             )
+            attempt_id = None
 
         await cur.execute(
             """SELECT 1 FROM information_schema.routines
@@ -144,11 +173,18 @@ async def persist_boxes(
 
                 legacy_source = f"legacy-sensor:{b.sensor_id}"
                 for m in b.measurements:
+                    if not m.sensor_id:
+                        raise ValueError("A physical openSenseMap sensor ID is required")
+                    measurement_provenance = json.dumps({
+                        **json.loads(provenance), "sensor_id": m.sensor_id,
+                        "sensor_title": m.sensor_title, "sensor_type": m.sensor_type,
+                        "collection_attempt_id": attempt_id, "payload_sha256": payload_sha256,
+                    })
                     await cur.execute(
                         """
                         SELECT write_measurement(
                             %s::text, %s::text, %s::text, %s::text, 'observed'::text,
-                            '{}'::jsonb, %s::timestamptz, %s::numeric, %s::timestamptz, %s::jsonb,
+                            %s::jsonb, %s::timestamptz, %s::numeric, %s::timestamptz, %s::jsonb,
                             'valid'::text, NULL::timestamptz, NULL::timestamptz, 'instantaneous'::text
                         )
                         """,
@@ -157,10 +193,11 @@ async def persist_boxes(
                             m.metric,
                             m.unit,
                             legacy_source,
+                            json.dumps({"sensor_id": m.sensor_id}),
                             m.observed_at,
                             m.value,
                             now,
-                            provenance,
+                            measurement_provenance,
                         ),
                     )
                     stats["measurements_written"] += 1
@@ -179,21 +216,20 @@ async def persist_boxes(
                 (b.sensor_id, b.friendly_name, b.latitude, b.longitude, b.description),
             )
 
+            # Preserve the UI's existing last-reported choice. Never collapse
+            # physical sensors in the canonical stream above.
+            projection = {}
             for m in b.measurements:
+                projection[(m.metric, m.unit, m.observed_at)] = m
+            for m in projection.values():
                 metrics_to_record = [(m.metric, m.value, m.unit)]
                 # If metric is PM25, also mirror to PM2.5 for clients expecting either format
                 if m.metric == "PM25":
                     metrics_to_record.append(("PM2.5", m.value, m.unit))
 
                 for metric_name, metric_val, metric_unit in metrics_to_record:
-                    await cur.execute(
-                        """
-                        INSERT INTO sensor_data (timestamp, sensor_id, metric, value, unit)
-                        VALUES (%s, %s, %s, %s, %s)
-                        ON CONFLICT DO NOTHING
-                        """,
-                        (m.observed_at, b.sensor_id, metric_name, metric_val, metric_unit),
-                    )
+                    await write_legacy(cur, b.sensor_id, metric_name, metric_unit,
+                                       m.observed_at, metric_val, attempt_id)
                     await cur.execute(
                         """
                         INSERT INTO sensor_latest (sensor_id, metric, unit, timestamp, value)

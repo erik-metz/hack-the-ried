@@ -183,6 +183,8 @@ def normalize(
             if not isinstance(s, dict):
                 continue
             sub_id = str(s.get("_id") or "").strip()
+            if not sub_id:
+                continue
             title = str(s.get("title") or "").strip()
             unit = str(s.get("unit") or "").strip()
             sensor_type = s.get("sensorType")
