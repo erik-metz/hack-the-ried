@@ -54,6 +54,18 @@ class PolicyTests(unittest.TestCase):
         source.update(enabled=True, status='success', received_at=now, expired_publications=1)
         self.assertEqual(classify(source, now)[0], 'degraded')
 
+    def test_normal_running_jobs_and_cadence_jitter_are_not_outages(self):
+        now = datetime.now(UTC)
+        source = {'enabled':True,'interval_seconds':300,'received_at':now,
+            'status':'running','coverage_since':now-timedelta(days=7),'expected_slots':100,
+            'covered_slots':98,'completed_runs':100,'unfinished_runs':1}
+        self.assertEqual(classify(source,now)[0],'healthy')
+        source['overdue_gaps'] = 1
+        self.assertEqual(classify(source,now)[1],['historical_activity_gap'])
+        source['overdue_gaps'] = 0
+        source['overdue_unfinished_runs'] = 1
+        self.assertEqual(classify(source,now)[1],['unfinished_logical_runs'])
+
     def test_urls_drop_queries_credentials_and_invalid_schemes(self):
         self.assertEqual(public_url('https://example.org/data?token=private#fragment'), 'https://example.org/data')
         for value in ('https://user:secret@example.org', 'file:///etc/passwd', 'http://[invalid'):
@@ -208,7 +220,9 @@ class MCPDatabaseTests(DatabaseCase):
         self.assertEqual(source['health'],'failing')
         self.assertEqual(source['completed_runs'],1)
         self.assertEqual(source['run_success_ratio'],1.0)
-        self.assertGreater(source['expected_slots'],source['covered_slots'])
+        self.assertGreater(source['nominal_expected_slots'],source['nominal_covered_slots'])
+        self.assertGreater(source['overdue_gaps'],0)
+        self.assertIsNone(source['schedule_coverage_ratio'])
         self.assertNotIn('secret',response.text)
         self.assertNotIn('/root',response.text)
         history = await self.get('sources/history',source_id='review')

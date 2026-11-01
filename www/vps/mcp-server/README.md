@@ -50,16 +50,20 @@ the entire old acquisition history. Historical attempt-only sources with no curr
 registration, definitions, publications or new attempts remain a documented gap.
 
 Policy versions start when the additive migration is installed. No historical
-schedules, maintenance windows or successful runs are backfilled. Cadence slots
-are anchored to each observed policy segment and coverage start; retries within
-the same slot do not increase coverage. The final tolerance window is not overdue.
-Coverage and success ratios apply only to observed/instrumented history. A report
+schedules, maintenance windows or successful runs are backfilled. Nominal cadence
+bins are anchored to policy/coverage start and are descriptive only: the scheduler
+uses jitter and does not record exact due times. `schedule_coverage_ratio` is null;
+`nominal_slot_coverage_ratio` must not be interpreted as an execution SLA. Health
+uses actual historical gaps exceeding cadence plus tolerance instead of counting
+empty bins, and only overdue unfinished jobs count as processing incidents.
+The final tolerance window is not overdue. Success ratios apply only to observed
+logical runs. A report
 can be healthy for its observed period while `full_window_instrumented=false`.
 Individual dataset publication expiry remains a separate warning.
 
 Policy precedence: disabled → latest failed → overdue → expired publications →
-partial/failed runs → missing slots → unfinished runs → insufficient evidence → healthy.
-Unfinished runs survive a worker crash and degrade health until the requested
+partial/failed runs → historical activity gaps → overdue unfinished runs → insufficient evidence → healthy.
+Unfinished runs survive a worker crash and, once overdue, degrade health until the requested
 window no longer contains them. The report supplies deterministic codes and no
 LLM-generated numeric reliability score. Automatic bespoke seasonal/maintenance
 rules and daily rollups are not implemented; changing cadence/enablement creates

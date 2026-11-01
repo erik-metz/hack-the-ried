@@ -28,9 +28,9 @@ def classify(source, now):
         return 'degraded', ['publication_expired']
     if status == 'partial' or source.get('failed_runs', 0) or source.get('partial_runs', 0):
         return 'degraded', ['processing_not_consistently_complete']
-    if source.get('expected_slots', 0) > source.get('covered_slots', 0):
-        return 'degraded', ['scheduled_slots_missing']
-    if source.get('unfinished_runs', 0):
+    if source.get('overdue_gaps', 0):
+        return 'degraded', ['historical_activity_gap']
+    if source.get('overdue_unfinished_runs', 0):
         return 'degraded', ['unfinished_logical_runs']
     if not source.get('coverage_since'):
         reasons.append('logical_runs_not_instrumented')
@@ -79,14 +79,17 @@ async def report(pool, *, source_id=None, days=7, offset=0, limit=50, now=None):
         if source_id and not sources:
             raise HTTPException(404, 'Source not found')
         ids = [s['source_id'] for s in sources]
-        summaries = await rows(conn, '''SELECT source_id,count(*) FILTER (WHERE finished_at IS NOT NULL) AS completed_runs,
+        summaries = await rows(conn, '''SELECT r.source_id,count(*) FILTER (WHERE finished_at IS NOT NULL) AS completed_runs,
             count(*) FILTER (WHERE status='success' AND finished_at IS NOT NULL) AS successful_runs,
             count(*) FILTER (WHERE status='failed') AS failed_runs,
             count(*) FILTER (WHERE status='partial') AS partial_runs,
             count(*) FILTER (WHERE finished_at IS NULL) AS unfinished_runs,
+            count(*) FILTER (WHERE finished_at IS NULL AND started_at < %s -
+                make_interval(secs=>s.interval_seconds+greatest(s.interval_seconds,60))) AS overdue_unfinished_runs,
             max(started_at) AS last_run_started_at,max(finished_at) FILTER (WHERE status='success') AS last_successful_run_at
-            FROM collection_runs WHERE source_id=ANY(%s) AND started_at >= %s AND started_at < %s GROUP BY source_id''',
-            (ids,start,now))
+            FROM collection_runs r LEFT JOIN collection_sources s ON s.id=r.source_id
+            WHERE r.source_id=ANY(%s) AND started_at >= %s AND started_at < %s GROUP BY r.source_id''',
+            (now,ids,start,now))
         # Versioned policy segments; count occupied complete cadence slots, not
         # HTTP retries. The latest tolerance window is deliberately not due yet.
         coverage = await rows(conn, '''WITH policies AS (
@@ -101,6 +104,12 @@ async def report(pool, *, source_id=None, days=7, offset=0, limit=50, now=None):
             sum((SELECT count(DISTINCT floor(extract(epoch FROM(r.started_at-s.lo))/s.interval_seconds))
               FROM collection_runs r WHERE r.source_id=s.source_id AND r.started_at >= s.lo
               AND r.started_at < s.lo + make_interval(secs=>(s.expected*s.interval_seconds)::double precision)))::bigint AS covered_slots,
+            sum((SELECT count(*) FROM (
+                SELECT lead(t,1,s.hi) OVER (ORDER BY t)-t AS gap FROM (
+                    SELECT s.lo AS t UNION ALL SELECT r.started_at FROM collection_runs r
+                    WHERE r.source_id=s.source_id AND r.started_at >= s.lo AND r.started_at < s.hi
+                ) points) gaps WHERE gap > make_interval(secs=>s.interval_seconds+s.tolerance_seconds)
+            ))::bigint AS overdue_gaps,
             array_agg(DISTINCT s.revision) AS policy_revisions FROM slots s GROUP BY s.source_id''',
             (now,ids,now,start,now))
         attempts = await rows(conn, '''SELECT source_id,count(*) AS attempts,
@@ -126,14 +135,19 @@ async def report(pool, *, source_id=None, days=7, offset=0, limit=50, now=None):
         complete = source.get('completed_runs',0)
         source['run_success_ratio'] = round(source.get('successful_runs',0)/complete,4) if complete else None
         expected = source.get('expected_slots',0)
-        source['schedule_coverage_ratio'] = round(source.get('covered_slots',0)/expected,4) if expected else None
+        source['nominal_slot_coverage_ratio'] = round(source.get('covered_slots',0)/expected,4) if expected else None
+        source['nominal_expected_slots'] = source.pop('expected_slots',0)
+        source['nominal_covered_slots'] = source.pop('covered_slots',0)
+        source['schedule_coverage_ratio'] = None
+        source['schedule_alignment'] = 'Exact due times unavailable; nominal bins are descriptive, not an execution SLA.'
         source['full_window_instrumented'] = bool(source['coverage_since'] and source['coverage_since'] <= start)
     # Keep pagination by source_id stable; priority is an explicit sortable field.
     for source in sources:
         source['priority'] = PRIORITY[source['health']]
     return envelope(sources, limit=limit, offset=offset, start_inclusive=start, end_exclusive=now,
         rule_version='mcp-health-v1',
-        interpretation='Cadence-slot coverage is distinct from processing success. Empty and unchanged successful results are allowed. '
+        interpretation='Historical gaps exceed cadence plus tolerance; normal running jobs and scheduler jitter are not failures. '
+        'Nominal cadence-bin occupancy is not an exact schedule success rate. Empty and unchanged successful results are allowed. '
         'Attempt-only sources lack logical-run coverage. Dataset mappings list stored publications; absence is not proof of no impact.')
 
 
