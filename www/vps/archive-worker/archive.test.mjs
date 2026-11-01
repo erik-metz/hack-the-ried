@@ -47,7 +47,9 @@ test('partitioned export preserves every row and supplies matching checksums', {
     async function* rows() {
       for (let i = 0; i < 6001; i++) yield { entity: { id: 'station', name: '=Station', entity_type: 'sensor', metadata: {} }, definition: { id: '1', entity_id: 'station', metric: 'temperature', unit: 'C', source_id: 'test', basis: 'observed', dimensions: {}, semantics: 'instantaneous' }, reading: { measurement_id: '1', observed_at: '2026-09-01T00:00:00.123456Z', value: String(i), quality: 'valid', provenance: {}, revision: 0 } };
     }
-    const result = await buildArchives(rows(), directory, '2026-09', '2026-10-01T00:00:00Z', 4096);
+    // Keep the archive partitioned without generating hundreds of tiny ZIPs;
+    // each part starts a separate Parquet conversion process.
+    const result = await buildArchives(rows(), directory, '2026-09', '2026-10-01T00:00:00Z', 256 * 1024);
     assert.equal(result.reading_count, 6001);
     const csvFiles = result.files.filter(file => file.format === 'csv');
     const parquetFiles = result.files.filter(file => file.format === 'parquet');
