@@ -186,3 +186,47 @@ class TTNMapperStorageTests(DatabaseCase):
         with self.assertRaisesRegex(ValueError, 'checksum'):
             await persist_gateways(self.conn, [gateway], sample_snapshot([gateway]), settings,
                 now=first, payload_bytes=payload, payload_sha256='incorrect')
+
+    async def test_quarantine_keeps_exact_backups_and_other_measurements(self):
+        from psycopg import sql
+        from quarantine_history import quarantine
+
+        sys.path.append(str(Path(__file__).resolve().parents[2] / 'api/v1'))
+        from measurement_migration import install
+        await install(self.conn)
+        await self.conn.execute("""INSERT INTO entities(id,name,entity_type) VALUES
+            ('lora:gateway:test','Gateway','lora_gateway'),('gps:test','GPS','vehicle');
+            SELECT write_measurement('lora:gateway:test','online_status','state','ttnmapper','observed','{}',
+                '2026-10-01',1,'2026-10-02','{}');
+            SELECT write_measurement('lora:gateway:test','latitude','degrees','lora-infrastructure','reported','{}',
+                '2026-10-01',49.6,'2026-10-02','{}');
+            SELECT write_measurement('gps:test','latitude','degrees','gps','observed','{}',
+                '2026-10-01',49.7,'2026-10-02','{}');
+            INSERT INTO sensor_metadata(id,friendly_name) VALUES('ttn-gw-test','Test');
+            INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value) VALUES
+                ('ttn-gw-test','online_status','state','2026-10-01',1),
+                ('ttn-gw-test','online_status','state','2026-10-01',0),
+                ('ttn-gw-test','online_status','state','2026-10-01',1);
+            INSERT INTO data_archives(month,generated_at,is_complete,reading_count,size_bytes,files,entity_ids,station_ids)
+                VALUES('2026-10',now(),true,3,100,'[{"key":"old-key"}]','{lora:gateway:test}','{}');""")
+        name = 'ttn_status_quarantine_' + self.schema[-24:]
+        try:
+            expected = await quarantine(self.conn, name, snapshot=True)
+            self.assertEqual(expected['sensor_data'], 3)
+            self.assertEqual(expected['readings'], 1)
+            await self.conn.execute("""INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
+                VALUES('ttn-gw-test','online_status','state','2026-10-02',0)""")
+            with self.assertRaisesRegex(ValueError, 'changed after backup'):
+                await quarantine(self.conn, name)
+            self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 4)
+            await self.conn.execute("DELETE FROM sensor_data WHERE timestamp='2026-10-02'")
+            self.assertEqual(await quarantine(self.conn, name), expected)
+            self.assertEqual(await self.scalar("SELECT count(*) FROM readings"), 2)
+            self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 0)
+            self.assertEqual(await self.scalar("SELECT key FROM archive_cleanup"), 'old-key')
+            self.assertEqual(await self.scalar("SELECT files FROM data_archives"), [])
+            backup = await (await self.conn.execute(sql.SQL(
+                'SELECT value FROM {}.sensor_data ORDER BY value').format(sql.Identifier(name)))).fetchall()
+            self.assertEqual([row[0] for row in backup], [0, 1, 1])
+        finally:
+            await self.conn.execute(sql.SQL('DROP SCHEMA IF EXISTS {} CASCADE').format(sql.Identifier(name)))

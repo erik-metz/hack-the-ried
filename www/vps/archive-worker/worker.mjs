@@ -11,10 +11,11 @@ import { PUBLIC, ROWS, includeLegacy } from './canonical.mjs';
 
 export async function drainCleanup(client, storage) {
   const pending = (await client.query('SELECT key FROM archive_cleanup ORDER BY queued_at LIMIT 1000')).rows;
-  for (const { key } of pending) {
+  for (let offset = 0; offset < pending.length; offset += 100) {
+    const keys = pending.slice(offset, offset + 100).map(row => row.key);
     try {
-      await storage.remove([key]);
-      await client.query('DELETE FROM archive_cleanup WHERE key=$1', [key]);
+      await storage.remove(keys);
+      await client.query('DELETE FROM archive_cleanup WHERE key=ANY($1::text[])', [keys]);
     } catch {
       console.warn('Archive cleanup deferred; remaining keys stay in retry queue');
       break;

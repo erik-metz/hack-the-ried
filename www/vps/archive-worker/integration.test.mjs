@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { runArchives } from './worker.mjs';
+import { drainCleanup, runArchives } from './worker.mjs';
 
 // Uses a dedicated temporary PostgreSQL instance, never the production database.
 test('database export, publication, retry, replacement and visibility', { skip: !process.env.ARCHIVE_TEST_SOCKET && !process.env.ARCHIVE_TEST_DATABASE_URL }, async () => {
@@ -165,4 +165,20 @@ test('core export reads canonical values and still honours station visibility', 
     await client.query(`DROP SCHEMA ${schema} CASCADE`);
     await client.end();
   }
+});
+
+
+test('cleanup batches keys and retains the failed batch for retry', async () => {
+  const pending = Array.from({ length: 205 }, (_, i) => ({ key: `cleanup-${i}` }));
+  const deleted = [], batches = [];
+  const client = { async query(query, params) {
+    if (query.startsWith('SELECT')) return { rows: pending };
+    deleted.push(...params[0]);
+  } };
+  await drainCleanup(client, { async remove(keys) {
+    batches.push(keys);
+    if (batches.length === 2) throw new Error('temporary failure');
+  } });
+  assert.deepEqual(batches.map(keys => keys.length), [100, 100]);
+  assert.deepEqual(deleted, pending.slice(0, 100).map(row => row.key));
 });

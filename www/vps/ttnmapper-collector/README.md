@@ -48,3 +48,25 @@ Watchtower in production only monitors images. Check the next successful poll
 for a non-null `payload_sha256`, an actual stored body with the matching hash,
 and online readings with `observed_at = collected_at = fetched_at`. Registry
 coordinate timestamps should remain unchanged.
+
+## Authorized historical quarantine
+
+`quarantine_history.py` targets only TTN gateway `online_status` values with unit
+`state`, including their legacy copies, latest caches, revision rows and affected
+archive catalogue entries. Coordinates and regional coverage counts are excluded.
+Stop the collector and archive worker before taking the snapshot. Use a unique
+schema, export it with `pg_dump --schema=NAME --no-owner` to a protected file,
+verify that dump, then run the apply phase:
+
+```sh
+python quarantine_history.py --snapshot ttn_status_quarantine_20261101
+# Export and verify the independent backup schema before proceeding.
+python quarantine_history.py --apply ttn_status_quarantine_20261101
+```
+
+The snapshot preserves duplicate rows and exact original values. Apply compares
+every source table with the saved row multiset and refuses changes since backup.
+All changes are transactional. Old download keys enter `archive_cleanup` and the
+public catalogue loses the affected links. The source rows remain available in
+the quarantine schema and its exported dump for later inspection or restoration.
+Run the corrected collector only after the quarantine is complete.
