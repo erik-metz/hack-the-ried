@@ -105,6 +105,8 @@ file={"format":"parquet","filename":name,"url":"https://test.example/parquet","s
 catalogue=[{"month":"2026-10","files":[{"format":"csv","filename":"ignored.csv.zip"},file]}]
 requests=[]
 def fetch(url,**kwargs):
+    assert url.get_header('User-agent')=='HackTheRied-ArchiveDownloader/1.0'
+    url=url.full_url
     requests.append(url)
     return io.BytesIO(json.dumps(catalogue).encode() if len(requests)==1 else body)
 with tempfile.TemporaryDirectory() as directory,patch("urllib.request.urlopen",fetch),patch.object(sys,"argv",[script,"--month","2026-10","--output",directory]):

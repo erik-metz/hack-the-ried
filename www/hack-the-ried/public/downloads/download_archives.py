@@ -6,9 +6,10 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 CATALOGUE = "https://hack-the-ried.duckdns.org/api/v1/archives"
+HEADERS = {"User-Agent": "HackTheRied-ArchiveDownloader/1.0"}
 
 
 def checksum(path):
@@ -27,7 +28,7 @@ def main():
     parser.add_argument("--type", choices=["all", "month", "quarter", "year"], default="all", help="Archive type to download")
     parser.add_argument("--output", type=Path, default=Path("hack-the-ried-data"))
     args = parser.parse_args()
-    with urlopen(CATALOGUE, timeout=30) as response:
+    with urlopen(Request(CATALOGUE, headers=HEADERS), timeout=30) as response:
         catalogue = json.load(response)
     def matches_filter(item):
         period = item.get("month", "")
@@ -66,7 +67,7 @@ def main():
             temporary = target.with_suffix(".zip.partial")
             try:
                 print(f"Downloading {filename} ({file['size_bytes']:,} bytes)")
-                with urlopen(file["url"], timeout=120) as source, temporary.open("wb") as output:
+                with urlopen(Request(file["url"], headers=HEADERS), timeout=120) as source, temporary.open("wb") as output:
                     while True:
                         block = source.read(1024 * 1024)
                         if not block:
