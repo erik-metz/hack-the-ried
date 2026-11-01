@@ -93,10 +93,13 @@ formats; Parquet stores timestamps as UTC microsecond timestamps. Structured
 fields are JSON text. Metadata reflects export time, not historical versions.
 Sources/licences follow `source_id` and the project source catalogue.
 
-Before taking the read snapshot, the worker transactionally inserts missing
-public legacy telemetry for the period into the canonical tables. It never
-overwrites existing canonical readings and does not enable shadow writes or
-change API read mode. Legacy source/basis uncertainty is explicitly retained.
+Before taking the read snapshot, the worker prepares missing entity/measurement
+definitions and checks legacy conflicts. Missing legacy readings are streamed
+directly into the download alongside canonical readings; the export does not
+copy the full legacy history into canonical storage. Existing canonical values
+take precedence for the same definition and timestamp. The export does not
+enable shadow writes or change API read mode. Legacy source/basis uncertainty
+is explicitly retained; unknown original receipt times remain null.
 Identical legacy duplicates collapse to one canonical key. Weather corrections
 are reconciled only when the existing source-aware weather stream and revision
 history explain every legacy value with a verified provider receipt. Replay the
@@ -111,15 +114,19 @@ months from both public canonical and legacy history. New files are fully
 uploaded and published before old files are queued for deletion. Both entity and
 legacy sensor visibility are checked at export, publication and catalogue read.
 
-Temporary disk must accommodate approximately one month's CSV, Parquet, plus compressed
-ZIPs. Memory is bounded by cursor batches, stream buffers, metadata, and SDK
+Temporary disk accommodates one part's CSV, Parquet input, and ZIPs. Each matching
+CSV/Parquet pair is uploaded immediately, then its local files are removed.
+The catalogue is published only after the entire month succeeds; failed partial
+uploads are queued for deletion. Database reads use hourly windows within one
+repeatable-read snapshot to avoid sorting a whole month's JSON on local disk.
+Memory is bounded by cursor batches, stream buffers, metadata, and SDK
 upload buffering. Files are uploaded one at a time using disk-backed Blobs;
 archives are served directly by UploadThing, never proxied through Next.js.
-If a monthly export is too large for the VPS disk, provision more temporary disk
-before running it. Do not use a serverless request to run this worker.
+Reduce `ARCHIVE_PART_MB` if a single part exceeds temporary disk capacity.
+Do not use a serverless request to run this worker.
 
-The read transaction lasts for CSV/ZIP generation; publication/uploads happen
-after it ends. Plan large backfills for low-traffic periods. Long-lived database
+The read transaction lasts for CSV/ZIP generation and part uploads; catalogue
+publication happens after it ends. Plan large backfills for low-traffic periods. Long-lived database
 snapshots can delay vacuum cleanup. An empty month is recorded with zero files.
 A crash after uploading but before publishing, or a failed old-file deletion,
 can leave unreferenced files in UploadThing; inspect the dedicated app for these

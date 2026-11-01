@@ -41,7 +41,7 @@ test('database export, publication, retry, replacement and visibility', { skip: 
       async upload() { if (++sequence === failAt) throw new Error('upload failed'); return { key: `key-${sequence}`, url: `https://test.ufs.sh/f/${sequence}` }; },
       async remove(keys) { removed.push(...keys); },
     };
-    const run = (extra = {}) => runArchives({ storage, dbConfig, requestedMonth: '2025-01', partBytes: 4096, ...extra });
+    const run = (extra = {}) => runArchives({ storage, dbConfig, requestedMonth: '2025-01', partBytes: 256 * 1024, ...extra });
     failAt = 2;
     await assert.rejects(run(), /upload failed/);
     assert.equal((await client.query('SELECT * FROM data_archives')).rowCount, 0);
@@ -50,6 +50,8 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     await run();
     let row = (await client.query('SELECT * FROM data_archives')).rows[0];
     assert.equal(Number(row.reading_count), 6001);
+    assert.equal((await client.query('SELECT count(*) FROM readings')).rows[0].count, '0',
+      'Exporting legacy history must not copy it into canonical storage');
     assert.equal(row.is_complete, true);
     assert.deepEqual(row.station_ids, ['public']);
     assert.ok(row.files.some(file => file.format === 'csv'));

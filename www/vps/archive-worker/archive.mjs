@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
@@ -91,7 +91,7 @@ manifest.json contains the UTC period, snapshot, part and table counts.
 `;
 
 /** Bounded reading stream; each part is independently referentially complete. */
-export async function buildArchives(rows, directory, month, generatedAt, partBytes = 64 * 1024 * 1024) {
+export async function buildArchives(rows, directory, month, generatedAt, partBytes = 64 * 1024 * 1024, publishPart = null) {
   const files = [];
   const entityIds = new Set();
   let entities = new Map(), definitions = new Map();
@@ -138,10 +138,17 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
     const parquetHash = createHash('sha256');
     for await (const chunk of createReadStream(parquetPath)) parquetHash.update(chunk);
     files.push({ filename: path.basename(parquetPath), path: parquetPath, format: 'parquet', size_bytes: (await stat(parquetPath)).size, reading_count: count, sha256: parquetHash.digest('hex') });
+    if (publishPart) {
+      await publishPart(files.slice(-2));
+      await Promise.all(files.slice(-2).map(file => rm(file.path)));
+    }
+    await rm(partDirectory, { recursive: true });
+    await rm(parquetInputPath);
     output = undefined; entities = new Map(); definitions = new Map();
   }
   try {
     for await (const { entity, definition, reading } of rows) {
+      if (reading.legacy_conflict) throw new Error('Conflicting legacy samples appeared during export; retry after reconciliation');
       if (String(reading.measurement_id) !== String(definition.id) || definition.entity_id !== entity.id) throw new Error('Broken export reference');
       const line = tableLine('readings', reading);
       let size = Buffer.byteLength(line);

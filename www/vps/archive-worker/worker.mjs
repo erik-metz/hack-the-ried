@@ -72,15 +72,24 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
         await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
         await client.query("SET LOCAL TIME ZONE 'UTC'");
         const generatedAt = (await client.query('SELECT transaction_timestamp() AS time')).rows[0].time.toISOString();
-        const stream = client.query(new QueryStream(ROWS, [start, end], { batchSize: 2000 }));
-        let archive;
-        try { archive = await buildArchives(stream, directory, month, generatedAt, partBytes); }
-        finally { stream.destroy(); }
-        await client.query('COMMIT');
-        for (const file of archive.files) {
-          const remote = await storage.upload(file);
-          uploaded.push({ filename: file.filename, format: file.format, size_bytes: file.size_bytes, reading_count: file.reading_count, sha256: file.sha256, ...remote });
+        async function* periodRows() {
+          // Bound database sorts as well as local files, while keeping one snapshot.
+          for (let windowStart = start.getTime(); windowStart < end.getTime(); windowStart += 3600000) {
+            if (signal?.aborted) throw new Error('Archive export interrupted');
+            const stream = client.query(new QueryStream(ROWS,
+              [new Date(windowStart), new Date(Math.min(windowStart + 3600000, end.getTime()))], { batchSize: 2000 }));
+            try { yield* stream; }
+            finally { stream.destroy(); }
+          }
         }
+        const archive = await buildArchives(periodRows(), directory, month, generatedAt, partBytes, async files => {
+          for (const file of files) {
+            const remote = await storage.upload(file);
+            uploaded.push({ filename: file.filename, format: file.format, size_bytes: file.size_bytes, reading_count: file.reading_count, sha256: file.sha256, ...remote });
+          }
+          console.log(`Uploaded ${month} part ${uploaded.length / 2}: ${files[0].reading_count} readings in CSV and Parquet`);
+        });
+        await client.query('COMMIT');
         // Lock station visibility until publication; downloads also filter current visibility.
         await client.query('BEGIN');
         const entityIds = archive.entity_ids;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -78,7 +78,7 @@ for filename in sys.argv[1:]:
             assert all('2026-09-01T00:00:00.123456Z' in r['observed_at'] for r in tables['readings'])
             counts = {n:len(rows) for n,rows in tables.items()}
         else:
-            tables = {n:pq.read_table(io.BytesIO(z.read(n+'.parquet'))) for n in ('entities','measurement_definitions','readings')}
+            tables = {n:pq.ParquetFile(io.BytesIO(z.read(n+'.parquet'))).read(use_threads=False) for n in ('entities','measurement_definitions','readings')}
             assert all(str(tables['readings'].schema.field(c).type) == 'timestamp[us, tz=UTC]' for c in ('observed_at','collected_at'))
             assert tables['readings']['value'][0].as_py() is not None
             assert tables['entities']['name'][0].as_py() == '=Station'
@@ -100,6 +100,31 @@ test('source failure rejects the export instead of publishing a partial month', 
       throw new Error('database disconnected');
     }
     await assert.rejects(buildArchives(rows(), directory, '2026-09', '2026-10-01T00:00:00Z'), /disconnected/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('part uploads release local files before the next part and retain all rows', { skip: !hasPyArrow }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'archive-stream-test-'));
+  let previous = [], uploadedReadings = 0, parts = 0;
+  try {
+    async function* rows() {
+      for (let i = 0; i < 120; i++) yield {
+        entity: { id: 'station', name: 'Station' }, definition: { id: '1', entity_id: 'station' },
+        reading: { measurement_id: '1', observed_at: '2026-10-01T00:00:00Z', value: String(i) },
+      };
+    }
+    const archive = await buildArchives(rows(), directory, '2026-10', '2026-11-01T00:00:00Z', 4096, async files => {
+      for (const filename of previous) await assert.rejects(stat(filename), { code: 'ENOENT' });
+      assert.deepEqual(files.map(file => file.format), ['csv', 'parquet']);
+      for (const file of files) assert.equal((await stat(file.path)).size, file.size_bytes);
+      previous = files.map(file => file.path);
+      uploadedReadings += files[0].reading_count;
+      parts++;
+    });
+    assert.ok(parts > 1);
+    assert.equal(uploadedReadings, 120);
+    assert.equal(archive.reading_count, 120);
+    assert.deepEqual(await readdir(directory), []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
