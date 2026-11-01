@@ -1,0 +1,770 @@
+{
+  "ci_success": true,
+  "commit": "e992a4c3415c276850b91ad72f1ca8c93b6c1938",
+  "run_id": 41303595144,
+  "images": {
+    "backend-api": "ghcr.io/erik-metz/hack-the-ried-api@sha256:fc0f48465994f8a6655011375edc0635ff5ab37ea80e90ce88d3a0f40623c067",
+    "registry-sync-worker": "ghcr.io/erik-metz/hack-the-ried-registry-sync-worker@sha256:53751939e3fb1a06dd8c3cda93feeef8392186877f09f60636595d5ff09b1f2f",
+    "mcp-server": "ghcr.io/erik-metz/hack-the-ried-mcp@sha256:cc358a09a3553fc06ccd6bf25dd82fbd0072165d7bc25827399e64e7f046759e"
+  },
+  "verified_at": "2026-11-01T14:10:06.739527+00:00",
+  "workflow_url": "https://github.com/erik-metz/hack-the-ried/actions/runs/41303595144",
+  "ci_jobs": {
+    "total": 18,
+    "success": 18,
+    "all_scheduled_image_publications": "success"
+  },
+  "public_checks": {
+    "endpoint": "https://hack-the-ried.duckdns.org/mcp",
+    "checks": [
+      {
+        "tool": "list_datasets",
+        "ok": true,
+        "elapsed_ms": 2170,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "coverage",
+          "license_notice"
+        ]
+      },
+      {
+        "tool": "search_entities",
+        "ok": true,
+        "elapsed_ms": 45,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset"
+        ]
+      },
+      {
+        "tool": "list_measurements",
+        "ok": true,
+        "elapsed_ms": 48,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset"
+        ]
+      },
+      {
+        "tool": "list_regional_datasets",
+        "ok": true,
+        "elapsed_ms": 1631,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "coverage",
+          "license_notice"
+        ]
+      },
+      {
+        "tool": "search_events",
+        "ok": true,
+        "elapsed_ms": 191,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "source_updated_at",
+          "collected_at",
+          "expires_at",
+          "source",
+          "section",
+          "available_sections"
+        ]
+      },
+      {
+        "tool": "find_archives",
+        "ok": true,
+        "elapsed_ms": 44,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 782,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 634,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 348,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 351,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 341,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 421,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 343,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 484,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 302,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 259,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 289,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 324,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 344,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 243,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 344,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 350,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 268,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 268,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 430,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 289,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 318,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 329,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 309,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 236,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 415,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 338,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "tool": "get_reliability_report",
+        "ok": true,
+        "elapsed_ms": 786,
+        "keys": [
+          "items",
+          "generated_at",
+          "next_offset",
+          "start_inclusive",
+          "end_exclusive",
+          "rule_version",
+          "interpretation"
+        ]
+      },
+      {
+        "host": "hack-the-ried.duckdns.org",
+        "legacy_protocol_discovery": true,
+        "internal_routes_blocked": true
+      },
+      {
+        "host": "open-ried-sens.duckdns.org",
+        "legacy_protocol_discovery": true,
+        "internal_routes_blocked": true
+      }
+    ],
+    "tool_count": 17,
+    "reliability_pages": 27
+  },
+  "data_checks": {
+    "latest_readings": {
+      "ok": true,
+      "item_count": 1
+    },
+    "catalog_availability": [
+      {
+        "id": "demographics/age-structure",
+        "availability": "not_collected"
+      },
+      {
+        "id": "demographics/commuters",
+        "availability": "not_collected"
+      },
+      {
+        "id": "demographics/facilities",
+        "availability": "not_collected"
+      },
+      {
+        "id": "demographics/municipalities",
+        "availability": "not_collected"
+      },
+      {
+        "id": "demographics/summary",
+        "availability": "not_collected"
+      },
+      {
+        "id": "economy/companies",
+        "availability": "not_collected"
+      },
+      {
+        "id": "economy/industry-structure",
+        "availability": "not_collected"
+      },
+      {
+        "id": "economy/overview",
+        "availability": "not_collected"
+      },
+      {
+        "id": "economy/registrations",
+        "availability": "not_collected"
+      },
+      {
+        "id": "economy/startups",
+        "availability": "not_collected"
+      },
+      {
+        "id": "economy/taxes",
+        "availability": "not_collected"
+      },
+      {
+        "id": "finance/budget-review/biblis",
+        "availability": "available"
+      },
+      {
+        "id": "finance/budgets",
+        "availability": "not_collected"
+      },
+      {
+        "id": "finance/compare",
+        "availability": "not_collected"
+      },
+      {
+        "id": "finance/spending",
+        "availability": "not_collected"
+      },
+      {
+        "id": "infrastructure/autobahn/A5/charging",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A5/rest-areas",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A5/webcams",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A6/charging",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A6/rest-areas",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A6/webcams",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A67/charging",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A67/rest-areas",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/autobahn/A67/webcams",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/broadband",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/energy",
+        "availability": "not_collected"
+      },
+      {
+        "id": "infrastructure/ev-charging",
+        "availability": "available"
+      },
+      {
+        "id": "infrastructure/road-conditions",
+        "availability": "not_collected"
+      },
+      {
+        "id": "infrastructure/wifi",
+        "availability": "not_collected"
+      },
+      {
+        "id": "realestate/boris",
+        "availability": "available"
+      },
+      {
+        "id": "realestate/construction-activity",
+        "availability": "not_collected"
+      },
+      {
+        "id": "realestate/development-plans",
+        "availability": "not_collected"
+      },
+      {
+        "id": "realestate/housing-stock",
+        "availability": "not_collected"
+      },
+      {
+        "id": "realestate/market-benchmarks",
+        "availability": "not_collected"
+      },
+      {
+        "id": "realestate/summary",
+        "availability": "not_collected"
+      },
+      {
+        "id": "social/events",
+        "availability": "available"
+      },
+      {
+        "id": "social/facilities",
+        "availability": "not_collected"
+      },
+      {
+        "id": "social/indicators/summary",
+        "availability": "not_collected"
+      },
+      {
+        "id": "social/regular-offers",
+        "availability": "expired"
+      },
+      {
+        "id": "social/regular-offers/rompin-stompin-regular-offers",
+        "availability": "available"
+      },
+      {
+        "id": "social/regular-offers/tv-buerstadt-lauftreff",
+        "availability": "available"
+      },
+      {
+        "id": "social/regular-offers/tv-gross-rohrheim-gymnastik",
+        "availability": "available"
+      },
+      {
+        "id": "social/regular-offers/tv-gross-rohrheim-lauftreff",
+        "availability": "available"
+      },
+      {
+        "id": "social/regular-offers/tvl-triathlon-regular-offers",
+        "availability": "available"
+      },
+      {
+        "id": "social/waste-statistics",
+        "availability": "not_collected"
+      },
+      {
+        "id": "statistics/demographics",
+        "availability": "available"
+      },
+      {
+        "id": "statistics/economy",
+        "availability": "available"
+      },
+      {
+        "id": "statistics/elections",
+        "availability": "available"
+      },
+      {
+        "id": "statistics/environment",
+        "availability": "available"
+      },
+      {
+        "id": "statistics/finance",
+        "availability": "available"
+      }
+    ],
+    "regional_query": {
+      "id": "finance/budget-review/biblis",
+      "ok": true,
+      "keys": [
+        "items",
+        "generated_at",
+        "next_offset",
+        "source_updated_at",
+        "collected_at",
+        "expires_at",
+        "source",
+        "section",
+        "available_sections"
+      ]
+    }
+  },
+  "vps_checks": {
+    "db_blocked": true,
+    "db_dns_blocked": true,
+    "invalid_key_rejected": true,
+    "api_health": "healthy",
+    "api_command": [
+      "uvicorn",
+      "main:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8080",
+      "--timeout-graceful-shutdown",
+      "600"
+    ],
+    "mcp_health": "healthy",
+    "worker_running": true,
+    "mcp_networks": [
+      "root_mcp-backend",
+      "root_mcp-frontend"
+    ],
+    "images": {
+      "backend-api": "ghcr.io/erik-metz/hack-the-ried-api@sha256:fc0f48465994f8a6655011375edc0635ff5ab37ea80e90ce88d3a0f40623c067",
+      "mcp-server": "ghcr.io/erik-metz/hack-the-ried-mcp@sha256:cc358a09a3553fc06ccd6bf25dd82fbd0072165d7bc25827399e64e7f046759e",
+      "registry-sync-worker": "ghcr.io/erik-metz/hack-the-ried-registry-sync-worker@sha256:53751939e3fb1a06dd8c3cda93feeef8392186877f09f60636595d5ff09b1f2f"
+    },
+    "root_mcp-frontend": {
+      "internal": true,
+      "members": [
+        "root-mcp-server-1",
+        "root-nginx-1"
+      ]
+    },
+    "root_mcp-backend": {
+      "internal": true,
+      "members": [
+        "backend_api",
+        "root-mcp-server-1"
+      ]
+    }
+  },
+  "new_run_evidence_snapshot": {
+    "success": 23,
+    "partial": 1,
+    "failed": 2,
+    "running": 2,
+    "sources_with_logical_run_coverage": 25
+  },
+  "migration": {
+    "additive_evidence_schema": "applied",
+    "optional_concurrent_source_index": "deferred during independent archive exports"
+  },
+  "rollout_notes": [
+    "Existing bootstrap DDL blocked behind an independent long archive transaction during the first rollout attempt. The API was restored, and final rollout uses read-only existing-schema validation.",
+    "Final API runs the normal uvicorn command without the temporary rollback bootstrap.",
+    "Nginx was gracefully reloaded; independent export containers were not stopped.",
+    "Compose overlays and immutable image digests are persisted for future invocations."
+  ],
+  "limitations": [
+    "Full logical-run instrumentation currently covers registry-sync-worker only. Other collectors retain attempt history and explicit incomplete coverage.",
+    "Exact historical due slots are not reconstructed; schedule_coverage_ratio remains unknown.",
+    "Unavailable or expired Regionalatlas publications remain explicitly unavailable; MCP does not fabricate or backfill data.",
+    "Seasonal policies, explicit maintenance windows and daily rollups remain follow-up work.",
+    "No recurring AI repair job was created. Public MCP remains read-only."
+  ]
+}

@@ -1,8 +1,10 @@
 # Implementierungsplan: öffentlicher MCP-Server auf der VPS
 
-Stand: 1. November 2026. Status: Umsetzung läuft; Code, Prüfungen und Betrieb
-werden in [der MCP-Dokumentation](../www/vps/mcp-server/README.md) und
-[der Bestandsaufnahme](evidence/mcp-inventory-2026-11-01.json) festgehalten.
+Stand: 1. November 2026. Status: Erste Version implementiert, auf der VPS
+aktiviert und öffentlich geprüft. Betriebsanleitung:
+[MCP-Dokumentation](../www/vps/mcp-server/README.md). Nachweise:
+[Bestandsaufnahme](evidence/mcp-inventory-2026-11-01.json) und
+[Rollout mit CI-, Image- und Live-Prüfungen](evidence/mcp-rollout-2026-11-01.json).
 
 Die erste Umsetzung liefert den allgemeinen Datenzugang, Termine/Regionalatlas,
 versionierte Quellenintervalle und Diagnoseberichte. Vollständige logische
@@ -11,6 +13,29 @@ mit ihrer vorhandenen Versuchshistorie ausdrücklich als unvollständig
 instrumentiert erkennbar. Individuelle saisonale Regeln, gesonderte
 Wartungsfenster und Tagesrollups sind Folgeausbaustufen; historische Belege
 werden nicht erfunden. Die nachstehenden Pakete bleiben der Zielplan.
+
+## Umsetzungsstand der ersten Version
+
+- Öffentlich erreichbar: `https://hack-the-ried.duckdns.org/mcp`, Transport
+  Streamable HTTP, anonym, ausschließlich lesend, 17 Werkzeuge.
+- Katalog, Objektsuche, Messdefinitionen, letzter Messwert, Termine,
+  Regionalatlas-Publikation und Archivsuche über einen echten MCP-Client geprüft.
+- Siebentägiger Quellenbericht vollständig über 27 Seiten abgerufen.
+- Beide öffentlichen Hostnamen unterstützen auch Protokoll `2025-11-25`.
+  Interne MCP-API-Routen liefern öffentlich 404; falsche Dienstschlüssel intern 401.
+- MCP besitzt keinen direkten Datenbankzugang und keine veröffentlichten Ports.
+  API und MCP sind gesund; der Registry-Worker schreibt neue Laufbelege.
+- Code-Stand `e992a4c3415c276850b91ad72f1ca8c93b6c1938`: alle 18
+  [CI-Jobs einschließlich aller GHCR-Veröffentlichungen](https://github.com/erik-metz/hack-the-ried/actions/runs/41303595144)
+  erfolgreich. VPS-Images sind auf die zugehörigen Digests festgelegt.
+- Die additive Migration ist angewendet. API-Start verwendet `API_SCHEMA_MODE=validate`:
+  bestehendes Schema prüfen, ohne Startup-DDL. Der optionale Quellenindex bleibt
+  während unabhängiger Archivexporte zurückgestellt; gemessene Abfragen funktionieren.
+
+Offen bleiben die oben genannten Ausbaustufen und die vollständige
+Laufinstrumentierung weiterer Collector. Ein wöchentlicher KI-Auftrag ist noch
+nicht eingerichtet. Er kann den öffentlichen Bericht bereits nutzen; Reparaturen
+benötigen weiterhin separat autorisierte Repository- oder Betriebswerkzeuge.
 
 ## 1. Ziel und verbindliche Entscheidungen
 
