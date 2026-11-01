@@ -17,10 +17,10 @@ export async function includeLegacy(client, start, end) {
     const conflicts = await client.query(`SELECT t.timestamp::text AS timestamp,t.sensor_id,t.metric,t.unit ${scope}
       GROUP BY t.timestamp,t.sensor_id,t.metric,t.unit HAVING count(DISTINCT t.value)>1`, params);
     if (conflicts.rowCount) {
-      const available = await client.query("SELECT to_regprocedure('reconcile_weather_history(text,text,text,timestamptz)') IS NOT NULL AS available");
+      const available = await client.query("SELECT to_regprocedure('clean_weather_legacy(text,text,text,timestamptz)') IS NOT NULL AS clean, to_regprocedure('reconcile_weather_history(text,text,text,timestamptz)') IS NOT NULL AS available");
       if (available.rows[0].available) for (const row of conflicts.rows) {
         if (row.sensor_id !== 'weather-dwd-ried') continue;
-        await client.query('SELECT reconcile_weather_history($1,$2,$3,$4)',
+        await client.query(available.rows[0].clean ? 'SELECT clean_weather_legacy($1,$2,$3,$4)' : 'SELECT reconcile_weather_history($1,$2,$3,$4)',
           [row.sensor_id, row.metric, row.unit, row.timestamp]);
       }
     }
@@ -37,6 +37,17 @@ export async function includeLegacy(client, start, end) {
   } catch (error) { await client.query('ROLLBACK'); throw error; }
 }
 
+// The TTN collector writes one event to its native stream and compatibility
+// table. Export the native event once, without changing any value or timestamp.
+const nativeGatewayCopy = (sensor, time, value, quality) => `EXISTS (
+  SELECT 1 FROM measurement_definitions nd JOIN readings nr ON nr.measurement_id=nd.id
+  JOIN entities ne ON ne.id=nd.entity_id
+  WHERE nd.entity_id='lora:gateway:'||substr(${sensor},8) AND nd.metric='online_status'
+    AND nd.unit='state' AND nd.source_id='ttnmapper' AND nd.basis='observed' AND nd.dimensions='{}'
+    AND nr.observed_at=${time} AND nr.value=${value} AND nr.quality=${quality}
+    AND nr.observed_at >= $1 AND nr.observed_at < $2
+    AND NOT ne.is_hidden AND ne.metadata->>'legacy_deleted' IS DISTINCT FROM 'true')`;
+
 const stamp = column => `CASE WHEN r.${column} IS NULL THEN NULL ELSE to_char(r.${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END`;
 export const ROWS = `SELECT entity,definition,reading FROM (SELECT
   jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata) AS entity,
@@ -48,6 +59,9 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
   FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
   JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
     AND r.observed_at >= $1 AND r.observed_at < $2
+    AND NOT (d.entity_id LIKE 'sensor:ttn-gw-%' AND d.source_id='legacy-sensor:'||substr(d.entity_id,8)
+      AND d.metric='online_status' AND d.unit='state' AND d.basis='unknown' AND d.dimensions='{}'
+      AND ${nativeGatewayCopy('substr(d.entity_id,8)', 'r.observed_at', 'r.value', 'r.quality')})
   UNION ALL SELECT
     jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata),
     to_jsonb(d) || jsonb_build_object('id',d.id::text,'minimum',d.minimum::text,'maximum',d.maximum::text),
@@ -70,6 +84,8 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
     AND d.source_id='legacy-sensor:'||t.sensor_id AND d.metric=t.metric AND d.unit=t.unit
     AND d.basis='unknown' AND d.dimensions='{}'::jsonb
   JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
+    AND NOT (t.variants=1 AND t.sensor_id LIKE 'ttn-gw-%' AND t.metric='online_status' AND t.unit='state'
+      AND ${nativeGatewayCopy('t.sensor_id', 't.timestamp', 't.value', "'valid'")})
     AND (t.variants>1 OR NOT EXISTS (SELECT 1 FROM readings r
       WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp AND r.observed_at >= $1 AND r.observed_at < $2))
   ) samples ORDER BY sort_time,sort_id`;

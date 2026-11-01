@@ -53,9 +53,10 @@ test('partitioned export preserves every row and supplies matching checksums', {
     assert.equal(result.reading_count, 6001);
     const csvFiles = result.files.filter(file => file.format === 'csv');
     const parquetFiles = result.files.filter(file => file.format === 'parquet');
-    assert.ok(csvFiles.length > 1);
-    assert.equal(parquetFiles.length, csvFiles.length);
-    assert.equal(csvFiles.reduce((sum, file) => sum + file.reading_count, 0), 6001);
+    assert.equal(csvFiles.length, 0);
+    assert.ok(parquetFiles.length > 1);
+    assert.ok(result.files.every(file => file.format === 'parquet'));
+    assert.equal(parquetFiles.reduce((sum, file) => sum + file.reading_count, 0), 6001);
     for (const file of result.files) {
       const data = await readFile(file.path);
       assert.equal(data.length, file.size_bytes);
@@ -84,7 +85,7 @@ for filename in sys.argv[1:]:
             assert tables['entities']['name'][0].as_py() == '=Station'
             counts = {n:t.num_rows for n,t in tables.items()}
         m=json.loads(z.read('manifest.json'))
-        assert m['format_version']==3 and m['complete']
+        assert m['format_version']==4 and m['complete']
         assert m['tables']==counts
 `, ...result.files.map(file => file.path)]);
     const empty = await buildArchives([], directory, '2026-09', '2026-10-01T00:00:00Z');
@@ -115,7 +116,7 @@ test('part uploads release local files before the next part and retain all rows'
     }
     const archive = await buildArchives(rows(), directory, '2026-10', '2026-11-01T00:00:00Z', 4096, async files => {
       for (const filename of previous) await assert.rejects(stat(filename), { code: 'ENOENT' });
-      assert.deepEqual(files.map(file => file.format), ['csv', 'parquet']);
+      assert.deepEqual(files.map(file => file.format), ['parquet']);
       for (const file of files) assert.equal((await stat(file.path)).size, file.size_bytes);
       previous = files.map(file => file.path);
       uploadedReadings += files[0].reading_count;
@@ -134,34 +135,14 @@ test('canonical numeric strings retain exact negative decimals and large IDs', (
   assert.throws(() => tableLine('readings', { value: '=BAD()' }));
 });
 
-test('CSV and Parquet retain every conflicting legacy value and its source count', { skip: !hasPyArrow }, async () => {
+test('unresolved legacy conflicts stop publication instead of adding a fourth table', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'archive-conflict-test-'));
   try {
-    const entity = { id: 'gateway', name: 'Gateway' };
-    const definition = { id: '1', entity_id: 'gateway' };
-    const reading = { measurement_id: '1', observed_at: '2026-10-05T09:32:52.818823Z', value: '5' };
-    const result = await buildArchives([
-      { entity, definition, reading },
-      { entity, definition, reading: { ...reading, legacy_conflict: true,
-        legacy_variants: [{ value: '0', source_row_count: '2' }, { value: '1', source_row_count: '1' }] } },
-    ], directory, '2026-10', '2026-11-01T00:00:00Z');
-    assert.equal(result.reading_count, 3);
-    execFileSync(python, ['-c', `
-import csv,io,json,sys,zipfile,pyarrow.parquet as pq
-for filename in sys.argv[1:]:
-    with zipfile.ZipFile(filename) as z:
-        fmt = 'parquet' if filename.endswith('.parquet.zip') else 'csv'
-        def rows(table):
-            raw = z.read(table+'.'+fmt)
-            return (pq.ParquetFile(io.BytesIO(raw)).read(use_threads=False).to_pylist() if fmt == 'parquet'
-                else list(csv.DictReader(io.StringIO(raw.decode('utf-8-sig')))))
-        conflicts = rows('legacy_conflicts')
-        assert [(r['value'],r['source_row_count']) for r in conflicts] == [('0','2'),('1','1')]
-        assert all(r['measurement_id'] == '1' for r in conflicts)
-        assert [r['value'] for r in rows('readings')] == ['5']
-        manifest = json.loads(z.read('manifest.json'))
-        assert manifest['tables']['readings'] == 1 and manifest['tables']['legacy_conflicts'] == 2
-        assert manifest['reading_count'] == 3
-`, ...result.files.map(file => file.path)]);
+    await assert.rejects(buildArchives([{
+      entity: { id: 'gateway' }, definition: { id: '1', entity_id: 'gateway' },
+      reading: { measurement_id: '1', observed_at: '2026-10-05T09:32:52.818823Z',
+        legacy_conflict: true, legacy_variants: [{ value: '0' }, { value: '1' }] },
+    }], directory, '2026-10', '2026-11-01T00:00:00Z'), /repair source data/);
+    assert.deepEqual(await readdir(directory), []);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

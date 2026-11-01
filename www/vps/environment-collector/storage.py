@@ -32,6 +32,7 @@ async def persist_environment_data(
         raise ValueError('MEASUREMENT_WEATHER_WRITE_MODE must be legacy or dual')
 
     async with conn.transaction():
+        await conn.execute("SELECT pg_advisory_xact_lock(hashtext('weather-legacy-repair'))")
         if mode == 'dual':
             from weather_measurements import replay_weather_receipt
 
@@ -92,8 +93,9 @@ async def persist_environment_data(
                     continue
                 await conn.execute(
                     """INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
-                    VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                    (w.sensor_id, metric, unit, w.timestamp, value),
+                    SELECT %s,%s,%s,%s,%s WHERE NOT EXISTS (SELECT 1 FROM sensor_data
+                        WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s AND value=%s)""",
+                    (w.sensor_id, metric, unit, w.timestamp, value, w.sensor_id, metric, unit, w.timestamp, value),
                 )
                 latest_value = value
                 if mode == 'dual':
@@ -106,6 +108,10 @@ async def persist_environment_data(
                     if canonical is None:
                         raise ValueError('Canonical weather reading missing for legacy cache')
                     latest_value = canonical[0]
+                    cleaned = await (await conn.execute("SELECT clean_weather_legacy(%s,%s,%s,%s)",
+                        (w.sensor_id, metric, unit, w.timestamp))).fetchone()
+                    if not cleaned[0]:
+                        raise ValueError('Weather legacy history lacks verified correction evidence')
                 await conn.execute(
                     """INSERT INTO sensor_latest(sensor_id,metric,unit,timestamp,value)
                     VALUES (%s,%s,%s,%s,%s) ON CONFLICT(sensor_id,metric,unit) DO UPDATE SET

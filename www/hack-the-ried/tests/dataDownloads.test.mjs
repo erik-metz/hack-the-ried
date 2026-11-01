@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 function route(fetch) {
   const source = fs.readFileSync(new URL("../app/api/data-download/route.ts", import.meta.url), "utf8");
@@ -88,4 +90,26 @@ test("additional environmental topics are included in the backend redirect", asy
     assert.equal(response.status, 302);
     assert.equal(new URL(response.headers.get("Location")).searchParams.get("topic"), topic);
   }
+});
+
+
+test("bulk archive downloader selects Parquet and accepts versioned filenames", () => {
+  execFileSync("python3", ["-c", `
+import hashlib,io,json,runpy,sys,tempfile
+from pathlib import Path
+from unittest.mock import patch
+script=sys.argv[1]
+body=b"test archive"
+name="hack-the-ried-2026-10-v4-part-0001.parquet.zip"
+file={"format":"parquet","filename":name,"url":"https://test.example/parquet","size_bytes":len(body),"sha256":hashlib.sha256(body).hexdigest()}
+catalogue=[{"month":"2026-10","files":[{"format":"csv","filename":"ignored.csv.zip"},file]}]
+requests=[]
+def fetch(url,**kwargs):
+    requests.append(url)
+    return io.BytesIO(json.dumps(catalogue).encode() if len(requests)==1 else body)
+with tempfile.TemporaryDirectory() as directory,patch("urllib.request.urlopen",fetch),patch.object(sys,"argv",[script,"--month","2026-10","--output",directory]):
+    runpy.run_path(script,run_name="__main__")
+    assert (Path(directory)/"2026-10"/name).read_bytes()==body
+    assert requests[1:]==[file["url"]]
+`, fileURLToPath(new URL("../public/downloads/download_archives.py", import.meta.url))]);
 });

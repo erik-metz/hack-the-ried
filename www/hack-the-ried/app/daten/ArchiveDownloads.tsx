@@ -11,12 +11,12 @@ type Archive = {
 
 export default function ArchiveDownloads() {
   const publication = usePublicDatasets<[Archive[]]>(["archives"]);
-  if (!publication) return <p role="status">Sensorarchive werden geladen…</p>;
+  if (!publication) return <p role="status">Monatsarchive werden geladen…</p>;
   const result = publication.results[0];
   const archives = result.status === "fulfilled" && Array.isArray(result.value) ? result.value : null;
 
   const years = new Map<string, Archive[]>();
-  for (const archive of (archives ?? []).filter(archive => archive.files.length > 0)
+  for (const archive of (archives ?? []).filter(archive => archive.files.some(file => file.format === "parquet"))
     .sort((a, b) => b.month.localeCompare(a.month))) {
     const year = archive.month.slice(0, 4);
     const months = years.get(year) ?? [];
@@ -26,8 +26,8 @@ export default function ArchiveDownloads() {
 
   return (
     <section id="monatsarchive" className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
-      <h2 className="text-2xl font-bold">Sensorarchive</h2>
-      <p className="text-sm text-slate-300">Gespeicherte öffentliche Daten als ZIP mit drei verknüpften Tabellen: Objekte, Messgrößen und Messwerte. CSV eignet sich für Tabellenprogramme, Parquet für kompakte Analysen. Für einen vollständigen Monat alle Teile desselben Formats herunterladen.</p>
+      <h2 className="text-2xl font-bold">Monatsarchive</h2>
+      <p className="text-sm text-slate-300">Vollständige öffentliche Monatsdaten aller Quellen als Parquet-ZIP mit drei verknüpften Tabellen: Objekte, Messgrößen und Messwerte. Originalwerte und Zeitpunkte bleiben erhalten. Für einen vollständigen Monat alle Teile herunterladen.</p>
       {archives === null ? (
         <p role="status" className="text-sm text-amber-300">Der Downloadkatalog ist momentan nicht erreichbar. Bitte später erneut versuchen.</p>
       ) : years.size === 0 ? (
@@ -46,7 +46,7 @@ export default function ArchiveDownloads() {
                     <h3 className="font-semibold">{new Date(`${archive.month}-01T00:00:00Z`).toLocaleDateString("de-DE", { month: "long", timeZone: "UTC" })}</h3>
                     <p className="text-sm text-slate-300">{archive.reading_count.toLocaleString("de-DE")} Messwerte{archive.is_complete ? "" : " · laufender Zeitraum"}</p>
                     <p className="text-xs text-slate-400">Stand {new Date(archive.generated_at).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" })}</p>
-                    {(["csv", "parquet"] as const).map(format => {
+                    {(["parquet"] as const).map(format => {
                       const files = archive.files.filter(file => (file.format ?? "csv") === format);
                       return files.length ? (
                         <div key={format} className="space-y-1">

@@ -59,8 +59,46 @@ test('weather conflicts require receipt-backed revision history and preserve sou
     const unexplained = (await client.query(ROWS, [start, end])).rows.find(row => row.reading.legacy_conflict);
     assert.deepEqual(unexplained.reading.legacy_variants.map(v => v.value).sort(), ['90', '91', '92']);
     assert.equal((await client.query('SELECT count(*) FROM sensor_data')).rows[0].count, '3');
+    await client.query(await readFile(new URL('../api/v1/migrations/20261101_weather_legacy_cleanup.sql', import.meta.url), 'utf8'));
+    assert.equal((await client.query('SELECT clean_weather_legacy($1,$2,$3,$4) AS cleaned',
+      ['weather-dwd-ried','relative_humidity','%',stamp])).rows[0].cleaned, false);
+    assert.equal((await client.query('SELECT count(*) FROM sensor_data')).rows[0].count, '3');
+    assert.equal((await client.query('SELECT count(*) FROM weather_legacy_repairs')).rows[0].count, '0');
   } finally {
     await client.query(`DROP SCHEMA ${schema} CASCADE`);
     await client.end();
   }
+});
+
+
+test('native TTN copies export once while unmatched values and hidden-native legacy remain', {
+  skip: !process.env.ARCHIVE_TEST_DATABASE_URL,
+}, async () => {
+  const client = new pg.Client({ connectionString: process.env.ARCHIVE_TEST_DATABASE_URL });
+  await client.connect();
+  const schema = `archive_gateway_test_${process.pid}`;
+  await client.query(`CREATE SCHEMA ${schema}; SET search_path TO ${schema}`);
+  const start = '2026-10-01', end = '2026-11-01';
+  try {
+    await client.query(`CREATE TABLE sensor_metadata(id text PRIMARY KEY,friendly_name text,latitude float,
+      longitude float,description text,is_hidden bool DEFAULT false);
+      CREATE TABLE sensor_data(timestamp timestamptz,sensor_id text,metric text,unit text,value float);
+      INSERT INTO sensor_metadata(id,friendly_name) VALUES('ttn-gw-test','Test'),('ttn-gw-hidden','Hidden');
+      INSERT INTO sensor_data VALUES ('2026-10-01','ttn-gw-test','online_status','state',1),
+        ('2026-10-02','ttn-gw-test','online_status','state',0),
+        ('2026-10-01','ttn-gw-hidden','online_status','state',1);`);
+    await client.query(await readFile(new URL('../api/v1/migrations/20260930_measurements.sql', import.meta.url), 'utf8'));
+    await includeLegacy(client, start, end);
+    await client.query(`INSERT INTO entities(id,name,entity_type,is_hidden) VALUES
+      ('lora:gateway:test','Gateway','lora_gateway',false),('lora:gateway:hidden','Hidden','lora_gateway',true);
+      SELECT write_measurement('lora:gateway:test','online_status','state','ttnmapper','observed','{}','2026-10-01',1,'2026-10-01','{}');
+      SELECT write_measurement('lora:gateway:hidden','online_status','state','ttnmapper','observed','{}','2026-10-01',1,'2026-10-01','{}');
+      SELECT write_measurement('sensor:ttn-gw-test','online_status','state','legacy-sensor:ttn-gw-test','unknown','{}','2026-10-01',1,'2026-10-01','{}','valid',NULL,NULL,'unknown');`);
+    const rows = (await client.query(ROWS, [start,end])).rows;
+    assert.equal(rows.length, 3);
+    assert.equal(rows.filter(row => row.entity.id === 'lora:gateway:test').length, 1);
+    assert.equal(rows.filter(row => row.entity.id === 'sensor:ttn-gw-test').length, 1);
+    assert.equal(rows.find(row => row.entity.id === 'sensor:ttn-gw-test').reading.value, '0');
+    assert.equal(rows.filter(row => row.entity.id === 'sensor:ttn-gw-hidden').length, 1);
+  } finally { await client.query(`DROP SCHEMA ${schema} CASCADE`); await client.end(); }
 });

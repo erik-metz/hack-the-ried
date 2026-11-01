@@ -52,8 +52,10 @@ def main():
         directory = args.output / period
         directory.mkdir(parents=True, exist_ok=True)
         for file in archive["files"]:
+            if file.get("format") != "parquet":
+                continue
             filename = file["filename"]
-            if not re.fullmatch(r"hack-the-ried-\d{4}(-(0[1-9]|1[0-2])|-Q[1-4])?-part-\d+\.zip", filename):
+            if not re.fullmatch(r"hack-the-ried-\d{4}(-(0[1-9]|1[0-2])|-Q[1-4])?(?:-v[34])?-part-\d+\.parquet\.zip", filename):
                 raise ValueError(f"Invalid archive filename: {filename}")
             if not file["url"].startswith("https://"):
                 raise ValueError("Archive URL must use HTTPS")

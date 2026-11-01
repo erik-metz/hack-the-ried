@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { drainCleanup, runArchives } from './worker.mjs';
 
 // Uses a dedicated temporary PostgreSQL instance, never the production database.
@@ -54,10 +54,9 @@ test('database export, publication, retry, replacement and visibility', { skip: 
       'Exporting legacy history must not copy it into canonical storage');
     assert.equal(row.is_complete, true);
     assert.deepEqual(row.station_ids, ['public']);
-    assert.ok(row.files.some(file => file.format === 'csv'));
+    assert.ok(row.files.every(file => file.format === 'parquet'));
     assert.ok(row.files.some(file => file.format === 'parquet'));
-    assert.equal(row.files.filter(file => file.format === 'csv').length,
-      row.files.filter(file => file.format === 'parquet').length);
+
     const previousKeys = row.files.map(file => file.key);
     const beforeSkip = sequence;
     await run();
@@ -77,15 +76,15 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     // Existing older-format catalogues are automatically upgraded, even if complete.
     await client.query("UPDATE data_archives SET format_version=1 WHERE month='2025-01'");
     await run();
-    assert.equal((await client.query('SELECT format_version FROM data_archives')).rows[0].format_version, 3);
+    assert.equal((await client.query('SELECT format_version FROM data_archives')).rows[0].format_version, 4);
     // Automatic discovery: SQL must backfill February and skip existing January.
     await run({ requestedMonth: null });
     row = (await client.query("SELECT * FROM data_archives WHERE month='2025-02'")).rows[0];
     assert.equal(Number(row.reading_count), 1);
     // Ambiguous source values are preserved as conflict variants, never guessed.
     await client.query("INSERT INTO sensor_data VALUES ('2025-02-01T00:00:00Z','public','temperature',999,'C')");
-    await run({ requestedMonth: '2025-02', refresh: true });
-    assert.equal(Number((await client.query("SELECT reading_count FROM data_archives WHERE month='2025-02'")).rows[0].reading_count), 2);
+    await assert.rejects(run({ requestedMonth: '2025-02', refresh: true }), /repair source data/);
+    assert.equal(Number((await client.query("SELECT reading_count FROM data_archives WHERE month='2025-02'")).rows[0].reading_count), 1);
     await client.query("DELETE FROM sensor_data WHERE value=999 AND timestamp='2025-02-01T00:00:00Z'");
     await client.query("UPDATE sensor_metadata SET is_hidden=true WHERE id='public'");
     await run();
@@ -125,14 +124,21 @@ test('core export reads canonical values and still honours station visibility', 
     let csv = '';
     const storage = {
       async upload(file) {
-        if (file.format === 'csv') csv = await readFile(path.join(path.dirname(file.path), 'part-1', 'readings.csv'), 'utf8');
+        assert.equal(file.format, 'parquet');
+        csv = execFileSync(process.env.PYTHON || 'python3', ['-c', `
+import io,json,sys,zipfile,pyarrow.parquet as pq
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    assert set(archive.namelist()) == {'entities.parquet','measurement_definitions.parquet','readings.parquet','manifest.json','README.txt'}
+    rows = pq.ParquetFile(io.BytesIO(archive.read('readings.parquet'))).read(use_threads=False).to_pylist()
+    print(json.dumps(rows,default=str))
+`, file.path], { encoding: 'utf8' });
         return { key: 'canonical-key', url: 'https://test.ufs.sh/f/canonical' };
       },
       async remove() {},
     };
     process.env.MEASUREMENT_READ_MODE = 'core';
     await runArchives({ storage, dbConfig, requestedMonth: '2025-01' });
-    assert.match(csv, /,20\.125,/);
+    assert.match(csv, /20\.125/);
     assert.doesNotMatch(csv, /9999/);
     assert.equal(Number((await client.query('SELECT reading_count FROM data_archives')).rows[0].reading_count), 1);
     await client.query(`INSERT INTO entities(id,name,entity_type) VALUES('model:test','Model','model');
@@ -140,7 +146,7 @@ test('core export reads canonical values and still honours station visibility', 
         '2025-01-02T00:00:00.123456Z',-1.234567890123456789,'2025-01-02','{}');`);
     await runArchives({ storage, dbConfig, requestedMonth: '2025-01', refresh: true });
     assert.match(csv, /-1\.234567890123456789/);
-    assert.match(csv, /00:00:00\.123456Z/);
+    assert.match(csv, /00:00:00\.123456\+00:00/);
     assert.equal(Number((await client.query('SELECT reading_count FROM data_archives')).rows[0].reading_count), 2);
     // A currently public iNaturalist observation must never enter a durable ZIP.
     await client.query(`INSERT INTO entities(id,name,entity_type,metadata)

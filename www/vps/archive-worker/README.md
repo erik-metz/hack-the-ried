@@ -1,173 +1,107 @@
-# Public monthly archives
+# Public monthly Parquet archives
 
-The opt-in Node 22 worker exports **all public canonical measurements**, bypassing the
-interactive API's 5,000-row cap. It streams hourly repeatable-read PostgreSQL snapshots
-to CSV parts (64 MiB uncompressed by default), creates a matching Parquet ZIP for
-each part, uploads both variants to UploadThing and atomically publishes the month's catalogue record. No
-measurements are truncated. The API serves `GET /api/v1/archives`; the Daten page
-lists every part and a Python script downloads whole years or the entire archive.
+The worker exports all public sources together as a monthly snapshot of three
+tables: `entities`, `measurement_definitions`, and `readings`. Observations and
+simulations keep their stored source, basis, values and original timestamps.
+There is no time alignment, interpolation, resampling or additional labelling.
+The existing public-data visibility rules still apply.
 
-## Activate on the VPS
+Each ZIP contains the three Parquet tables, `manifest.json` and `README.txt`.
+Large months have several numbered ZIP parts. Download all parts for the full
+month; merge entities and definitions by `id`. Every part is referentially
+complete. Format version 4 publishes **only Parquet**, without CSV copies,
+day packages or on-demand monthly CSV generation. Existing older catalogues are
+rebuilt automatically and replaced only after their new files are uploaded.
 
-1. Deploy/restart the updated backend API first. Its idempotent schema migration
-   creates `data_archives` in the existing database.
-2. Create a dedicated UploadThing app. Enable **Allow Overriding ACL** so the
-   worker can explicitly upload `public-read` files. Confirm the account's storage
-   allowance and file limits for ZIP downloads. No browser upload route is needed.
-3. Copy the archive settings from [`../.env.example`](../.env.example) into the
-   VPS Compose `.env` and set `UPLOADTHING_TOKEN=...` (never commit it). The
-   token belongs only to the worker, not the frontend or any public environment.
-   Optionally set `ARCHIVE_PART_MB=64` (1–256 MiB). This is the approximate maximum
-   CSV size per ZIP; metadata and ZIP overhead add a little to the final file.
-4. After pushing the changes to `main`, wait for the GHCR build to succeed.
-   Copy the updated `docker-compose.yml` to the VPS. From the directory containing
-   that file (for example `/home/ubuntu/my-app`), run:
+IDs and exact decimal values are strings to avoid precision loss. Timestamps
+retain UTC microseconds. Structured fields remain JSON text. Unknown original
+receipt times remain null; metadata reflects export time. Hourly repeatable-read
+snapshots release database locks regularly; late corrections may require refresh.
+
+## Data quality
+
+Unresolved legacy conflicts stop publication. The worker never chooses an
+arbitrary value or creates an extra conflict table. Repair the source data first.
+Verified provider corrections remain in the canonical revision history and the
+archived provider responses. The operational `clean_weather_legacy` routine
+preserves the old compatibility rows in `weather_legacy_repairs` before replacing
+them with the receipt-backed current model value. Incorrectly dated TTN gateway
+statuses are handled by the explicit, separately backed-up procedure in
+[`../ttnmapper-collector/README.md`](../ttnmapper-collector/README.md).
+
+The worker prepares missing legacy entity/measurement definitions and streams
+missing legacy history without copying it all into canonical storage. Current
+canonical values take precedence for the same definition and timestamp. It does
+not enable shadow writes or change API read mode.
+
+## Deployment
+
+1. Deploy the API catalogue schema and measurement migrations first, including
+   `20261101_weather_legacy_cleanup.sql`. Complete source-data repairs before
+   publishing a new archive.
+2. Configure a dedicated UploadThing app with **Allow Overriding ACL**, and set
+   `UPLOADTHING_TOKEN` in the VPS Compose environment. The token stays server-side.
+3. Wait for CI and GHCR publication for the exact pushed commit, then pull and
+   recreate the service from the VPS Compose directory:
 
    ```sh
-   docker compose --profile archives pull backend-api archive-worker
-   docker compose up -d backend-api
+   docker compose --profile archives pull archive-worker
    docker compose --profile archives run --rm archive-worker node worker.mjs
    docker compose --profile archives up -d archive-worker
-   docker compose logs -f archive-worker
+   docker compose logs --tail=50 archive-worker
+   docker compose exec archive-worker cat /data/status.json
+   curl --fail https://hack-the-ried.duckdns.org/api/v1/archives
    ```
 
-The first run backfills closed months from the earliest public reading. The
-service checks on startup and every 24 hours for missing closed months. Failed
-runs retry on the next check; a PostgreSQL advisory lock prevents overlapping
-workers. The current month is normally left to the live API. No external
-scheduler or AWS account is necessary. The service is opt-in and uses
-`ghcr.io/erik-metz/hack-the-ried-archive-worker:latest`, built by GitHub Actions
-after the validation jobs pass. No source folder or Docker build tools are
-needed on the VPS. Production Watchtower runs in monitor-only mode: it reports
-new images but does not update or start this service. Image publication alone
-does not deploy the worker or regenerate any archives. After each archive release,
-pull the image, recreate the service, and verify its logs and public catalogue.
-If the new GHCR package is private,
-make it public or configure the same registry credentials used for the other
-services before pulling it.
+Watchtower only monitors images; image publication does not deploy this service.
+Confirm that the latest closed month is published and every nonempty catalogue
+entry has only `parquet` files. A running container alone is not evidence of a
+successful export. The Daten page links to the UploadThing files directly.
 
-Verify the rollout, including historical Parquet publication:
+The worker runs on startup and every 24 hours, retries failures with backoff,
+and uses a PostgreSQL advisory lock to prevent overlapping exports. It backfills
+closed months from the earliest public data. No external scheduler is needed.
+Empty months have no files. One-shot failures exit nonzero; watch mode retains
+failure state and retries. The API serves `GET /api/v1/archives`.
 
-```sh
-docker compose --profile archives ps archive-worker
-docker compose logs --tail=50 archive-worker
-docker compose exec archive-worker cat /data/status.json
-curl --fail https://hack-the-ried.duckdns.org/api/v1/archives
-```
+## Resources and recovery
 
-Confirm that the most recently closed month exists and every nonempty month has
-both `csv` and `parquet` files. A running container alone does not prove that its
-export succeeded. Ambiguous legacy keys are preserved in an optional
-`legacy_conflicts` table, rather than choosing one of their values.
+`ARCHIVE_PART_MB=64` controls the approximate uncompressed JSON input per part
+(1–256 MiB). Metadata is written once per part, not once per reading. Temporary
+disk holds one part's input, Parquet tables and ZIP. Each completed part is
+uploaded immediately and its local files removed. The catalogue is updated only
+after the entire month succeeds. Incomplete uploads and replaced files enter a
+persistent cleanup queue; cleanup uses batches of at most 100 keys.
 
-## Refreshes and current-month snapshots
+Memory is bounded by cursor batches, one part's metadata and Parquet row groups.
+The image includes Python and PyArrow; the SDK uploads disk-backed Blobs. Do not
+run this exporter in a serverless request. A crash between upload and publication
+can leave orphan files: inspect the dedicated UploadThing app before removing any.
 
-Closed archives are snapshots, not promises that no late data will arrive.
-Refresh a month after late ingestion, corrections, or a change in public data:
+Refresh a month after late ingestion or correction:
 
 ```sh
-docker compose --profile archives run --rm archive-worker node worker.mjs --month 2026-09 --refresh
+docker compose --profile archives run --rm archive-worker node worker.mjs --month 2026-10 --refresh
 ```
 
-An explicit current month export is allowed and labelled incomplete. It is
-replaced by a full-month snapshot on the automatic run after month end. Completed
-months are otherwise skipped, avoiding repeated uploads and maintaining stable
-hackathon snapshots. A refresh publishes the new set before removing the old
-remote files. Previously downloaded copies remain usable; their saved checksums
-and catalogue identify their version.
+An explicit current-month snapshot is labelled incomplete and replaced after
+month end. Completed unchanged months are skipped. Visibility changes invalidate
+existing catalogue entries; remote cleanup cannot recall downloaded copies.
 
-Snapshots containing a now-hidden or deleted station are immediately excluded
-from the catalogue. On the next worker run their remote files are deleted and
-closed months are rebuilt from the remaining public stations. Already shared
-public URLs may remain usable until deletion/CDN expiry; downloaded copies cannot
-be recalled. Hiding a station is not retroactive revocation of published data.
-
-## Contents and resources
-
-Each monthly part has two ZIPs, labelled `csv` and `parquet` in the catalogue.
-Both contain `entities`, `measurement_definitions`, `readings`, `manifest.json`,
-and `README.txt` (format version 3). Parts with ambiguous legacy keys additionally
-contain `legacy_conflicts` in the selected format. It records `measurement_id`,
-`observed_at`, every distinct `value`, and `source_row_count`. These alternatives
-must not be treated as independent verified observations. The manifest provides
-separate counts; catalogue `reading_count` includes readings and conflict variants.
-Each part includes exactly the entities and
-definitions referenced by its readings. Metadata may repeat across parts; merge
-it by `id`. Numeric values and bigint IDs are retained as exact strings in both
-formats; Parquet stores timestamps as UTC microsecond timestamps. Structured
-fields are JSON text. Metadata reflects export time, not historical versions.
-Sources/licences follow `source_id` and the project source catalogue.
-
-Before taking the read snapshot, the worker prepares missing entity/measurement
-definitions and checks legacy conflicts. Missing legacy readings are streamed
-directly into the download alongside canonical readings; the export does not
-copy the full legacy history into canonical storage. Existing canonical values
-take precedence for the same definition and timestamp. The export does not
-enable shadow writes or change API read mode. Legacy source/basis uncertainty
-is explicitly retained; unknown original receipt times remain null.
-Identical legacy duplicates collapse to one canonical key. Weather corrections
-are reconciled only when the existing source-aware weather stream and revision
-history explain every legacy value with a verified provider receipt. Replay the
-archived source responses first using the existing weather replay procedure.
-All conflicting source variants, including unresolved ones, are preserved in the
-separate conflict table with their exact values and original multiplicities.
-No production history is deleted and no arbitrary minimum/maximum is selected
-for a conflicting key. A canonical value, if present, remains in `readings`.
-
-Deploy the updated backend first: its idempotent schema adds `format_version`
-and `entity_ids` to the archive catalogue. The worker automatically regenerates
-all pre-format-3 catalogue entries, including empty months, and discovers closed
-months from both public canonical and legacy history. New files are fully
-uploaded and published before old files are queued for deletion. Both entity and
-legacy sensor visibility are checked at export, publication and catalogue read.
-
-Temporary disk accommodates one part's CSV, Parquet input, and ZIPs. Each matching
-CSV/Parquet pair is uploaded immediately, then its local files are removed.
-The catalogue is published only after the entire month succeeds; failed partial
-uploads are queued for deletion. Database reads use hourly repeatable-read
-snapshots to avoid sorting a whole month's JSON on local disk or retaining
-relation locks for the entire export. The manifest declares
-`snapshot_consistency: hourly`; late corrections during the export can require
-a refresh.
-Memory is bounded by cursor batches, stream buffers, metadata, and SDK
-upload buffering. Files are uploaded one at a time using disk-backed Blobs;
-archives are served directly by UploadThing, never proxied through Next.js.
-Reduce `ARCHIVE_PART_MB` if a single part exceeds temporary disk capacity.
-Do not use a serverless request to run this worker.
-
-Each hourly read transaction can span CSV/ZIP generation and part uploads, then
-releases its locks before the next window. Catalogue publication happens after
-all windows finish. Plan large backfills for low-traffic periods. An empty month
-is recorded with zero files.
-A crash after uploading but before publishing, or a failed old-file deletion,
-can leave unreferenced files in UploadThing; inspect the dedicated app for these
-before deleting anything. Catalogue entries only refer to fully uploaded sets.
-The worker exits nonzero on one-shot failure; watch mode logs failure and retries.
-
-## Storage abstraction and testing
-
-`storage.mjs` implements only `upload(file)` and `remove(keys)`. Replace that
-adapter for S3 later; the export layout and catalogue need not change.
+## Tests and bulk downloads
 
 ```sh
 npm ci
 npm test
-# Optional isolated PostgreSQL integration test:
+# Use an explicitly isolated PostgreSQL database for integration tests:
 # ARCHIVE_TEST_DATABASE_URL=postgresql://user:password@localhost/testdb npm test
 ```
 
-The frontend's `public/downloads/download_archives.py` uses only Python's standard
-library. `--year YYYY` selects a year; omitting it downloads every published part.
-Checksums are verified before replacing existing files. Reruns skip verified
-files and retry interrupted files from their start; ZIPs are not auto-extracted.
+Tests use PyArrow round trips to check exact numeric values, original text,
+microsecond timestamps, table references, checksums, cleanup and conflict failure.
+`storage.mjs` exposes `upload(file)` and `remove(keys)` for a future storage adapter.
 
-The worker image includes Python and PyArrow for bounded-memory Parquet writing.
-Local `npm test` runs the Parquet round-trip test when PyArrow is installed; CI
-installs the same dependency before running the worker tests.
-
-The dependency override for `effect` keeps the UploadThing SDK on a patched
-3.x release (GHSA-38f7-945m-qr2g). The SDK upload/delete test covers this combination.
-
-## Collector operational conventions
-
-Watch-mode status, retry scheduling, the persistent cleanup queue and deployment order are documented in [collector maintenance](../collectors.md#archive-worker). Apply the updated API schema before running this version.
+The frontend's `public/downloads/download_archives.py` downloads Parquet archives
+with Python's standard library. Use `--month YYYY-MM`, `--year YYYY`, or no filter
+for all archives. It verifies size and SHA-256, skips verified files and preserves
+the catalogue used. ZIPs are not automatically extracted.

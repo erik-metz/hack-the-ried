@@ -1,4 +1,4 @@
-"""Convert one CSV archive part into a typed Parquet ZIP part."""
+"""Write the three original tables as a lossless, compressed Parquet ZIP part."""
 import json
 import sys
 import zipfile
@@ -11,7 +11,6 @@ COLUMNS = {
     'entities': ['id', 'name', 'entity_type', 'metadata'],
     'measurement_definitions': ['id', 'entity_id', 'metric', 'unit', 'source_id', 'basis', 'dimensions', 'semantics', 'minimum', 'maximum'],
     'readings': ['measurement_id', 'observed_at', 'value', 'quality', 'collected_at', 'period_start', 'period_end', 'provenance', 'revision'],
-    'legacy_conflicts': ['measurement_id', 'observed_at', 'value', 'source_row_count'],
 }
 TIMES = {'observed_at', 'collected_at', 'period_start', 'period_end'}
 INTS = {'revision'}
@@ -36,24 +35,23 @@ def normalize(row, table):
 def convert(source_dir, source_rows, output, manifest_path, readme_path):
     schemas = {}
     writers = {}
-    metadata = {'entities': {}, 'measurement_definitions': {}}
+    metadata = {}
+    for table in ('entities', 'measurement_definitions'):
+        with open(f'{source_dir}/{table}.json', encoding='utf8') as source:
+            metadata[table] = json.load(source)
     counts = {'entities': 0, 'measurement_definitions': 0, 'readings': 0}
     for table, columns in COLUMNS.items():
         schema = pa.schema([pa.field(c, pa.timestamp('us', tz='UTC') if c in TIMES else
             pa.int64() if c in INTS else pa.string(), nullable=True) for c in columns])
         schemas[table] = schema
         writers[table] = pq.ParquetWriter(f'{source_dir}/{table}.parquet', schema, compression='zstd')
-    batches = {'readings': [], 'legacy_conflicts': []}
+    batches = {'readings': []}
     try:
         with open(source_rows, encoding='utf8') as stream:
             for line in stream:
-                record = json.loads(line)
-                for table, key in (('entities', 'id'), ('measurement_definitions', 'id')):
-                    row = record['entity' if table == 'entities' else 'definition']
-                    metadata[table][str(row[key])] = row
-                table = record.get('table', 'readings')
+                table = 'readings'
                 batch = batches[table]
-                batch.append(normalize(record['reading'], table))
+                batch.append(normalize(json.loads(line), table))
                 counts[table] = counts.get(table, 0) + 1
                 if len(batch) == 10_000:
                     writers[table].write_table(pa.Table.from_pylist(batch, schema=schemas[table]))
@@ -62,7 +60,7 @@ def convert(source_dir, source_rows, output, manifest_path, readme_path):
             if batch:
                 writers[table].write_table(pa.Table.from_pylist(batch, schema=schemas[table]))
         for table in ('entities', 'measurement_definitions'):
-            batch = [normalize(row, table) for row in metadata[table].values()]
+            batch = [normalize(row, table) for row in metadata[table]]
             counts[table] = len(batch)
             for offset in range(0, len(batch), 10_000):
                 writers[table].write_table(pa.Table.from_pylist(batch[offset:offset + 10_000], schema=schemas[table]))

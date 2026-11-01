@@ -69,6 +69,17 @@ class EnvironmentStorageTests(DatabaseCase):
                 WHERE sensor_id='weather-dwd-ried' AND metric='relative_humidity'"""),66)
             self.assertEqual(await self.scalar("""SELECT value FROM sensor_latest
                 WHERE sensor_id='weather-dwd-ried' AND metric='relative_humidity'"""),66)
+            self.assertEqual(await self.scalar("""SELECT count(*) FROM sensor_data
+                WHERE sensor_id='weather-dwd-ried' AND metric='relative_humidity'"""),1)
+            self.assertEqual(await self.scalar("""SELECT value FROM sensor_data
+                WHERE sensor_id='weather-dwd-ried' AND metric='relative_humidity'"""),66)
+            self.assertGreater(await self.scalar("SELECT count(*) FROM weather_legacy_repairs"),0)
+            original = await self.scalar("""SELECT original_rows FROM weather_legacy_repairs
+                WHERE metric='relative_humidity' ORDER BY id LIMIT 1""")
+            self.assertEqual(sorted(row['value'] for row in original), [65,66])
+            self.assertEqual(await self.scalar("""SELECT count(*) FROM reading_revisions v
+                JOIN measurement_definitions d ON d.id=v.measurement_id
+                WHERE d.source_id='environment-weather' AND d.metric='relative_humidity'"""),1)
             payload['weather_attempt_id'] = -1
             with self.assertRaises(ValueError):
                 await persist_environment_data(self.conn,[],weather,now,payload=payload)
