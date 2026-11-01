@@ -5,7 +5,7 @@ export const PUBLIC = `e.entity_type <> 'inaturalist_observation' AND NOT e.is_h
     WHERE s.id=substr(e.id,8) AND NOT s.is_hidden))`;
 
 /** Prepare legacy definitions; stream missing readings without copying their history.
- * Legacy duplicates with conflicting values must be resolved, not guessed.
+ * Unresolved legacy variants are exported separately, never guessed.
  * This preparation does not enable shadow writes or API cutover.
  */
 export async function includeLegacy(client, start, end) {
@@ -18,11 +18,10 @@ export async function includeLegacy(client, start, end) {
       GROUP BY t.timestamp,t.sensor_id,t.metric,t.unit HAVING count(DISTINCT t.value)>1`, params);
     if (conflicts.rowCount) {
       const available = await client.query("SELECT to_regprocedure('reconcile_weather_history(text,text,text,timestamptz)') IS NOT NULL AS available");
-      if (!available.rows[0].available) throw new Error('Conflicting legacy samples; resolve before monthly export');
-      for (const row of conflicts.rows) {
-        const result = await client.query('SELECT reconcile_weather_history($1,$2,$3,$4) AS reconciled',
+      if (available.rows[0].available) for (const row of conflicts.rows) {
+        if (row.sensor_id !== 'weather-dwd-ried') continue;
+        await client.query('SELECT reconcile_weather_history($1,$2,$3,$4)',
           [row.sensor_id, row.metric, row.unit, row.timestamp]);
-        if (!result.rows[0].reconciled) throw new Error('Conflicting legacy samples; resolve before monthly export');
       }
     }
     await client.query(`INSERT INTO entities(id,name,entity_type,metadata,is_hidden)
@@ -56,17 +55,20 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
       to_char(t.timestamp AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
       'value',t.value::text,'quality','valid','collected_at',NULL,'period_start',NULL,'period_end',NULL,
       'provenance',jsonb_build_object('legacy_table','sensor_data','basis_unverified',true),'revision',0,
-      'legacy_conflict',t.variants>1),
+      'legacy_conflict',t.variants>1,'legacy_variants',t.legacy_variants),
     t.timestamp,d.id
   FROM (
-    SELECT t.sensor_id,t.metric,t.unit,t.timestamp,min(legacy_numeric(t.value)) AS value,
-      count(DISTINCT t.value) AS variants
-    FROM sensor_data t JOIN sensor_metadata s ON s.id=t.sensor_id
-    WHERE NOT s.is_hidden AND t.timestamp >= $1 AND t.timestamp < $2 AND t.value IS NOT NULL
-    GROUP BY t.sensor_id,t.metric,t.unit,t.timestamp
+    SELECT sensor_id,metric,unit,timestamp,min(value) AS value,count(*) AS variants,
+      jsonb_agg(jsonb_build_object('value',value::text,'source_row_count',source_row_count)) AS legacy_variants
+    FROM (
+      SELECT t.sensor_id,t.metric,t.unit,t.timestamp,legacy_numeric(t.value) AS value,count(*)::text AS source_row_count
+      FROM sensor_data t JOIN sensor_metadata s ON s.id=t.sensor_id
+      WHERE NOT s.is_hidden AND t.timestamp >= $1 AND t.timestamp < $2 AND t.value IS NOT NULL
+      GROUP BY t.sensor_id,t.metric,t.unit,t.timestamp,t.value
+    ) variants GROUP BY sensor_id,metric,unit,timestamp
   ) t JOIN measurement_definitions d ON d.entity_id='sensor:'||t.sensor_id
     AND d.source_id='legacy-sensor:'||t.sensor_id AND d.metric=t.metric AND d.unit=t.unit
     AND d.basis='unknown' AND d.dimensions='{}'::jsonb
   JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
-    AND NOT EXISTS (SELECT 1 FROM readings r WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp)
+    AND (t.variants>1 OR NOT EXISTS (SELECT 1 FROM readings r WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp))
   ) samples ORDER BY sort_time,sort_id`;

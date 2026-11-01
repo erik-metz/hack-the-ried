@@ -133,3 +133,35 @@ test('canonical numeric strings retain exact negative decimals and large IDs', (
   assert.ok(line.startsWith('9007199254740993,"",-1.234567890123456789,'));
   assert.throws(() => tableLine('readings', { value: '=BAD()' }));
 });
+
+test('CSV and Parquet retain every conflicting legacy value and its source count', { skip: !hasPyArrow }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'archive-conflict-test-'));
+  try {
+    const entity = { id: 'gateway', name: 'Gateway' };
+    const definition = { id: '1', entity_id: 'gateway' };
+    const reading = { measurement_id: '1', observed_at: '2026-10-05T09:32:52.818823Z', value: '5' };
+    const result = await buildArchives([
+      { entity, definition, reading },
+      { entity, definition, reading: { ...reading, legacy_conflict: true,
+        legacy_variants: [{ value: '0', source_row_count: '2' }, { value: '1', source_row_count: '1' }] } },
+    ], directory, '2026-10', '2026-11-01T00:00:00Z');
+    assert.equal(result.reading_count, 3);
+    execFileSync(python, ['-c', `
+import csv,io,json,sys,zipfile,pyarrow.parquet as pq
+for filename in sys.argv[1:]:
+    with zipfile.ZipFile(filename) as z:
+        fmt = 'parquet' if filename.endswith('.parquet.zip') else 'csv'
+        def rows(table):
+            raw = z.read(table+'.'+fmt)
+            return (pq.ParquetFile(io.BytesIO(raw)).read(use_threads=False).to_pylist() if fmt == 'parquet'
+                else list(csv.DictReader(io.StringIO(raw.decode('utf-8-sig')))))
+        conflicts = rows('legacy_conflicts')
+        assert [(r['value'],r['source_row_count']) for r in conflicts] == [('0','2'),('1','1')]
+        assert all(r['measurement_id'] == '1' for r in conflicts)
+        assert [r['value'] for r in rows('readings')] == ['5']
+        manifest = json.loads(z.read('manifest.json'))
+        assert manifest['tables']['readings'] == 1 and manifest['tables']['legacy_conflicts'] == 2
+        assert manifest['reading_count'] == 3
+`, ...result.files.map(file => file.path)]);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

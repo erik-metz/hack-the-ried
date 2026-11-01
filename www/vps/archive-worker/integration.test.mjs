@@ -82,10 +82,10 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     await run({ requestedMonth: null });
     row = (await client.query("SELECT * FROM data_archives WHERE month='2025-02'")).rows[0];
     assert.equal(Number(row.reading_count), 1);
-    // A conflicting legacy duplicate stops the period before any publication.
+    // Ambiguous source values are preserved as conflict variants, never guessed.
     await client.query("INSERT INTO sensor_data VALUES ('2025-02-01T00:00:00Z','public','temperature',999,'C')");
-    await assert.rejects(run({ requestedMonth: '2025-02', refresh: true }), /Conflicting legacy/);
-    assert.equal(Number((await client.query("SELECT reading_count FROM data_archives WHERE month='2025-02'")).rows[0].reading_count), 1);
+    await run({ requestedMonth: '2025-02', refresh: true });
+    assert.equal(Number((await client.query("SELECT reading_count FROM data_archives WHERE month='2025-02'")).rows[0].reading_count), 2);
     await client.query("DELETE FROM sensor_data WHERE value=999 AND timestamp='2025-02-01T00:00:00Z'");
     await client.query("UPDATE sensor_metadata SET is_hidden=true WHERE id='public'");
     await run();

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
-import { includeLegacy } from './canonical.mjs';
+import { includeLegacy, ROWS } from './canonical.mjs';
 
 test('weather conflicts require receipt-backed revision history and preserve source rows', {
   skip: !process.env.ARCHIVE_TEST_SOCKET && !process.env.ARCHIVE_TEST_DATABASE_URL,
@@ -30,9 +30,14 @@ test('weather conflicts require receipt-backed revision history and preserve sou
     }
     await client.query(`INSERT INTO sensor_data VALUES ($1,'weather-dwd-ried','relative_humidity','%',92),
       ($1,'weather-dwd-ried','relative_humidity','%',90)`, [stamp]);
-    await assert.rejects(includeLegacy(client, start, end), /Conflicting legacy/);
+    await includeLegacy(client, start, end);
+    const ambiguous = (await client.query(ROWS, [start, end])).rows;
+    assert.equal(ambiguous.length, 1);
+    assert.equal(ambiguous[0].reading.legacy_conflict, true);
+    assert.deepEqual(ambiguous[0].reading.legacy_variants.map(v => v.value).sort(), ['90', '92']);
+    assert.equal((await client.query('SELECT count(*) FROM readings')).rows[0].count, '0');
     await client.query(`INSERT INTO entities(id,name,entity_type)
-      VALUES ('sensor:weather-dwd-ried','Weather','weather_model');
+      VALUES ('sensor:weather-dwd-ried','Weather','weather_model') ON CONFLICT DO NOTHING;
       INSERT INTO collection_attempts VALUES (1,'environment-weather',200,'success','first'),
         (2,'environment-weather',200,'success','corrected');`);
     for (const [value, received, attempt, hash] of [
@@ -50,7 +55,9 @@ test('weather conflicts require receipt-backed revision history and preserve sou
     assert.equal((await client.query('SELECT count(*) FROM sensor_data')).rows[0].count, '2');
     assert.equal((await client.query("SELECT previous_record->>'value' AS value FROM reading_revisions")).rows[0].value, '92');
     await client.query(`INSERT INTO sensor_data VALUES ($1,'weather-dwd-ried','relative_humidity','%',91)`, [stamp]);
-    await assert.rejects(includeLegacy(client, start, end), /Conflicting legacy/);
+    await includeLegacy(client, start, end);
+    const unexplained = (await client.query(ROWS, [start, end])).rows.find(row => row.reading.legacy_conflict);
+    assert.deepEqual(unexplained.reading.legacy_variants.map(v => v.value).sort(), ['90', '91', '92']);
     assert.equal((await client.query('SELECT count(*) FROM sensor_data')).rows[0].count, '3');
   } finally {
     await client.query(`DROP SCHEMA ${schema} CASCADE`);

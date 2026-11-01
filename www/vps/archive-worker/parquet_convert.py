@@ -11,6 +11,7 @@ COLUMNS = {
     'entities': ['id', 'name', 'entity_type', 'metadata'],
     'measurement_definitions': ['id', 'entity_id', 'metric', 'unit', 'source_id', 'basis', 'dimensions', 'semantics', 'minimum', 'maximum'],
     'readings': ['measurement_id', 'observed_at', 'value', 'quality', 'collected_at', 'period_start', 'period_end', 'provenance', 'revision'],
+    'legacy_conflicts': ['measurement_id', 'observed_at', 'value', 'source_row_count'],
 }
 TIMES = {'observed_at', 'collected_at', 'period_start', 'period_end'}
 INTS = {'revision'}
@@ -42,7 +43,7 @@ def convert(source_dir, source_rows, output, manifest_path, readme_path):
             pa.int64() if c in INTS else pa.string(), nullable=True) for c in columns])
         schemas[table] = schema
         writers[table] = pq.ParquetWriter(f'{source_dir}/{table}.parquet', schema, compression='zstd')
-    batch = []
+    batches = {'readings': [], 'legacy_conflicts': []}
     try:
         with open(source_rows, encoding='utf8') as stream:
             for line in stream:
@@ -50,13 +51,16 @@ def convert(source_dir, source_rows, output, manifest_path, readme_path):
                 for table, key in (('entities', 'id'), ('measurement_definitions', 'id')):
                     row = record['entity' if table == 'entities' else 'definition']
                     metadata[table][str(row[key])] = row
-                batch.append(normalize(record['reading'], 'readings'))
-                counts['readings'] += 1
+                table = record.get('table', 'readings')
+                batch = batches[table]
+                batch.append(normalize(record['reading'], table))
+                counts[table] = counts.get(table, 0) + 1
                 if len(batch) == 10_000:
-                    writers['readings'].write_table(pa.Table.from_pylist(batch, schema=schemas['readings']))
+                    writers[table].write_table(pa.Table.from_pylist(batch, schema=schemas[table]))
                     batch.clear()
-        if batch:
-            writers['readings'].write_table(pa.Table.from_pylist(batch, schema=schemas['readings']))
+        for table, batch in batches.items():
+            if batch:
+                writers[table].write_table(pa.Table.from_pylist(batch, schema=schemas[table]))
         for table in ('entities', 'measurement_definitions'):
             batch = [normalize(row, table) for row in metadata[table].values()]
             counts[table] = len(batch)
@@ -73,7 +77,7 @@ def main():
     with open(manifest_path, encoding='utf8') as stream:
         manifest = json.load(stream)
     with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_STORED) as archive:
-        for table in COLUMNS:
+        for table in manifest['tables']:
             target = f'{directory}/{table}.parquet'
             archive.write(target, f'{table}.parquet')
         manifest['format'] = 'parquet'

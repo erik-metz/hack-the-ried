@@ -55,8 +55,9 @@ export const COLUMNS = {
   entities: ['id', 'name', 'entity_type', 'metadata'],
   measurement_definitions: ['id', 'entity_id', 'metric', 'unit', 'source_id', 'basis', 'dimensions', 'semantics', 'minimum', 'maximum'],
   readings: ['measurement_id', 'observed_at', 'value', 'quality', 'collected_at', 'period_start', 'period_end', 'provenance', 'revision'],
+  legacy_conflicts: ['measurement_id', 'observed_at', 'value', 'source_row_count'],
 };
-const numericColumns = new Set(['measurement_id', 'value', 'revision', 'minimum', 'maximum']);
+const numericColumns = new Set(['measurement_id', 'value', 'revision', 'minimum', 'maximum', 'source_row_count']);
 export function tableLine(table, row) {
   return COLUMNS[table].map(column => {
     const value = row[column];
@@ -88,6 +89,10 @@ Current-month snapshots are incomplete. Late arrivals require a refreshed snapsh
 Sources and licensing: see source_id and https://hack-the-ried.de/quellen.
 Text starting with spreadsheet formula characters is protected by an apostrophe.
 manifest.json contains the UTC period, snapshot, part and table counts.
+If present, legacy_conflicts contains every distinct value for ambiguous legacy keys.
+These are alternatives, not verified readings. source_row_count retains their multiplicity.
+Do not select MIN/MAX or combine them with readings as independent observations.
+Catalogue reading_count includes readings plus distinct legacy conflict variants.
 `;
 
 /** Bounded reading stream; each part is independently referentially complete. */
@@ -95,12 +100,12 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
   const files = [];
   const entityIds = new Set();
   let entities = new Map(), definitions = new Map();
-  let output, completion, parquetInput, parquetCompletion, csvPath, parquetInputPath;
-  let count = 0, total = 0, bytes = 0, first = null, last = null;
+  let output, completion, conflictOutput, conflictCompletion, parquetInput, parquetCompletion, csvPath, conflictPath, parquetInputPath;
+  let count = 0, readingCount = 0, conflictCount = 0, total = 0, bytes = 0, first = null, last = null;
   const { start, end } = monthRange(month);
   async function finish() {
     if (!output) return;
-    output.end(); parquetInput.end(); await Promise.all([completion, parquetCompletion]);
+    output.end(); conflictOutput.end(); parquetInput.end(); await Promise.all([completion, conflictCompletion, parquetCompletion]);
     const part = Math.floor(files.length / 2) + 1;
     const basename = `hack-the-ried-${month}-v3-part-${String(part).padStart(4, '0')}`;
     const partDirectory = path.join(directory, `part-${part}`);
@@ -112,6 +117,7 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
     const saving = pipeline(zip.outputStream, createWriteStream(zipPath));
     const options = { mtime: start };
     zip.addFile(partReadingsPath, 'readings.csv', options);
+    if (conflictCount) zip.addFile(conflictPath, 'legacy_conflicts.csv', options);
     for (const [table, map] of [['entities', entities], ['measurement_definitions', definitions]]) {
       const tablePath = path.join(partDirectory, `${table}.csv`);
       await writeFile(tablePath, header(table) + [...map.values()].map(row => tableLine(table, row)).join(''));
@@ -120,7 +126,8 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
     const manifestPath = path.join(partDirectory, 'manifest.json');
     const readmePath = path.join(partDirectory, 'README.txt');
     await writeFile(manifestPath, JSON.stringify({ format_version: 3, format: 'csv', month, part, complete: true,
-      reading_count: count, tables: { entities: entities.size, measurement_definitions: definitions.size, readings: count },
+      reading_count: count, tables: { entities: entities.size, measurement_definitions: definitions.size,
+        readings: readingCount, ...(conflictCount ? { legacy_conflicts: conflictCount } : {}) },
       generated_at: generatedAt, start: start.toISOString(), end_exclusive: end.toISOString(),
       first_reading: first, last_reading: last }, null, 2));
     await writeFile(readmePath, readme);
@@ -143,14 +150,19 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
       await Promise.all(files.slice(-2).map(file => rm(file.path)));
     }
     await rm(partDirectory, { recursive: true });
+    await rm(conflictPath);
     await rm(parquetInputPath);
     output = undefined; entities = new Map(); definitions = new Map();
   }
   try {
     for await (const { entity, definition, reading } of rows) {
-      if (reading.legacy_conflict) throw new Error('Conflicting legacy samples appeared during export; retry after reconciliation');
       if (String(reading.measurement_id) !== String(definition.id) || definition.entity_id !== entity.id) throw new Error('Broken export reference');
-      const line = tableLine('readings', reading);
+      const table = reading.legacy_conflict ? 'legacy_conflicts' : 'readings';
+      const records = reading.legacy_conflict ? reading.legacy_variants.map(variant => ({
+        measurement_id: reading.measurement_id, observed_at: reading.observed_at, ...variant,
+      })) : [reading];
+      if (!records.length) throw new Error('Legacy conflict without source variants');
+      const line = records.map(row => tableLine(table, row)).join('');
       let size = Buffer.byteLength(line);
       if (!entities.has(entity.id)) size += Buffer.byteLength(tableLine('entities', entity));
       if (!definitions.has(definition.id)) size += Buffer.byteLength(tableLine('measurement_definitions', definition));
@@ -159,20 +171,29 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
         const part = Math.floor(files.length / 2) + 1;
         csvPath = path.join(directory, `part-${part}-readings.csv`);
         output = createWriteStream(csvPath); completion = once(output, 'finish'); completion.catch(() => {});
+        conflictPath = path.join(directory, `part-${part}-legacy-conflicts.csv`);
+        conflictOutput = createWriteStream(conflictPath);
+        conflictCompletion = once(conflictOutput, 'finish'); conflictCompletion.catch(() => {});
+        conflictOutput.write(header('legacy_conflicts'));
         parquetInputPath = path.join(directory, `part-${part}-parquet.ndjson`);
         parquetInput = createWriteStream(parquetInputPath);
         parquetCompletion = once(parquetInput, 'finish'); parquetCompletion.catch(() => {});
         output.write(header('readings')); bytes = Object.keys(COLUMNS).reduce((n, table) => n + Buffer.byteLength(header(table)), 0);
-        count = 0; first = reading.observed_at;
+        count = 0; readingCount = 0; conflictCount = 0; first = reading.observed_at;
       }
       if (!entities.has(entity.id)) bytes += Buffer.byteLength(tableLine('entities', entity));
       if (!definitions.has(definition.id)) bytes += Buffer.byteLength(tableLine('measurement_definitions', definition));
       entities.set(entity.id, entity); definitions.set(definition.id, definition); entityIds.add(entity.id);
-      if (!output.write(line)) await once(output, 'drain');
-      const parquetLine = `${JSON.stringify({ entity, definition, reading })}\n`;
-      if (!parquetInput.write(parquetLine)) await once(parquetInput, 'drain');
-      bytes += Buffer.byteLength(line); count++; total++; last = reading.observed_at;
+      const target = reading.legacy_conflict ? conflictOutput : output;
+      if (!target.write(line)) await once(target, 'drain');
+      for (const row of records) {
+        const parquetLine = `${JSON.stringify({ entity, definition, reading: row, table })}\n`;
+        if (!parquetInput.write(parquetLine)) await once(parquetInput, 'drain');
+      }
+      if (reading.legacy_conflict) conflictCount += records.length;
+      else readingCount += records.length;
+      bytes += Buffer.byteLength(line); count += records.length; total += records.length; last = reading.observed_at;
     }
     await finish(); return { files, reading_count: total, entity_ids: [...entityIds] };
-  } catch (error) { output?.destroy(); parquetInput?.destroy(); throw error; }
+  } catch (error) { output?.destroy(); conflictOutput?.destroy(); parquetInput?.destroy(); throw error; }
 }

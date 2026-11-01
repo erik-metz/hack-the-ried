@@ -57,8 +57,8 @@ curl --fail https://hack-the-ried.duckdns.org/api/v1/archives
 
 Confirm that the most recently closed month exists and every nonempty month has
 both `csv` and `parquet` files. A running container alone does not prove that its
-export succeeded. Conflicting legacy readings stop publication until source
-evidence resolves them; retain the existing archive while investigating.
+export succeeded. Ambiguous legacy keys are preserved in an optional
+`legacy_conflicts` table, rather than choosing one of their values.
 
 ## Refreshes and current-month snapshots
 
@@ -86,7 +86,12 @@ be recalled. Hiding a station is not retroactive revocation of published data.
 
 Each monthly part has two ZIPs, labelled `csv` and `parquet` in the catalogue.
 Both contain `entities`, `measurement_definitions`, `readings`, `manifest.json`,
-and `README.txt` (format version 3). Each part includes exactly the entities and
+and `README.txt` (format version 3). Parts with ambiguous legacy keys additionally
+contain `legacy_conflicts` in the selected format. It records `measurement_id`,
+`observed_at`, every distinct `value`, and `source_row_count`. These alternatives
+must not be treated as independent verified observations. The manifest provides
+separate counts; catalogue `reading_count` includes readings and conflict variants.
+Each part includes exactly the entities and
 definitions referenced by its readings. Metadata may repeat across parts; merge
 it by `id`. Numeric values and bigint IDs are retained as exact strings in both
 formats; Parquet stores timestamps as UTC microsecond timestamps. Structured
@@ -104,8 +109,10 @@ Identical legacy duplicates collapse to one canonical key. Weather corrections
 are reconciled only when the existing source-aware weather stream and revision
 history explain every legacy value with a verified provider receipt. Replay the
 archived source responses first using the existing weather replay procedure.
-Unexplained conflicting duplicates still fail the period. No production history
-is deleted and no arbitrary minimum/maximum is selected for a conflicting key.
+All conflicting source variants, including unresolved ones, are preserved in the
+separate conflict table with their exact values and original multiplicities.
+No production history is deleted and no arbitrary minimum/maximum is selected
+for a conflicting key. A canonical value, if present, remains in `readings`.
 
 Deploy the updated backend first: its idempotent schema adds `format_version`
 and `entity_ids` to the archive catalogue. The worker automatically regenerates
