@@ -2,13 +2,14 @@
 
 from datetime import datetime
 from typing import Annotated, Literal
+from urllib.parse import urlencode
 
 import mcp_data
 import mcp_reliability
 from dependencies import get_db_pool
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from mcp_auth import verify_mcp_service_key
-from mcp_common import read_connection
+from mcp_common import envelope, read_connection
 from publication_service import read_publication
 
 router = APIRouter(prefix='/internal/mcp', tags=['MCP internal'],
@@ -86,8 +87,29 @@ async def dataset_data(request: Request, pool: Pool,
             async def connection(self):
                 yield conn
 
-        response = await read_publication(dataset_id, request, BoundPool())
-    return mcp_data.publication_page(response, section=section, offset=offset, limit=limit)
+        if dataset_id == 'environment/inaturalist/observations':
+            from inaturalist_publication import inaturalist_data
+
+            if section not in (None, 'observations'):
+                raise HTTPException(422, 'Use the observations section for this dataset')
+            if any((municipality, municipality_id, year, category, search)):
+                raise HTTPException(422, 'This publication supports pagination, not these record filters')
+            data = await inaturalist_data(BoundPool(), limit+1, offset, True)
+            if data.get('status') in {'failed', 'stale', 'not_collected'}:
+                raise HTTPException(503, 'Public dataset is not currently available')
+            observations = data.pop('observations', [])
+            for field in ('offset', 'limit', 'has_more'):
+                data.pop(field, None)
+            return envelope(observations, offset=offset, limit=limit, dataset_id=dataset_id,
+                            publication_metadata=data)
+        publication_request = request
+        if section:
+            # Filters target the selected records, not the enclosing object.
+            query = [(k,v) for k,v in request.query_params.multi_items() if k not in mcp_data.FILTER_FIELDS]
+            publication_request = Request({**request.scope, 'query_string': urlencode(query).encode()})
+        response = await read_publication(dataset_id, publication_request, BoundPool())
+    return mcp_data.publication_page(response, section=section, filters=request.query_params,
+                                     offset=offset, limit=limit)
 
 
 @router.get('/archives')

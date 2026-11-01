@@ -15,7 +15,7 @@ from unittest.mock import patch
 import httpx
 from dependencies import get_db_pool
 from endpoints.mcp import router
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from mcp_auth import validate_mcp_config
 from mcp_common import public_url
 from mcp_reliability import classify
@@ -159,6 +159,10 @@ class MCPDatabaseTests(DatabaseCase):
         page = publication_page(Response(json.dumps(data)),section='tables/0/records',limit=1)
         self.assertEqual(page['next_offset'],1)
         self.assertEqual(page['items'],[{'year':2025}])
+        page = publication_page(Response(json.dumps(data)),section='tables/0/records',filters={'year':'2026'})
+        self.assertEqual(page['items'],[{'year':2026}])
+        with self.assertRaises(HTTPException):
+            publication_page(Response(json.dumps(data)),filters={'municipality':'Biblis'})
 
     async def test_publication_catalog_events_and_expiry_share_public_boundary(self):
         now = datetime.now(UTC)
@@ -173,6 +177,21 @@ class MCPDatabaseTests(DatabaseCase):
         await self.conn.execute("UPDATE collected_datasets SET expires_at=NOW()-interval '1 second'")
         self.assertEqual((await self.get('datasets/data',dataset_id='social/events')).status_code,503)
         self.assertEqual((await self.get('datasets/info',dataset_id='social/source-diagnostics/secret')).status_code,404)
+
+    async def test_inaturalist_uses_publication_privacy_service_and_true_pagination(self):
+        now = datetime.now(UTC)
+        await self.conn.execute("INSERT INTO collected_payloads VALUES ('inat-payload','x','application/json',NOW())")
+        await self.conn.execute('''INSERT INTO collected_datasets VALUES (
+            'environment/inaturalist/observations','inaturalist-ried','https://example.org',
+            %s,%s,%s,'inat-payload',%s)''', (now,now,now+timedelta(days=1),Jsonb({
+                'status':'available','observations':[{'id':i,'gbif_ids':[]} for i in ('one','two','three')]})))
+        response = await self.get('datasets/data',dataset_id='environment/inaturalist/observations',limit=1,offset=1)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual([row['id'] for row in response.json()['items']],['two'])
+        self.assertEqual(response.json()['next_offset'],2)
+        response = await self.get('datasets/data',dataset_id='environment/inaturalist/observations',limit=1,offset=2)
+        self.assertEqual([row['id'] for row in response.json()['items']],['three'])
+        self.assertIsNone(response.json()['next_offset'])
 
     async def test_evidence_history_policy_versions_and_no_raw_errors(self):
         now = datetime.now(UTC)

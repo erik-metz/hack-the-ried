@@ -28,6 +28,10 @@ queries; existing domain publications retain their configured API read model.
 For nested publications, `get_dataset_info` lists top-level `available_sections`.
 Use `section`, e.g. `tables/0/records` or `features`, to paginate existing nested
 arrays without flattening or reinterpreting their domain schema.
+Record filters apply to the selected array. Object containers reject unsupported
+record filters instead of silently ignoring them. iNaturalist observations use
+their existing privacy service with true offset/limit pagination; its generic
+calendar/municipality filters are rejected rather than falsely claimed.
 
 ## Reliability interpretation
 

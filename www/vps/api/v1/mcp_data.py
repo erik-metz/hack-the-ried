@@ -15,6 +15,7 @@ from mcp_common import (
     read_connection,
     rows,
 )
+from publication_service import filtered
 
 MANIFEST = json.loads(Path(__file__).with_name('mcp_catalog.json').read_text())
 REGIONAL = ('demographics/', 'realestate/', 'finance/', 'economy/', 'statistics/',
@@ -23,6 +24,7 @@ DIMENSIONS = frozenset(('contract','municipality','municipality_id','region_code
     'month','category','sex','age','age_group','height_m','depth_cm','depth_m','forecast_hour',
     'model','horizon','aggregation','direction','lane','species','type','frequency_mhz',
     'land_use','sector','interval','statistic','resolution','provider','period','scenario'))
+FILTER_FIELDS = frozenset(('municipality','municipality_id','year','category','search'))
 
 
 async def catalog(pool, *, regional=False, offset=0, limit=50):
@@ -161,7 +163,7 @@ async def publication_info(pool, dataset_id):
                                 'sources': MANIFEST[dataset_id]}])
 
 
-def publication_page(response, *, section=None, offset=0, limit=50):
+def publication_page(response, *, section=None, filters=None, offset=0, limit=50):
     # Only consume output of the shared PUBLIC publication service. This preserves
     # domain-specific expiry, privacy and canonical read-model decisions.
     if response.status_code != 200:
@@ -175,6 +177,11 @@ def publication_page(response, *, section=None, offset=0, limit=50):
                 data = data[int(key)]
             else:
                 raise HTTPException(404, 'Public data section not found')
+    filters = {k:v for k,v in (filters or {}).items() if k in FILTER_FIELDS and v}
+    if isinstance(data, dict) and any(k != 'year' for k in filters):
+        raise HTTPException(422, 'Select an array section before applying record filters')
+    if filters:
+        data = filtered(data, filters)
     result = data if isinstance(data, list) else [data]
     return envelope(result[offset:offset+limit+1], offset=offset, limit=limit,
         source_updated_at=response.headers.get('x-source-updated-at'),
