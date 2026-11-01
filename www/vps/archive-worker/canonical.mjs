@@ -5,7 +5,7 @@ export const PUBLIC = `e.entity_type <> 'inaturalist_observation' AND NOT e.is_h
     WHERE s.id=substr(e.id,8) AND NOT s.is_hidden))`;
 
 /** Prepare legacy definitions; stream missing readings without copying their history.
- * Unresolved legacy variants are exported separately, never guessed.
+ * Report unresolved source variants before streaming any archive parts.
  * This preparation does not enable shadow writes or API cutover.
  */
 export async function includeLegacy(client, start, end) {
@@ -33,7 +33,15 @@ export async function includeLegacy(client, start, end) {
     await client.query(`INSERT INTO measurement_definitions(entity_id,metric,unit,source_id,basis,dimensions,semantics)
       SELECT DISTINCT 'sensor:'||t.sensor_id,t.metric,t.unit,'legacy-sensor:'||t.sensor_id,'unknown','{}'::jsonb,'unknown'
       ${scope} ON CONFLICT(entity_id,metric,unit,source_id,basis,dimensions) DO NOTHING`, params);
+    const unresolved = [];
+    for (const row of conflicts.rows) {
+      const remaining = await client.query(`SELECT 1 FROM sensor_data
+        WHERE sensor_id=$1 AND metric=$2 AND unit=$3 AND timestamp=$4
+        HAVING count(DISTINCT value)>1`, [row.sensor_id,row.metric,row.unit,row.timestamp]);
+      if (remaining.rowCount) unresolved.push(row);
+    }
     await client.query('COMMIT');
+    return unresolved;
   } catch (error) { await client.query('ROLLBACK'); throw error; }
 }
 

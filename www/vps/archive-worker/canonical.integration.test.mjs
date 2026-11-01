@@ -30,7 +30,7 @@ test('weather conflicts require receipt-backed revision history and preserve sou
     }
     await client.query(`INSERT INTO sensor_data VALUES ($1,'weather-dwd-ried','relative_humidity','%',92),
       ($1,'weather-dwd-ried','relative_humidity','%',90)`, [stamp]);
-    await includeLegacy(client, start, end);
+    assert.equal((await includeLegacy(client, start, end)).length, 1);
     const ambiguous = (await client.query(ROWS, [start, end])).rows;
     assert.equal(ambiguous.length, 1);
     assert.equal(ambiguous[0].reading.legacy_conflict, true);
@@ -48,7 +48,7 @@ test('weather conflicts require receipt-backed revision history and preserve sou
         'environment-weather','model','{}',$1,$2,$3,$4,'valid',NULL,NULL,'instantaneous')`,
       [stamp, value, received, JSON.stringify({ collection_attempt_id: attempt, payload_sha256: hash })]);
     }
-    await includeLegacy(client, start, end);
+    assert.equal((await includeLegacy(client, start, end)).length, 1);
     const legacy = await client.query(`SELECT r.value FROM readings r JOIN measurement_definitions d
       ON d.id=r.measurement_id WHERE d.source_id='legacy-sensor:weather-dwd-ried' AND r.observed_at=$1`, [stamp]);
     assert.equal(legacy.rows[0].value, '90');

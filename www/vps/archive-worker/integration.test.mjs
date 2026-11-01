@@ -86,9 +86,11 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     await run({ requestedMonth: null });
     row = (await client.query("SELECT * FROM data_archives WHERE month='2025-02'")).rows[0];
     assert.equal(Number(row.reading_count), 1);
-    // Ambiguous source values are preserved as conflict variants, never guessed.
+    // Source conflicts fail before any upload, leaving the published catalogue intact.
     await client.query("INSERT INTO sensor_data VALUES ('2025-02-01T00:00:00Z','public','temperature',999,'C')");
+    const uploadsBeforeConflict = sequence;
     await assert.rejects(run({ requestedMonth: '2025-02', refresh: true }), /repair source data/);
+    assert.equal(sequence, uploadsBeforeConflict);
     assert.equal(Number((await client.query("SELECT reading_count FROM data_archives WHERE month='2025-02'")).rows[0].reading_count), 1);
     await client.query("DELETE FROM sensor_data WHERE value=999 AND timestamp='2025-02-01T00:00:00Z'");
     await client.query("UPDATE sensor_metadata SET is_hidden=true WHERE id='public'");

@@ -65,7 +65,12 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
         const stale = await client.query(`SELECT 1 FROM data_archives a WHERE month=$1 AND (${staleCondition})`, [month]);
         if (!stale.rowCount) continue;
       }
-      await includeLegacy(client, start, end);
+      const unresolved = await includeLegacy(client, start, end);
+      if (unresolved.length) {
+        const error = new Error('Unresolved legacy source conflict; repair source data before archiving');
+        error.name = 'LegacySourceConflict';
+        throw error;
+      }
       const directory = await mkdtemp(path.join(tmpdir(), 'ried-archive-'));
       const uploaded = [];
       let published = false;

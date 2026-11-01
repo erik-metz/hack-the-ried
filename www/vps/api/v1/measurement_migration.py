@@ -33,6 +33,7 @@ async def install(conn, shadow=False):
         await conn.execute((MIGRATIONS / "20261002_gauges.sql").read_text())
         await conn.execute((MIGRATIONS / "20261003_weather_reconciliation.sql").read_text())
         await conn.execute((MIGRATIONS / "20261101_weather_legacy_cleanup.sql").read_text())
+        await conn.execute((MIGRATIONS / "20261101_uba_legacy_repairs.sql").read_text())
         await conn.execute((MIGRATIONS / "20261004_inventory_coordinates.sql").read_text())
         await conn.execute((MIGRATIONS / "20261004_movement_writer.sql").read_text())
         await conn.execute((MIGRATIONS / "20261004_bulk_history.sql").read_text())

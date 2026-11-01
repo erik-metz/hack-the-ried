@@ -3,6 +3,7 @@ Follows the Three-Table Core Schema (entities, measurement_definitions, readings
 and maintains sensor_metadata/sensor_latest for API and Map compatibility.
 """
 
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -14,6 +15,41 @@ from normalize import UbaStationObservation
 LOG = logging.getLogger("uba-collector.storage")
 
 
+async def write_legacy(cur, sensor_id, metric, unit, observed_at, value, attempt_id):
+    """Keep one current compatibility row; retain replaced rows in an audit table.
+
+    The caller holds the UBA advisory lock. Canonical revisions and source
+    receipts are retained independently of this compatibility projection.
+    """
+    await cur.execute(
+        """SELECT value FROM sensor_data
+        WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s""",
+        (sensor_id, metric, unit, observed_at),
+    )
+    rows = await cur.fetchall()
+    if len(rows) == 1 and rows[0][0] == value:
+        return
+    if rows:
+        if attempt_id is None:
+            raise RuntimeError("A UBA source receipt is required to replace legacy rows")
+        await cur.execute(
+            """INSERT INTO uba_legacy_repairs
+            (sensor_id,metric,unit,observed_at,original_rows,chosen_value,collection_attempt_id)
+            SELECT %s,%s,%s,%s,jsonb_agg(to_jsonb(s)),%s,%s FROM sensor_data s
+            WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s""",
+            (sensor_id, metric, unit, observed_at, value, attempt_id,
+             sensor_id, metric, unit, observed_at),
+        )
+        await cur.execute(
+            "DELETE FROM sensor_data WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s",
+            (sensor_id, metric, unit, observed_at),
+        )
+    await cur.execute(
+        "INSERT INTO sensor_data(timestamp,sensor_id,metric,value,unit) VALUES (%s,%s,%s,%s,%s)",
+        (observed_at, sensor_id, metric, value, unit),
+    )
+
+
 async def persist_stations(
     conn: psycopg.AsyncConnection,
     stations: list[UbaStationObservation],
@@ -22,6 +58,8 @@ async def persist_stations(
     payload_bytes: bytes | None = None,
     payload_sha256: str | None = None,
 ) -> dict:
+    if payload_bytes is not None and hashlib.sha256(payload_bytes).hexdigest() != payload_sha256:
+        raise ValueError("UBA source receipt checksum mismatch")
     now = now or datetime.now(UTC)
     stats = {
         "stations_updated": 0,
@@ -68,10 +106,11 @@ async def persist_stations(
             await cur.execute(
                 """
                 INSERT INTO collection_attempts (source_id, http_status, payload_sha256, status)
-                VALUES ('uba', 200, %s, 'success')
+                VALUES ('uba', 200, %s, 'success') RETURNING id
                 """,
                 (payload_sha256,),
             )
+            attempt_id = (await cur.fetchone())[0]
         else:
             await cur.execute(
                 """
@@ -79,6 +118,7 @@ async def persist_stations(
                 VALUES ('uba', 200, 'success')
                 """
             )
+            attempt_id = None
 
         await cur.execute(
             """SELECT 1 FROM information_schema.routines
@@ -146,6 +186,11 @@ async def persist_stations(
                 stats["measurements_written"] += 2
 
                 legacy_source = f"legacy-sensor:{s.sensor_id}"
+                measurement_provenance = json.dumps({
+                    **json.loads(provenance),
+                    "collection_attempt_id": attempt_id,
+                    "payload_sha256": payload_sha256,
+                })
                 for m in s.measurements:
                     await cur.execute(
                         """
@@ -163,7 +208,7 @@ async def persist_stations(
                             m.observed_at,
                             m.value,
                             now,
-                            provenance,
+                            measurement_provenance,
                         ),
                     )
                     stats["measurements_written"] += 1
@@ -188,14 +233,8 @@ async def persist_stations(
                     metrics_to_record.append(("PM2.5", m.value, m.unit))
 
                 for metric_name, metric_val, metric_unit in metrics_to_record:
-                    await cur.execute(
-                        """
-                        INSERT INTO sensor_data (timestamp, sensor_id, metric, value, unit)
-                        VALUES (%s, %s, %s, %s, %s)
-                        ON CONFLICT DO NOTHING
-                        """,
-                        (m.observed_at, s.sensor_id, metric_name, metric_val, metric_unit),
-                    )
+                    await write_legacy(cur, s.sensor_id, metric_name, metric_unit,
+                                       m.observed_at, metric_val, attempt_id)
                     await cur.execute(
                         """
                         INSERT INTO sensor_latest (sensor_id, metric, unit, timestamp, value)
