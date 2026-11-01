@@ -74,7 +74,7 @@ export const getQrSensorModules = cache(async (sensorId: string): Promise<QrSens
     matchesForModule[0].timestamp as string);
     return [{
       name,
-      metrics: matchesForModule.map((reading) => reading.metric as string).sort(),
+      metrics: [...new Set(matchesForModule.map((reading) => reading.metric as string))].sort(),
       latestObservedAt,
     }];
   });
