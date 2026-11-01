@@ -70,5 +70,6 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
     AND d.source_id='legacy-sensor:'||t.sensor_id AND d.metric=t.metric AND d.unit=t.unit
     AND d.basis='unknown' AND d.dimensions='{}'::jsonb
   JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
-    AND (t.variants>1 OR NOT EXISTS (SELECT 1 FROM readings r WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp))
+    AND (t.variants>1 OR NOT EXISTS (SELECT 1 FROM readings r
+      WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp AND r.observed_at >= $1 AND r.observed_at < $2))
   ) samples ORDER BY sort_time,sort_id`;
