@@ -12,7 +12,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
             <Link href="/datenschutz" className="hover:text-emerald-300">Datenschutz</Link>
             <Link href="/quellen" className="hover:text-emerald-300">Quellen</Link>
             <Link href="/branding" className="hover:text-emerald-300">Markenportal</Link>
-            <Link href="/daten" className="hover:text-emerald-300">Daten &amp; API</Link>
+            <Link href="/daten" className="hover:text-emerald-300">Daten, API &amp; MCP</Link>
             <a href="https://kamue.me" target="_blank" rel="noreferrer" className="hover:text-emerald-300">KAMÜ</a>
             <a href="https://github.com/erik-metz/hack-the-ried" target="_blank" rel="noreferrer" className="hover:text-emerald-300">GitHub</a>
           </nav>
@@ -30,7 +30,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
             &copy; {new Date().getFullYear()} HackTheRied. Freie Daten und
             offene Schnittstellen für das Hessische Ried.
           </div>
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400">
             <a href="mailto:info@kamue.me" className="hover:text-slate-200 transition-colors">
               Kontakt
             </a>
@@ -48,7 +48,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
             </Link>
             <span>•</span>
             <Link href="/daten" className="hover:text-slate-200 transition-colors">
-              API
+              Daten, API &amp; MCP
             </Link>
             <span>•</span>
             <Link href="/quellen" className="hover:text-slate-200 transition-colors">
