@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from urllib.request import urlopen
 
-CATALOGUE = "https://api.hack-the-ried.de/api/v1/archives"
+CATALOGUE = "https://hack-the-ried.duckdns.org/api/v1/archives"
 
 
 def checksum(path):

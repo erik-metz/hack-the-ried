@@ -110,6 +110,7 @@ def fetch(url,**kwargs):
 with tempfile.TemporaryDirectory() as directory,patch("urllib.request.urlopen",fetch),patch.object(sys,"argv",[script,"--month","2026-10","--output",directory]):
     runpy.run_path(script,run_name="__main__")
     assert (Path(directory)/"2026-10"/name).read_bytes()==body
+    assert requests[0]=='https://hack-the-ried.duckdns.org/api/v1/archives'
     assert requests[1:]==[file["url"]]
 `, fileURLToPath(new URL("../public/downloads/download_archives.py", import.meta.url))]);
 });
