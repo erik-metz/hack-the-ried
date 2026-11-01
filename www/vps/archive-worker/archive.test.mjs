@@ -7,6 +7,12 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { buildArchives, tableLine, csvCell, monthRange, periodRange } from './archive.mjs';
 
+const python = process.env.PYTHON || 'python3';
+const hasPyArrow = (() => {
+  try { execFileSync(python, ['-c', 'import pyarrow'], { stdio: 'ignore' }); return true; }
+  catch { return false; }
+})();
+
 test('month, quarter, and year boundaries calculate correct UTC intervals', () => {
   assert.equal(monthRange('2024-02').end.toISOString(), '2024-03-01T00:00:00.000Z');
   assert.equal(monthRange('2026-12').end.toISOString(), '2027-01-01T00:00:00.000Z');
@@ -35,7 +41,7 @@ test('CSV preserves negatives and escapes spreadsheet formulas and quotes', () =
   assert.equal(csvCell('a,"b\nc'), '"a,""b\nc"');
 });
 
-test('partitioned export preserves every row and supplies matching checksums', async () => {
+test('partitioned export preserves every row and supplies matching checksums', { skip: !hasPyArrow }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'archive-test-'));
   try {
     async function* rows() {
@@ -43,34 +49,41 @@ test('partitioned export preserves every row and supplies matching checksums', a
     }
     const result = await buildArchives(rows(), directory, '2026-09', '2026-10-01T00:00:00Z', 4096);
     assert.equal(result.reading_count, 6001);
-    assert.ok(result.files.length > 1);
-    assert.equal(result.files.reduce((sum, file) => sum + file.reading_count, 0), 6001);
-    let count = 0;
-    for (const [index, file] of result.files.entries()) {
+    const csvFiles = result.files.filter(file => file.format === 'csv');
+    const parquetFiles = result.files.filter(file => file.format === 'parquet');
+    assert.ok(csvFiles.length > 1);
+    assert.equal(parquetFiles.length, csvFiles.length);
+    assert.equal(csvFiles.reduce((sum, file) => sum + file.reading_count, 0), 6001);
+    for (const file of result.files) {
       const data = await readFile(file.path);
       assert.equal(data.length, file.size_bytes);
       assert.equal(createHash('sha256').update(data).digest('hex'), file.sha256);
-      const csv = await readFile(path.join(directory, `part-${index + 1}.csv`), 'utf8');
-      count += csv.split('\r\n').length - 2;
-      assert.ok(csv.includes('2026-09-01T00:00:00.123456Z'));
       assert.ok(data.includes(Buffer.from('README.txt')));
-      assert.ok(data.includes(Buffer.from('entities.csv')));
       assert.ok(data.includes(Buffer.from('manifest.json')));
     }
-    assert.equal(count, 6001);
-    execFileSync('python3', ['-c', `
-import csv,io,json,zipfile,sys
+    execFileSync(python, ['-c', `
+import csv,io,json,zipfile,sys,pyarrow.parquet as pq
 for filename in sys.argv[1:]:
     with zipfile.ZipFile(filename) as z:
-        assert set(z.namelist()) == {'entities.csv','measurement_definitions.csv','readings.csv','manifest.json','README.txt'}
-        tables = {n:list(csv.DictReader(io.StringIO(z.read(n+'.csv').decode('utf-8-sig')))) for n in ('entities','measurement_definitions','readings')}
-        entities = {r['id'] for r in tables['entities']}
-        definitions = {r['id'] for r in tables['measurement_definitions']}
-        assert all(r['entity_id'] in entities for r in tables['measurement_definitions'])
-        assert all(r['measurement_id'] in definitions for r in tables['readings'])
+        fmt = 'parquet' if filename.endswith('.parquet.zip') else 'csv'
+        assert set(z.namelist()) == {f'{n}.{fmt}' for n in ('entities','measurement_definitions','readings')} | {'manifest.json','README.txt'}
+        if fmt == 'csv':
+            tables = {n:list(csv.DictReader(io.StringIO(z.read(n+'.csv').decode('utf-8-sig')))) for n in ('entities','measurement_definitions','readings')}
+            entities = {r['id'] for r in tables['entities']}
+            definitions = {r['id'] for r in tables['measurement_definitions']}
+            assert all(r['entity_id'] in entities for r in tables['measurement_definitions'])
+            assert all(r['measurement_id'] in definitions for r in tables['readings'])
+            assert all('2026-09-01T00:00:00.123456Z' in r['observed_at'] for r in tables['readings'])
+            counts = {n:len(rows) for n,rows in tables.items()}
+        else:
+            tables = {n:pq.read_table(io.BytesIO(z.read(n+'.parquet'))) for n in ('entities','measurement_definitions','readings')}
+            assert all(str(tables['readings'].schema.field(c).type) == 'timestamp[us, tz=UTC]' for c in ('observed_at','collected_at'))
+            assert tables['readings']['value'][0].as_py() is not None
+            assert tables['entities']['name'][0].as_py() == '=Station'
+            counts = {n:t.num_rows for n,t in tables.items()}
         m=json.loads(z.read('manifest.json'))
-        assert m['format_version']==2 and m['complete']
-        assert m['tables']=={n:len(rows) for n,rows in tables.items()}
+        assert m['format_version']==3 and m['complete']
+        assert m['tables']==counts
 `, ...result.files.map(file => file.path)]);
     const empty = await buildArchives([], directory, '2026-09', '2026-10-01T00:00:00Z');
     assert.deepEqual(empty, { files: [], reading_count: 0, entity_ids: [] });

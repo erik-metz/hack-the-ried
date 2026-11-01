@@ -21,6 +21,7 @@ test("sample download redirects directly to the backend without a station or dat
   const target = new URL(response.headers.get("Location"));
   assert.equal(target.pathname, "/api/v1/downloads");
   assert.equal(target.searchParams.get("sample"), "true");
+  assert.equal(target.searchParams.get("format"), "csv");
   assert.equal(target.searchParams.has("sensor_id"), false);
 });
 
@@ -33,9 +34,16 @@ test("31 inclusive days and a broad topic are redirected to the backend", async 
   assert.equal(target.searchParams.get("end"), "2030-01-31");
 });
 
+test("Parquet format is forwarded to availability checks and downloads", async () => {
+  const api = route(async () => { throw new Error("The ZIP stream must bypass this route"); });
+  const response = await api.GET(new Request("https://app.example/api/data-download?topic=temperature&format=parquet&start=2030-01-01&end=2030-01-31"));
+  assert.equal(response.status, 302);
+  assert.equal(new URL(response.headers.get("Location")).searchParams.get("format"), "parquet");
+});
+
 test("invalid dates, reversed ranges, oversized ranges and unknown topics never reach backend", async () => {
   const api = route(async () => { throw new Error("Should not be fetched"); });
-  for (const query of ["topic=station", "start=2030-02-30&end=2030-03-01", "start=2030-01-02&end=2030-01-01", "start=2030-01-01&end=2030-02-01", "start=2030-01-01"]) {
+  for (const query of ["topic=station", "format=excel&sample=1", "start=2030-02-30&end=2030-03-01", "start=2030-01-02&end=2030-01-01", "start=2030-01-01&end=2030-02-01", "start=2030-01-01"]) {
     assert.equal((await api.GET(new Request(`https://app.example/api/data-download?${query}`))).status, 400);
   }
 });

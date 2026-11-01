@@ -52,6 +52,10 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     assert.equal(Number(row.reading_count), 6001);
     assert.equal(row.is_complete, true);
     assert.deepEqual(row.station_ids, ['public']);
+    assert.ok(row.files.some(file => file.format === 'csv'));
+    assert.ok(row.files.some(file => file.format === 'parquet'));
+    assert.equal(row.files.filter(file => file.format === 'csv').length,
+      row.files.filter(file => file.format === 'parquet').length);
     const previousKeys = row.files.map(file => file.key);
     const beforeSkip = sequence;
     await run();
@@ -68,10 +72,10 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     await run();
     assert.equal(sequence, afterRefresh);
     assert.equal((await client.query('SELECT * FROM archive_cleanup')).rowCount, 0);
-    // Existing format-1 catalogues are automatically upgraded, even if marked complete.
+    // Existing older-format catalogues are automatically upgraded, even if complete.
     await client.query("UPDATE data_archives SET format_version=1 WHERE month='2025-01'");
     await run();
-    assert.equal((await client.query('SELECT format_version FROM data_archives')).rows[0].format_version, 2);
+    assert.equal((await client.query('SELECT format_version FROM data_archives')).rows[0].format_version, 3);
     // Automatic discovery: SQL must backfill February and skip existing January.
     await run({ requestedMonth: null });
     row = (await client.query("SELECT * FROM data_archives WHERE month='2025-02'")).rows[0];
@@ -119,7 +123,7 @@ test('core export reads canonical values and still honours station visibility', 
     let csv = '';
     const storage = {
       async upload(file) {
-        csv = await readFile(path.join(path.dirname(file.path), 'part-1.csv'), 'utf8');
+        if (file.format === 'csv') csv = await readFile(path.join(path.dirname(file.path), 'part-1', 'readings.csv'), 'utf8');
         return { key: 'canonical-key', url: 'https://test.ufs.sh/f/canonical' };
       },
       async remove() {},

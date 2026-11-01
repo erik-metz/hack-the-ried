@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 import psycopg_pool
 from dependencies import get_db_pool
@@ -11,6 +12,7 @@ router = APIRouter()
 
 class ArchiveFile(BaseModel):
     filename: str
+    format: Literal["csv", "parquet"]
     url: str
     size_bytes: int
     reading_count: int
@@ -59,7 +61,8 @@ async def list_archives(pool: psycopg_pool.AsyncConnectionPool = Depends(get_db_
         {
             **{key: row[key] for key in ("month", "format_version", "generated_at", "is_complete", "reading_count", "size_bytes")},
             "files": [
-                {key: file[key] for key in ("filename", "url", "size_bytes", "reading_count", "sha256")}
+                {**{key: file[key] for key in ("filename", "url", "size_bytes", "reading_count", "sha256")},
+                 "format": file.get("format", "csv")}
                 for file in row["files"]
             ],
         }

@@ -2,8 +2,8 @@
 
 The opt-in Node 22 worker exports **all public canonical measurements**, bypassing the
 interactive API's 5,000-row cap. It streams a repeatable-read PostgreSQL snapshot
-to CSV parts (64 MiB uncompressed by default), compresses each into a ZIP, uploads
-to UploadThing and atomically publishes the month's catalogue record. No
+to CSV parts (64 MiB uncompressed by default), creates a matching Parquet ZIP for
+each part, uploads both variants to UploadThing and atomically publishes the month's catalogue record. No
 measurements are truncated. The API serves `GET /api/v1/archives`; the Daten page
 lists every part and a Python script downloads whole years or the entire archive.
 
@@ -67,12 +67,13 @@ be recalled. Hiding a station is not retroactive revocation of published data.
 
 ## Contents and resources
 
-Every ZIP contains `entities.csv`, `measurement_definitions.csv`, `readings.csv`,
-`manifest.json`, and `README.txt` (format version 2). Each part includes exactly
-the entities and definitions referenced by its readings. Metadata may repeat
-across parts; merge it by `id`. Numeric values and bigint IDs are retained as
-exact strings during export; timestamps retain microseconds. Structured fields
-are JSON in CSV cells. Metadata reflects export time, not historical versions.
+Each monthly part has two ZIPs, labelled `csv` and `parquet` in the catalogue.
+Both contain `entities`, `measurement_definitions`, `readings`, `manifest.json`,
+and `README.txt` (format version 3). Each part includes exactly the entities and
+definitions referenced by its readings. Metadata may repeat across parts; merge
+it by `id`. Numeric values and bigint IDs are retained as exact strings in both
+formats; Parquet stores timestamps as UTC microsecond timestamps. Structured
+fields are JSON text. Metadata reflects export time, not historical versions.
 Sources/licences follow `source_id` and the project source catalogue.
 
 Before taking the read snapshot, the worker transactionally inserts missing
@@ -84,12 +85,12 @@ fail the period instead of inventing a value. No production history is deleted.
 
 Deploy the updated backend first: its idempotent schema adds `format_version`
 and `entity_ids` to the archive catalogue. The worker automatically regenerates
-all format-1 catalogue entries, including empty months, and discovers closed
+all pre-format-3 catalogue entries, including empty months, and discovers closed
 months from both public canonical and legacy history. New files are fully
 uploaded and published before old files are queued for deletion. Both entity and
 legacy sensor visibility are checked at export, publication and catalogue read.
 
-Temporary disk must accommodate approximately one month's CSV plus compressed
+Temporary disk must accommodate approximately one month's CSV, Parquet, plus compressed
 ZIPs. Memory is bounded by cursor batches, stream buffers, metadata, and SDK
 upload buffering. Files are uploaded one at a time using disk-backed Blobs;
 archives are served directly by UploadThing, never proxied through Next.js.
@@ -120,6 +121,10 @@ The frontend's `public/downloads/download_archives.py` uses only Python's standa
 library. `--year YYYY` selects a year; omitting it downloads every published part.
 Checksums are verified before replacing existing files. Reruns skip verified
 files and retry interrupted files from their start; ZIPs are not auto-extracted.
+
+The worker image includes Python and PyArrow for bounded-memory Parquet writing.
+Local `npm test` runs the Parquet round-trip test when PyArrow is installed; CI
+installs the same dependency before running the worker tests.
 
 The dependency override for `effect` keeps the UploadThing SDK on a patched
 3.x release (GHSA-38f7-945m-qr2g). The SDK upload/delete test covers this combination.

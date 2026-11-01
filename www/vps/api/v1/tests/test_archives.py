@@ -24,6 +24,7 @@ class ArchiveCatalogueTests(unittest.IsolatedAsyncioTestCase):
         pool.connection.return_value.__aenter__.return_value = connection
         result = await list_archives(pool)
         self.assertNotIn("key", result[0]["files"][0])
+        self.assertEqual(result[0]["files"][0]["format"], "csv")
         self.assertEqual(result[0]["reading_count"], 6001)
         sql = connection.execute.call_args.args[0]
         self.assertIn("NOT s.is_hidden", sql)

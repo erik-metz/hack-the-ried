@@ -8,3 +8,4 @@ sgp4==2.25
 rasterio>=1.4,<2
 numpy>=2,<3
 Pillow>=11,<13
+pyarrow>=20,<24

@@ -1,10 +1,15 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { stat, writeFile } from 'node:fs/promises';
+import { mkdir, rename, stat, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import yazl from 'yazl';
+
+const execFileAsync = promisify(execFile);
 
 export function periodRange(period) {
   if (!period || typeof period !== 'string') throw new Error('Use YYYY-MM, YYYY-Q1..Q4, or YYYY');
@@ -64,7 +69,7 @@ export function tableLine(table, row) {
   }).join(',') + '\r\n';
 }
 const header = table => '\uFEFF' + COLUMNS[table].join(',') + '\r\n';
-const readme = `HackTheRied – Monthly public three-table snapshot (format 2)
+const readme = `HackTheRied – Monthly public three-table snapshot (format 3)
 
 entities.csv: objects; id is the key.
 measurement_definitions.csv: measurement definitions; entity_id references entities.id.
@@ -73,6 +78,8 @@ Each ZIP part contains exactly the entities and definitions referenced by its re
 Metadata can occur in multiple parts; merge it by id. Download ALL parts for a full month.
 UTF-8 BOM CSV, comma delimiter, UTC timestamps with microseconds, exact numeric values.
 metadata, dimensions and provenance are JSON. Empty cells are missing values, not zeros.
+Parquet ZIP parts contain the same tables with UTC microsecond timestamp columns.
+IDs and exact decimal values are strings in Parquet to avoid precision loss.
 basis distinguishes observations, reports, models, schedules and unknown legacy data.
 Legacy telemetry is transferred without inventing its basis or source certainty.
 Duplicate legacy keys with identical values are represented by one canonical reading.
@@ -88,32 +95,49 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
   const files = [];
   const entityIds = new Set();
   let entities = new Map(), definitions = new Map();
-  let output, completion, csvPath, count = 0, total = 0, bytes = 0, first = null, last = null;
+  let output, completion, parquetInput, parquetCompletion, csvPath, parquetInputPath;
+  let count = 0, total = 0, bytes = 0, first = null, last = null;
   const { start, end } = monthRange(month);
   async function finish() {
     if (!output) return;
-    output.end(); await completion;
-    const part = files.length + 1;
-    const filename = `hack-the-ried-${month}-v2-part-${String(part).padStart(4, '0')}.zip`;
-    const zipPath = path.join(directory, filename);
+    output.end(); parquetInput.end(); await Promise.all([completion, parquetCompletion]);
+    const part = Math.floor(files.length / 2) + 1;
+    const basename = `hack-the-ried-${month}-v3-part-${String(part).padStart(4, '0')}`;
+    const partDirectory = path.join(directory, `part-${part}`);
+    await mkdir(partDirectory, { recursive: true });
+    const partReadingsPath = path.join(partDirectory, 'readings.csv');
+    await rename(csvPath, partReadingsPath);
+    const zipPath = path.join(directory, `${basename}.csv.zip`);
     const zip = new yazl.ZipFile();
     const saving = pipeline(zip.outputStream, createWriteStream(zipPath));
     const options = { mtime: start };
-    zip.addFile(csvPath, 'readings.csv', options);
+    zip.addFile(partReadingsPath, 'readings.csv', options);
     for (const [table, map] of [['entities', entities], ['measurement_definitions', definitions]]) {
-      const tablePath = path.join(directory, `part-${part}-${table}.csv`);
+      const tablePath = path.join(partDirectory, `${table}.csv`);
       await writeFile(tablePath, header(table) + [...map.values()].map(row => tableLine(table, row)).join(''));
       zip.addFile(tablePath, `${table}.csv`, options);
     }
-    zip.addBuffer(Buffer.from(readme), 'README.txt', options);
-    zip.addBuffer(Buffer.from(JSON.stringify({ format_version: 2, month, part, complete: true,
+    const manifestPath = path.join(partDirectory, 'manifest.json');
+    const readmePath = path.join(partDirectory, 'README.txt');
+    await writeFile(manifestPath, JSON.stringify({ format_version: 3, format: 'csv', month, part, complete: true,
       reading_count: count, tables: { entities: entities.size, measurement_definitions: definitions.size, readings: count },
       generated_at: generatedAt, start: start.toISOString(), end_exclusive: end.toISOString(),
-      first_reading: first, last_reading: last }, null, 2)), 'manifest.json', options);
+      first_reading: first, last_reading: last }, null, 2));
+    await writeFile(readmePath, readme);
+    zip.addFile(manifestPath, 'manifest.json', options);
+    zip.addFile(readmePath, 'README.txt', options);
     zip.end(); await saving;
     const hash = createHash('sha256');
     for await (const chunk of createReadStream(zipPath)) hash.update(chunk);
-    files.push({ filename, path: zipPath, size_bytes: (await stat(zipPath)).size, reading_count: count, sha256: hash.digest('hex') });
+    files.push({ filename: path.basename(zipPath), path: zipPath, format: 'csv', size_bytes: (await stat(zipPath)).size, reading_count: count, sha256: hash.digest('hex') });
+    const parquetPath = path.join(directory, `${basename}.parquet.zip`);
+    await execFileAsync(process.env.PYTHON || 'python3', [
+      path.join(path.dirname(fileURLToPath(import.meta.url)), 'parquet_convert.py'),
+      partDirectory, parquetInputPath, parquetPath, manifestPath, readmePath,
+    ]);
+    const parquetHash = createHash('sha256');
+    for await (const chunk of createReadStream(parquetPath)) parquetHash.update(chunk);
+    files.push({ filename: path.basename(parquetPath), path: parquetPath, format: 'parquet', size_bytes: (await stat(parquetPath)).size, reading_count: count, sha256: parquetHash.digest('hex') });
     output = undefined; entities = new Map(); definitions = new Map();
   }
   try {
@@ -125,8 +149,12 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
       if (!definitions.has(definition.id)) size += Buffer.byteLength(tableLine('measurement_definitions', definition));
       if (output && bytes + size > partBytes && count) await finish();
       if (!output) {
-        csvPath = path.join(directory, `part-${files.length + 1}.csv`);
+        const part = Math.floor(files.length / 2) + 1;
+        csvPath = path.join(directory, `part-${part}-readings.csv`);
         output = createWriteStream(csvPath); completion = once(output, 'finish'); completion.catch(() => {});
+        parquetInputPath = path.join(directory, `part-${part}-parquet.ndjson`);
+        parquetInput = createWriteStream(parquetInputPath);
+        parquetCompletion = once(parquetInput, 'finish'); parquetCompletion.catch(() => {});
         output.write(header('readings')); bytes = Object.keys(COLUMNS).reduce((n, table) => n + Buffer.byteLength(header(table)), 0);
         count = 0; first = reading.observed_at;
       }
@@ -134,8 +162,10 @@ export async function buildArchives(rows, directory, month, generatedAt, partByt
       if (!definitions.has(definition.id)) bytes += Buffer.byteLength(tableLine('measurement_definitions', definition));
       entities.set(entity.id, entity); definitions.set(definition.id, definition); entityIds.add(entity.id);
       if (!output.write(line)) await once(output, 'drain');
+      const parquetLine = `${JSON.stringify({ entity, definition, reading })}\n`;
+      if (!parquetInput.write(parquetLine)) await once(parquetInput, 'drain');
       bytes += Buffer.byteLength(line); count++; total++; last = reading.observed_at;
     }
     await finish(); return { files, reading_count: total, entity_ids: [...entityIds] };
-  } catch (error) { output?.destroy(); throw error; }
+  } catch (error) { output?.destroy(); parquetInput?.destroy(); throw error; }
 }

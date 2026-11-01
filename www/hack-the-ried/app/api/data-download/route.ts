@@ -7,9 +7,11 @@ export async function GET(request: Request) {
   const sample = params.get("sample") === "1";
   const check = params.get("check") === "1";
   const topic = params.get("topic") || "all";
+  const format = params.get("format") || "csv";
   const error = (message: string, status: number) => Response.json({ error: message }, { status });
   if (!TOPICS.has(topic)) return error("Bitte ein gültiges Thema auswählen.", 400);
-  const query = new URLSearchParams({ topic, sample: String(sample), check: String(check) });
+  if (format !== "csv" && format !== "parquet") return error("Bitte CSV oder Parquet als Format auswählen.", 400);
+  const query = new URLSearchParams({ topic, format, sample: String(sample), check: String(check) });
   if (!sample) {
     for (const key of ["start", "end"]) {
       const value = params.get(key) || "";

@@ -13,6 +13,7 @@ from pathlib import Path
 from endpoints.data_exports import csv_bytes, download_data, export_range
 from fastapi import HTTPException
 from measurement_migration import install
+from parquet_exports import table_from_rows
 from psycopg.rows import dict_row
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'tests'))
@@ -29,6 +30,16 @@ class ExportFormatTests(unittest.TestCase):
         self.assertEqual(row['label'], "'=SUM(A1)")
         self.assertEqual(json.loads(row['metadata']), {'name': 'Bürstadt, Ried'})
         self.assertEqual(row['missing'], '')
+
+    def test_parquet_contract_keeps_exact_ids_and_values_and_types_timestamps(self):
+        table = table_from_rows([{'measurement_id': 9007199254740993,
+                                  'observed_at': datetime(2030, 1, 1, tzinfo=UTC),
+                                  'value': Decimal('12.1234567890123456789')}],
+                                ('measurement_id', 'observed_at', 'value'))
+        self.assertEqual(table.schema.field('measurement_id').type, __import__('pyarrow').string())
+        self.assertEqual(str(table.schema.field('observed_at').type), 'timestamp[us, tz=UTC]')
+        self.assertEqual(table['measurement_id'][0].as_py(), '9007199254740993')
+        self.assertEqual(table['value'][0].as_py(), '12.1234567890123456789')
 
     def test_inclusive_dates_and_invalid_ranges(self):
         start, end = export_range(date(2030, 1, 1), date(2030, 1, 31), False)
@@ -83,6 +94,18 @@ class ExportDatabaseTests(DatabaseCase):
         self.assertEqual(tables['readings.csv'][0]['measurement_id'], definition['id'])
         self.assertEqual(tables['readings.csv'][0]['value'], '12.1234567890123456789')
         self.assertTrue(manifest['sample'])
+
+    async def test_sample_parquet_contains_typed_tables_and_exact_values(self):
+        await self.reading('public')
+        response = await download_data(sample=True, format='parquet', pool=self.pool)
+        with zipfile.ZipFile(io.BytesIO(response.body)) as archive:
+            self.assertEqual(set(archive.namelist()), {'entities.parquet', 'measurement_definitions.parquet', 'readings.parquet', 'manifest.json', 'README.txt'})
+            import pyarrow.parquet as pq
+            readings = pq.read_table(io.BytesIO(archive.read('readings.parquet')))
+            self.assertEqual(readings['value'][0].as_py(), '12.1234567890123456789')
+            self.assertEqual(str(readings.schema.field('observed_at').type), 'timestamp[us, tz=UTC]')
+            manifest = json.loads(archive.read('manifest.json'))
+            self.assertEqual(manifest['format'], 'parquet')
 
     async def test_temperature_exports_all_stations_and_keeps_basis(self):
         await self.reading('a')

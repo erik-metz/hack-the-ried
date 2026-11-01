@@ -3,13 +3,17 @@
 import csv
 import io
 import json
+import os
+import tempfile
 import zipfile
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
+import pyarrow.parquet as pq
 from dependencies import get_db_pool
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
+from parquet_exports import parquet_bytes, schema_for, write_parquet
 from psycopg.errors import QueryCanceled, UndefinedTable
 from starlette.responses import Response, StreamingResponse
 
@@ -64,19 +68,19 @@ def csv_bytes(rows, columns):
     return ('\ufeff' + output.getvalue()).encode('utf-8')
 
 
-def package(tables, *, sample, topic, start, end, generated_at):
+def package(tables, *, sample, topic, start, end, generated_at, output_format='csv'):
     manifest = {
         'generated_at': generated_at.isoformat(), 'sample': sample, 'topic': topic,
         'start_inclusive': start.isoformat() if start else None,
         'end_exclusive': end.isoformat() if end else None,
         'tables': {name: len(rows) for name, (rows, _) in tables.items()},
-        'format': 'UTF-8 BOM CSV; comma delimiter; UTC; JSON in structured columns',
+        'format': output_format,
     }
     readme = """HackTheRied – Datenpaket
 
-entities.csv: Messpunkte/Objekte. id ist der Schlüssel.
-measurement_definitions.csv: Messgrößen. entity_id verweist auf entities.id.
-readings.csv: Messwerte. measurement_id verweist auf measurement_definitions.id.
+entities: Messpunkte/Objekte. id ist der Schlüssel.
+measurement_definitions: Messgrößen. entity_id verweist auf entities.id.
+readings: Messwerte. measurement_id verweist auf measurement_definitions.id.
 Nur zu den exportierten Messwerten gehörende Messgrößen und Objekte sind enthalten.
 metadata und dimensions sind JSON; leere Zellen sind fehlende Werte, keine Nullen.
 value behält die Dezimalgenauigkeit; Zeitstempel sind UTC. basis unterscheidet
@@ -84,7 +88,7 @@ Beobachtungen, Meldungen, Modelle und Fahrplanprognosen; quality die Datenqualit
 Eine Stichprobe enthält höchstens einen zuletzt gespeicherten Wert je Messgröße.
 Sie zeigt die Datenstruktur und ist weder eine Zeitreihe noch eine repräsentative Statistik.
 
-Falls vorhanden: street_closures.csv und traffic_incidents.csv enthalten gespeicherte
+Falls vorhanden: street_closures und traffic_incidents enthalten gespeicherte
 Meldungen mit einem den Exportzeitraum überlappenden Gültigkeitszeitraum.
 Diese Dateien sind ergänzende Veröffentlichungen, keine künstlichen Messwerte.
 Die Meldungen zeigen den zuletzt gespeicherten Stand, keine historische Versionsfolge.
@@ -101,9 +105,13 @@ Beachte die Lizenzen und Namensnennung der jeweiligen Originalquelle (source_id)
 Text mit Formelzeichen wird für Tabellenprogramme mit einem Apostroph geschützt.
 """
     output = io.BytesIO()
-    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+    compression = zipfile.ZIP_STORED if output_format == 'parquet' else zipfile.ZIP_DEFLATED
+    with zipfile.ZipFile(output, 'w', compression=compression) as archive:
         for name, (rows, columns) in tables.items():
-            archive.writestr(f'{name}.csv', csv_bytes(rows, columns))
+            if output_format == 'parquet':
+                archive.writestr(f'{name}.parquet', parquet_bytes(rows, columns))
+            else:
+                archive.writestr(f'{name}.csv', csv_bytes(rows, columns))
         archive.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2))
         archive.writestr('README.txt', readme)
     return output.getvalue()
@@ -223,11 +231,57 @@ async def stream_export(pool, topic, start, end):
             yield chunk
 
 
-@router.get('/downloads', summary='Download related public CSV tables as ZIP')
+async def stream_parquet_export(pool, topic, start, end):
+    """Write typed Parquet row groups to disk, then stream the completed ZIP."""
+    with tempfile.TemporaryDirectory(prefix='ried-parquet-') as directory:
+        counts = {}
+        generated_at = None
+        zip_path = os.path.join(directory, 'export.zip')
+        async with pool.connection() as conn, conn.transaction():
+            await conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+            await conn.execute("SET LOCAL statement_timeout = '600s'")
+            generated_at = (await (await conn.execute('SELECT transaction_timestamp() AS time')).fetchone())['time']
+            paths = []
+            for index, (name, columns, statement, params) in enumerate(export_queries(topic, start, end)):
+                path = os.path.join(directory, f'{name}.parquet')
+                count = 0
+                writer = pq.ParquetWriter(path, schema_for(columns), compression='zstd')
+                try:
+                    async with conn.cursor(name=f'public_parquet_export_{index}') as cursor:
+                        await cursor.execute(statement, params)
+                        while batch := await cursor.fetchmany(1000):
+                            write_parquet(writer, batch, columns)
+                            count += len(batch)
+                finally:
+                    writer.close()
+                paths.append((name, path))
+                counts[name] = count
+        manifest = {
+            'generated_at': generated_at.isoformat(), 'sample': False, 'topic': topic,
+            'start_inclusive': start.isoformat(), 'end_exclusive': end.isoformat(),
+            'tables': counts, 'format': 'parquet', 'compression': 'zstd',
+            'timestamp_timezone': 'UTC', 'timestamp_resolution': 'microseconds',
+            'exact_numeric_storage': 'text',
+            'complete': True,
+        }
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_STORED) as archive:
+            for name, path in paths:
+                archive.write(path, f'{name}.parquet')
+            archive.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2))
+            archive.writestr('README.txt', 'HackTheRied – Parquet data package\n\nTables use typed UTC timestamps and booleans. IDs and decimal values are text to retain exact values. Structured JSON fields are JSON text. See /quellen for sources and licences.\n')
+        source = await run_in_threadpool(open, zip_path, 'rb')
+        try:
+            while chunk := await run_in_threadpool(source.read, 1024 * 1024):
+                yield chunk
+        finally:
+            source.close()
+
+
+@router.get('/downloads', summary='Download related public data tables as CSV or Parquet ZIP')
 async def download_data(
     topic: Literal['all', 'temperature', 'mobility', 'roadworks', 'humidity', 'precipitation', 'water', 'soil'] = 'all',
     sample: bool = False, start: date | None = None, end: date | None = None,
-    check: bool = False, pool=Depends(get_db_pool),
+    check: bool = False, format: Literal['csv', 'parquet'] = 'csv', pool=Depends(get_db_pool),
 ):
     start_time, end_time = export_range(start, end, sample)
     if sample:
@@ -273,9 +327,11 @@ async def download_data(
         raise HTTPException(503, 'Der Drei-Tabellen-Export ist auf dem Backend noch nicht eingerichtet.') from None
     except QueryCanceled:
         raise HTTPException(503, 'Die Auswahl dauert zu lange. Bitte den Zeitraum eingrenzen.') from None
-    filename = f'hack-the-ried-{ "sample" if sample else topic + "-" + start.isoformat() + "-" + end.isoformat() }.zip'
+    filename = f'hack-the-ried-{ "sample" if sample else topic + "-" + start.isoformat() + "-" + end.isoformat() }.{format}.zip'
     headers = {'Content-Disposition': f'attachment; filename="{filename}"', 'Cache-Control': 'no-store'}
     if sample:
-        data = await run_in_threadpool(package, tables, sample=True, topic=topic, start=None, end=None, generated_at=generated_at)
+        data = await run_in_threadpool(package, tables, sample=True, topic=topic, start=None, end=None, generated_at=generated_at, output_format=format)
         return Response(data, media_type='application/zip', headers=headers)
+    if format == 'parquet':
+        return StreamingResponse(stream_parquet_export(pool, topic, start_time, end_time), media_type='application/zip', headers=headers)
     return StreamingResponse(stream_export(pool, topic, start_time, end_time), media_type='application/zip', headers=headers)

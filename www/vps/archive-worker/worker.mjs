@@ -50,16 +50,16 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
         SELECT to_char(month_start,'YYYY-MM') AS month FROM generate_series(
           date_trunc('month',(SELECT time FROM earliest) AT TIME ZONE 'UTC'),
           date_trunc('month',now() AT TIME ZONE 'UTC')-interval '1 month',interval '1 month') months(month_start)
-        UNION SELECT month FROM data_archives WHERE format_version < 2
+        UNION SELECT month FROM data_archives WHERE format_version < 3
       ) SELECT c.month FROM candidates c LEFT JOIN data_archives a ON a.month=c.month
-      WHERE a.month IS NULL OR NOT a.is_complete OR a.format_version < 2 OR ${staleCondition}
+      WHERE a.month IS NULL OR NOT a.is_complete OR a.format_version < 3 OR ${staleCondition}
       ORDER BY c.month`)).rows.map(row => row.month);
     for (const month of months) {
       if (signal?.aborted) break;
       const { start, end } = monthRange(month);
       if (start > new Date()) throw new Error('Cannot export a future period');
       const previous = (await client.query('SELECT * FROM data_archives WHERE month=$1', [month])).rows[0];
-      if (previous?.is_complete && previous.format_version === 2 && !refresh) {
+      if (previous?.is_complete && previous.format_version === 3 && !refresh) {
         const stale = await client.query(`SELECT 1 FROM data_archives a WHERE month=$1 AND (${staleCondition})`, [month]);
         if (!stale.rowCount) continue;
       }
@@ -78,7 +78,7 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
         await client.query('COMMIT');
         for (const file of archive.files) {
           const remote = await storage.upload(file);
-          uploaded.push({ filename: file.filename, size_bytes: file.size_bytes, reading_count: file.reading_count, sha256: file.sha256, ...remote });
+          uploaded.push({ filename: file.filename, format: file.format, size_bytes: file.size_bytes, reading_count: file.reading_count, sha256: file.sha256, ...remote });
         }
         // Lock station visibility until publication; downloads also filter current visibility.
         await client.query('BEGIN');
@@ -89,9 +89,9 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
         const visible = await client.query('SELECT id FROM sensor_metadata WHERE id = ANY($1::text[]) AND NOT is_hidden FOR SHARE', [ids]);
         if (visible.rowCount !== ids.length) throw new Error('Station visibility changed during export; retry');
         await client.query(`INSERT INTO data_archives (month, generated_at, is_complete, reading_count, size_bytes, station_ids, files, entity_ids, format_version)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,2) ON CONFLICT (month) DO UPDATE SET
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,3) ON CONFLICT (month) DO UPDATE SET
           generated_at=EXCLUDED.generated_at, is_complete=EXCLUDED.is_complete, reading_count=EXCLUDED.reading_count,
-          size_bytes=EXCLUDED.size_bytes, station_ids=EXCLUDED.station_ids, files=EXCLUDED.files, entity_ids=EXCLUDED.entity_ids, format_version=2`,
+          size_bytes=EXCLUDED.size_bytes, station_ids=EXCLUDED.station_ids, files=EXCLUDED.files, entity_ids=EXCLUDED.entity_ids, format_version=3`,
           [month, generatedAt, end <= new Date(generatedAt), archive.reading_count, uploaded.reduce((sum, file) => sum + file.size_bytes, 0), ids, JSON.stringify(uploaded), entityIds]);
         if (previous) await queueCleanup(client, previous.files.map(file => file.key));
         await client.query('COMMIT');

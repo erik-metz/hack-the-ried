@@ -8,6 +8,7 @@ const buttonClass = "rounded-xl px-4 py-3 text-sm font-semibold transition-color
 export default function HackathonDataSection() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [format, setFormat] = useState<"csv" | "parquet">("csv");
   const startDateInput = useRef<HTMLInputElement>(null);
   const endDateInput = useRef<HTMLInputElement>(null);
 
@@ -51,10 +52,13 @@ export default function HackathonDataSection() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-2">
           <h3 className="text-lg font-semibold">Mit einer Stichprobe starten</h3>
-          <p className="max-w-2xl text-sm text-slate-300">Drei zusammengehörige CSV-Dateien: Messpunkte, Messgrößen und Messwerte. Mit IDs zum Verknüpfen und einer kurzen Anleitung im ZIP.</p>
+          <p className="max-w-2xl text-sm text-slate-300">Drei zusammengehörige Tabellen: Messpunkte, Messgrößen und Messwerte. Wähle CSV für Tabellenprogramme oder Parquet für kompakte Analysen.</p>
           <p className="text-xs text-slate-400">Bis zu 300 Messgrößen mit je einem zuletzt gespeicherten Wert. Eine Stichprobe, kein vollständiger Datenbestand.</p>
         </div>
-        <button type="button" disabled={busy} onClick={() => void download(new URLSearchParams({ sample: "1" }))} className={`${buttonClass} shrink-0 bg-emerald-400 text-slate-950 hover:bg-emerald-300`}>Stichprobe laden (ZIP)</button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button type="button" disabled={busy} onClick={() => void download(new URLSearchParams({ sample: "1", format: "csv" }))} className={`${buttonClass} bg-emerald-400 text-slate-950 hover:bg-emerald-300`}>CSV-Stichprobe</button>
+          <button type="button" disabled={busy} onClick={() => void download(new URLSearchParams({ sample: "1", format: "parquet" }))} className={`${buttonClass} border border-slate-700 text-emerald-300 hover:bg-slate-800`}>Parquet-Stichprobe</button>
+        </div>
       </div>
       <form onSubmit={event => {
         event.preventDefault();
@@ -66,7 +70,7 @@ export default function HackathonDataSection() {
           <h3 className="text-lg font-semibold">Thema &amp; Zeitraum wählen</h3>
           <p className="text-sm text-slate-300">Öffentliche Daten des gewählten Themas aus dem Drei-Tabellen-Bestand gemeinsam herunterladen.</p>
         </div>
-        <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-3">
+        <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <legend className="sr-only">Export auswählen</legend>
           <label className="text-sm font-medium">Thema
             <select name="topic" className={inputClass}>
@@ -80,6 +84,12 @@ export default function HackathonDataSection() {
               <option value="roadworks">Baustellen &amp; Sperrungen</option>
             </select>
           </label>
+          <label className="text-sm font-medium">Format
+            <select name="format" value={format} onChange={event => setFormat(event.target.value as "csv" | "parquet")} className={inputClass}>
+              <option value="csv">CSV (ZIP)</option>
+              <option value="parquet">Parquet (ZIP)</option>
+            </select>
+          </label>
           <label className="text-sm font-medium">Von (UTC)
             <input ref={startDateInput} type="date" name="start" required className={inputClass} />
           </label>
@@ -88,7 +98,7 @@ export default function HackathonDataSection() {
           </label>
         </fieldset>
         <p className="text-xs text-slate-400">Bis zu 31 Tage pro Export, ohne Zeilenlimit. Baustellen und Sperrungen enthalten gespeicherte Meldungen, deren Gültigkeit den Zeitraum überlappt.</p>
-        <button type="submit" disabled={busy} className={`${buttonClass} border border-slate-700 text-emerald-300 hover:bg-slate-800`}>Auswahl laden (ZIP)</button>
+        <button type="submit" disabled={busy} className={`${buttonClass} border border-slate-700 text-emerald-300 hover:bg-slate-800`}>{format === "csv" ? "CSV-Auswahl laden (ZIP)" : "Parquet-Auswahl laden (ZIP)"}</button>
       </form>
       <p role="status" aria-live="polite" className="text-sm text-slate-300">{busy ? "Auswahl wird geprüft …" : message}</p>
       <p className="text-sm text-slate-400">Für den Hackathon: Ein Paket für den gewünschten Zeitraum laden und gemeinsam im lokalen Netzwerk bereitstellen. Langfristige Sensordaten findest du in den Sensorarchiven.</p>

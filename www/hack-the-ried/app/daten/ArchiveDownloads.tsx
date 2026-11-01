@@ -6,7 +6,7 @@ type Archive = {
   generated_at: string;
   is_complete: boolean;
   reading_count: number;
-  files: { filename: string; url: string; size_bytes: number }[];
+  files: { filename: string; format?: "csv" | "parquet"; url: string; size_bytes: number }[];
 };
 
 export default function ArchiveDownloads() {
@@ -27,7 +27,7 @@ export default function ArchiveDownloads() {
   return (
     <section id="monatsarchive" className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
       <h2 className="text-2xl font-bold">Sensorarchive</h2>
-      <p className="text-sm text-slate-300">Gespeicherte öffentliche Daten als ZIP mit drei verknüpften CSV-Tabellen: Objekte, Messgrößen und Messwerte. Bei mehrteiligen Archiven alle Teile des Zeitraums herunterladen.</p>
+      <p className="text-sm text-slate-300">Gespeicherte öffentliche Daten als ZIP mit drei verknüpften Tabellen: Objekte, Messgrößen und Messwerte. CSV eignet sich für Tabellenprogramme, Parquet für kompakte Analysen. Für einen vollständigen Monat alle Teile desselben Formats herunterladen.</p>
       {archives === null ? (
         <p role="status" className="text-sm text-amber-300">Der Downloadkatalog ist momentan nicht erreichbar. Bitte später erneut versuchen.</p>
       ) : years.size === 0 ? (
@@ -46,13 +46,21 @@ export default function ArchiveDownloads() {
                     <h3 className="font-semibold">{new Date(`${archive.month}-01T00:00:00Z`).toLocaleDateString("de-DE", { month: "long", timeZone: "UTC" })}</h3>
                     <p className="text-sm text-slate-300">{archive.reading_count.toLocaleString("de-DE")} Messwerte{archive.is_complete ? "" : " · laufender Zeitraum"}</p>
                     <p className="text-xs text-slate-400">Stand {new Date(archive.generated_at).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" })}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {archive.files.map((file, partIndex) => (
-                        <a key={file.filename} href={file.url} aria-label={`${archive.month}: ${file.filename} herunterladen`} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-emerald-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-emerald-400">
-                          {archive.files.length === 1 ? "ZIP" : `ZIP · Teil ${partIndex + 1}`} · {(file.size_bytes / (file.size_bytes < 1024 * 1024 ? 1024 : 1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} {file.size_bytes < 1024 * 1024 ? "KB" : "MB"} ↓
-                        </a>
-                      ))}
-                    </div>
+                    {(["csv", "parquet"] as const).map(format => {
+                      const files = archive.files.filter(file => (file.format ?? "csv") === format);
+                      return files.length ? (
+                        <div key={format} className="space-y-1">
+                          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{format}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {files.map((file, partIndex) => (
+                              <a key={file.filename} href={file.url} aria-label={`${archive.month}: ${format} ${file.filename} herunterladen`} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-emerald-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-emerald-400">
+                                {files.length === 1 ? "ZIP" : `ZIP · Teil ${partIndex + 1}`} · {(file.size_bytes / (file.size_bytes < 1024 * 1024 ? 1024 : 1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} {file.size_bytes < 1024 * 1024 ? "KB" : "MB"} ↓
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null;
+                    })}
                   </li>
                 ))}
               </ul>
