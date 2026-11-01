@@ -50,11 +50,11 @@ const nativeGatewayCopy = (sensor, time, value, quality) => `EXISTS (
 
 const stamp = column => `CASE WHEN r.${column} IS NULL THEN NULL ELSE to_char(r.${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END`;
 export const ROWS = `SELECT entity,definition,reading FROM (SELECT
-  jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata) AS entity,
-  to_jsonb(d) || jsonb_build_object('id',d.id::text,'minimum',d.minimum::text,'maximum',d.maximum::text) AS definition,
+  jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata::text) AS entity,
+  to_jsonb(d) || jsonb_build_object('id',d.id::text,'minimum',d.minimum::text,'maximum',d.maximum::text,'dimensions',d.dimensions::text) AS definition,
   to_jsonb(r) || jsonb_build_object('measurement_id',r.measurement_id::text,'value',r.value::text,
     'observed_at',${stamp('observed_at')},'collected_at',${stamp('collected_at')},
-    'period_start',${stamp('period_start')},'period_end',${stamp('period_end')}) AS reading,
+    'period_start',${stamp('period_start')},'period_end',${stamp('period_end')},'provenance',r.provenance::text) AS reading,
   r.observed_at AS sort_time,r.measurement_id AS sort_id
   FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
   JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
@@ -63,8 +63,8 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
       AND d.metric='online_status' AND d.unit='state' AND d.basis='unknown' AND d.dimensions='{}'
       AND ${nativeGatewayCopy('substr(d.entity_id,8)', 'r.observed_at', 'r.value', 'r.quality')})
   UNION ALL SELECT
-    jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata),
-    to_jsonb(d) || jsonb_build_object('id',d.id::text,'minimum',d.minimum::text,'maximum',d.maximum::text),
+    jsonb_build_object('id',e.id,'name',e.name,'entity_type',e.entity_type,'metadata',e.metadata::text),
+    to_jsonb(d) || jsonb_build_object('id',d.id::text,'minimum',d.minimum::text,'maximum',d.maximum::text,'dimensions',d.dimensions::text),
     jsonb_build_object('measurement_id',d.id::text,'observed_at',
       to_char(t.timestamp AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
       'value',t.value::text,'quality','valid','collected_at',NULL,'period_start',NULL,'period_end',NULL,

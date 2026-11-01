@@ -74,9 +74,14 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     assert.equal(sequence, afterRefresh);
     assert.equal((await client.query('SELECT * FROM archive_cleanup')).rowCount, 0);
     // Existing older-format catalogues are automatically upgraded, even if complete.
-    await client.query("UPDATE data_archives SET format_version=1 WHERE month='2025-01'");
+    await client.query("UPDATE data_archives SET format_version=1,reading_count=0 WHERE month='2025-01'");
+    await client.query("INSERT INTO sensor_data VALUES ('2025-01-31T23:45:00Z','public','temperature',777,'C')");
     await run();
     assert.equal((await client.query('SELECT format_version FROM data_archives')).rows[0].format_version, 4);
+    assert.equal(Number((await client.query('SELECT reading_count FROM data_archives')).rows[0].reading_count), 6002,
+      'Hour discovery must inspect the database, even when the old catalogue claimed no readings');
+    await client.query("DELETE FROM sensor_data WHERE timestamp='2025-01-31T23:45:00Z'");
+    await run({ refresh: true });
     // Automatic discovery: SQL must backfill February and skip existing January.
     await run({ requestedMonth: null });
     row = (await client.query("SELECT * FROM data_archives WHERE month='2025-02'")).rows[0];
@@ -127,9 +132,19 @@ test('core export reads canonical values and still honours station visibility', 
         assert.equal(file.format, 'parquet');
         csv = execFileSync(process.env.PYTHON || 'python3', ['-c', `
 import io,json,sys,zipfile,pyarrow.parquet as pq
+from decimal import Decimal
 with zipfile.ZipFile(sys.argv[1]) as archive:
     assert set(archive.namelist()) == {'entities.parquet','measurement_definitions.parquet','readings.parquet','manifest.json','README.txt'}
     rows = pq.ParquetFile(io.BytesIO(archive.read('readings.parquet'))).read(use_threads=False).to_pylist()
+    entities = pq.ParquetFile(io.BytesIO(archive.read('entities.parquet'))).read(use_threads=False).to_pylist()
+    definitions = pq.ParquetFile(io.BytesIO(archive.read('measurement_definitions.parquet'))).read(use_threads=False).to_pylist()
+    if any(entity['id']=='model:test' for entity in entities):
+        model = next(entity for entity in entities if entity['id']=='model:test')
+        assert json.loads(model['metadata'],parse_int=Decimal)['large']==Decimal('9007199254740993')
+        definition = next(d for d in definitions if d['entity_id']=='model:test')
+        assert json.loads(definition['dimensions'],parse_int=Decimal)['large']==Decimal('9007199254740993')
+        reading = next(r for r in rows if r['measurement_id']==definition['id'])
+        assert json.loads(reading['provenance'],parse_float=Decimal)['exact']==Decimal('-1.234567890123456789')
     print(json.dumps(rows,default=str))
 `, file.path], { encoding: 'utf8' });
         return { key: 'canonical-key', url: 'https://test.ufs.sh/f/canonical' };
@@ -141,9 +156,9 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     assert.match(csv, /20\.125/);
     assert.doesNotMatch(csv, /9999/);
     assert.equal(Number((await client.query('SELECT reading_count FROM data_archives')).rows[0].reading_count), 1);
-    await client.query(`INSERT INTO entities(id,name,entity_type) VALUES('model:test','Model','model');
-      SELECT write_measurement('model:test','temperature','C','canonical-test','model','{}',
-        '2025-01-02T00:00:00.123456Z',-1.234567890123456789,'2025-01-02','{}');`);
+    await client.query(`INSERT INTO entities(id,name,entity_type,metadata) VALUES('model:test','Model','model','{"large":9007199254740993}');
+      SELECT write_measurement('model:test','temperature','C','canonical-test','model','{"large":9007199254740993}',
+        '2025-01-02T00:00:00.123456Z',-1.234567890123456789,'2025-01-02','{"exact":-1.234567890123456789}');`);
     await runArchives({ storage, dbConfig, requestedMonth: '2025-01', refresh: true });
     assert.match(csv, /-1\.234567890123456789/);
     assert.match(csv, /00:00:00\.123456\+00:00/);

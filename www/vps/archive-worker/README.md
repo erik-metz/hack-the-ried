@@ -17,6 +17,9 @@ IDs and exact decimal values are strings to avoid precision loss. Timestamps
 retain UTC microseconds. Structured fields remain JSON text. Unknown original
 receipt times remain null; metadata reflects export time. Hourly repeatable-read
 snapshots release database locks regularly; late corrections may require refresh.
+When refreshing or upgrading small existing snapshots, the worker discovers all
+currently populated hours first and skips empty hours. New or dense months retain
+the full hourly scan. Data arriving after hour discovery can require a refresh.
 
 ## Data quality
 

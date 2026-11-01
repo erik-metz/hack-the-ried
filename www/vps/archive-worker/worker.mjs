@@ -71,9 +71,23 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
       let published = false;
       try {
         const generatedAt = (await client.query('SELECT transaction_timestamp() AS time')).rows[0].time.toISOString();
+        // Existing small snapshots usually contain a few historical reference dates.
+        // Discover every currently populated hour instead of issuing thousands of
+        // empty cursor transactions while upgrading old catalogues. Dense/new
+        // months retain the full hourly scan. Late arrivals still require refresh.
+        const windows = previous && Number(previous.reading_count) <= 100000
+          ? (await client.query(`SELECT DISTINCT date_trunc('hour',r.observed_at,'UTC') AS window_start
+              FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
+              JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
+                AND r.observed_at >= $1 AND r.observed_at < $2
+              UNION SELECT DISTINCT date_trunc('hour',t.timestamp,'UTC') AS window_start
+              FROM sensor_data t JOIN sensor_metadata s ON s.id=t.sensor_id
+              WHERE NOT s.is_hidden AND t.timestamp >= $1 AND t.timestamp < $2
+              ORDER BY window_start`, [start,end])).rows.map(row => row.window_start.getTime())
+          : Array.from({ length: Math.ceil((end - start) / 3600000) }, (_, i) => start.getTime() + i * 3600000);
         async function* periodRows() {
           // Release relation locks between windows so deployments and ingestion can proceed.
-          for (let windowStart = start.getTime(); windowStart < end.getTime(); windowStart += 3600000) {
+          for (const windowStart of windows) {
             if (signal?.aborted) throw new Error('Archive export interrupted');
             await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
             await client.query("SET LOCAL TIME ZONE 'UTC'");
