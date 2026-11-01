@@ -14,9 +14,17 @@ export async function includeLegacy(client, start, end) {
     const params = [start, end];
     const scope = `FROM sensor_data t JOIN sensor_metadata s ON s.id=t.sensor_id
       WHERE NOT s.is_hidden AND t.timestamp >= $1 AND t.timestamp < $2`;
-    const conflicts = await client.query(`SELECT 1 ${scope}
-      GROUP BY t.timestamp,t.sensor_id,t.metric,t.unit HAVING count(DISTINCT t.value)>1 LIMIT 1`, params);
-    if (conflicts.rowCount) throw new Error('Conflicting legacy samples; resolve before monthly export');
+    const conflicts = await client.query(`SELECT t.timestamp::text AS timestamp,t.sensor_id,t.metric,t.unit ${scope}
+      GROUP BY t.timestamp,t.sensor_id,t.metric,t.unit HAVING count(DISTINCT t.value)>1`, params);
+    if (conflicts.rowCount) {
+      const available = await client.query("SELECT to_regprocedure('reconcile_weather_history(text,text,text,timestamptz)') IS NOT NULL AS available");
+      if (!available.rows[0].available) throw new Error('Conflicting legacy samples; resolve before monthly export');
+      for (const row of conflicts.rows) {
+        const result = await client.query('SELECT reconcile_weather_history($1,$2,$3,$4) AS reconciled',
+          [row.sensor_id, row.metric, row.unit, row.timestamp]);
+        if (!result.rows[0].reconciled) throw new Error('Conflicting legacy samples; resolve before monthly export');
+      }
+    }
     await client.query(`INSERT INTO entities(id,name,entity_type,metadata,is_hidden)
       SELECT 'sensor:'||s.id,s.friendly_name,'sensor',jsonb_build_object(
         'legacy_sensor_id',s.id,'description',s.description,'latitude',s.latitude,'longitude',s.longitude),false

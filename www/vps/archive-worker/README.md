@@ -97,8 +97,12 @@ Before taking the read snapshot, the worker transactionally inserts missing
 public legacy telemetry for the period into the canonical tables. It never
 overwrites existing canonical readings and does not enable shadow writes or
 change API read mode. Legacy source/basis uncertainty is explicitly retained.
-Identical legacy duplicates collapse to one canonical key; conflicting duplicates
-fail the period instead of inventing a value. No production history is deleted.
+Identical legacy duplicates collapse to one canonical key. Weather corrections
+are reconciled only when the existing source-aware weather stream and revision
+history explain every legacy value with a verified provider receipt. Replay the
+archived source responses first using the existing weather replay procedure.
+Unexplained conflicting duplicates still fail the period. No production history
+is deleted and no arbitrary minimum/maximum is selected for a conflicting key.
 
 Deploy the updated backend first: its idempotent schema adds `format_version`
 and `entity_ids` to the archive catalogue. The worker automatically regenerates
