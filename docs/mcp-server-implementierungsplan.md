@@ -1,6 +1,16 @@
 # Implementierungsplan: öffentlicher MCP-Server auf der VPS
 
-Stand: 1. November 2026. Status: abgestimmte Zielrichtung, noch nicht implementiert.
+Stand: 1. November 2026. Status: Umsetzung läuft; Code, Prüfungen und Betrieb
+werden in [der MCP-Dokumentation](../www/vps/mcp-server/README.md) und
+[der Bestandsaufnahme](evidence/mcp-inventory-2026-11-01.json) festgehalten.
+
+Die erste Umsetzung liefert den allgemeinen Datenzugang, Termine/Regionalatlas,
+versionierte Quellenintervalle und Diagnoseberichte. Vollständige logische
+Laufbelege werden zunächst im Registry-Worker ergänzt. Andere Collector bleiben
+mit ihrer vorhandenen Versuchshistorie ausdrücklich als unvollständig
+instrumentiert erkennbar. Individuelle saisonale Regeln, gesonderte
+Wartungsfenster und Tagesrollups sind Folgeausbaustufen; historische Belege
+werden nicht erfunden. Die nachstehenden Pakete bleiben der Zielplan.
 
 ## 1. Ziel und verbindliche Entscheidungen
 

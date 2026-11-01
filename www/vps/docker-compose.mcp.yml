@@ -1,0 +1,67 @@
+# Opt-in overlay: docker compose -f docker-compose.yml -f docker-compose.mcp.yml ...
+# Prepare ./secrets/mcp-service-key and ./secrets/mcp-service-digests first.
+services:
+  backend-api:
+    environment:
+      MCP_API_ENABLED: "true"
+      MCP_SERVICE_DIGESTS_FILE: /run/secrets/mcp-service-digests
+    secrets:
+      - mcp-service-digests
+    networks:
+      - default
+      - mcp-backend
+
+  registry-sync-worker:
+    environment:
+      COLLECTION_RUN_EVIDENCE: "true"
+
+  nginx:
+    networks:
+      - default
+      - mcp-frontend
+
+  mcp-server:
+    image: ghcr.io/erik-metz/hack-the-ried-mcp:latest
+    build:
+      context: ./mcp-server
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    secrets:
+      - mcp-service-key
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      MCP_SERVICE_KEY_FILE: /run/secrets/mcp-service-key
+      MCP_API_URL: http://backend-api:8080/api/v1/internal/mcp/
+      MCP_ALLOWED_HOSTS: hack-the-ried.duckdns.org,open-ried-sens.duckdns.org
+      MCP_ALLOWED_ORIGINS: https://hack-the-ried.duckdns.org,https://open-ried-sens.duckdns.org
+    networks:
+      - mcp-frontend
+      - mcp-backend
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/ready', timeout=15)"]
+      interval: 30s
+      timeout: 16s
+      start_period: 30s
+      retries: 3
+
+networks:
+  mcp-frontend:
+    internal: true
+  mcp-backend:
+    internal: true
+
+secrets:
+  mcp-service-key:
+    file: ./secrets/mcp-service-key
+  mcp-service-digests:
+    file: ./secrets/mcp-service-digests

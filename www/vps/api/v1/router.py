@@ -7,6 +7,7 @@ from endpoints import (
     environment_measurements,
     fuel,
     map_sensors,
+    mcp,
     newsletter,
     pitch,
     qr_scans,
@@ -24,6 +25,7 @@ from endpoints import (
 from fastapi import APIRouter
 
 api_router = APIRouter()
+api_router.include_router(mcp.router)
 api_router.include_router(environment_measurements.router)
 api_router.include_router(newsletter.router)
 api_router.include_router(collected.router)

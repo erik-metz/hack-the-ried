@@ -18,6 +18,35 @@ permissions:
   packages: write
 
 jobs:
+  validate-mcp:
+    name: MCP API, reliability and HTTP tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r www/vps/api/requirements.txt -r www/vps/mcp-server/requirements.txt httpx pytest pyyaml ruff
+      - run: ruff check www/vps/mcp-server www/vps/api/v1/mcp*.py www/vps/api/v1/endpoints/mcp.py www/vps/api/v1/publication_service.py
+      - run: PYTHONPATH=www/vps/api/v1 python -m unittest discover -s www/vps/api/v1/tests -p test_mcp.py -v
+        env:
+          COLLECTOR_TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/postgres
+      - run: PYTHONPATH=www/vps/mcp-server python -m pytest -q www/vps/mcp-server/tests
+        env:
+          COLLECTOR_TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/postgres
+
   validate-fuel-collector:
     name: Fuel collector tests
     runs-on: ubuntu-latest
@@ -359,6 +388,7 @@ jobs:
     name: Build & Push Docker Image to GHCR
     runs-on: ubuntu-latest
     needs:
+      - validate-mcp
       - validate-fuel-collector
       - validate-sky-collector
       - validate-api-code
@@ -390,6 +420,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push MCP server
+        uses: docker/build-push-action@v6
+        with:
+          context: ./www/vps/mcp-server
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/hack-the-ried-mcp:latest
+            ghcr.io/${{ github.repository_owner }}/hack-the-ried-mcp:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Build and Push Docker Image Satellite Collector
         uses: docker/build-push-action@v6

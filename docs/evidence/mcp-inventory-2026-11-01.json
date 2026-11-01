@@ -1,0 +1,48 @@
+{
+  "snapshot": "2026-11-01",
+  "manifest_sources": 75,
+  "enabled_sources": 58,
+  "logical_run_instrumentation": "registry-sync-worker when COLLECTION_RUN_EVIDENCE=true; other collectors expose attempts only",
+  "canonical_tables": [
+    "entities",
+    "measurement_definitions",
+    "readings"
+  ],
+  "publication_catalog": "dynamic collected_datasets, plus manifest-declared unavailable datasets",
+  "privacy_exclusions": [
+    "hidden/deleted entities",
+    "inaturalist through canonical tables",
+    "raw social/source-diagnostics"
+  ],
+  "limits": [
+    "No retrospective schedule claims before first policy/coverage record",
+    "No full acquisition-history scan for source discovery",
+    "No automatic migration of legacy data"
+  ],
+  "groups": {
+    "demographics": 1,
+    "economy": 1,
+    "elections": 2,
+    "environment": 7,
+    "finance": 2,
+    "infrastructure": 17,
+    "maps": 1,
+    "realestate": 2,
+    "social": 30,
+    "statistics": 1,
+    "traffic": 1,
+    "transport": 8,
+    "waste": 2
+  },
+  "runtime_snapshot": {
+    "host": "hack-the-ried.duckdns.org",
+    "date": "2026-11-01",
+    "registered_sources": 90,
+    "table_estimates": {
+      "entities": 121544,
+      "measurement_definitions": 497199,
+      "collection_attempts": 941756
+    },
+    "notice": "Read-only pg_stat_user_tables estimates, not exact row counts. A hypertable parent estimate does not measure its chunks. Global attempt-history min/max exceeded the 5-second query budget; no retrospective completeness claimed."
+  }
+}

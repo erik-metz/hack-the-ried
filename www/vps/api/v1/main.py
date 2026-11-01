@@ -9,6 +9,8 @@ import psycopg_pool
 from dependencies import validate_api_keys
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from mcp_auth import enabled as mcp_enabled
+from mcp_auth import validate_mcp_config
 from measurement_reads import ensure_core_ready
 from psycopg.rows import dict_row
 from router import api_router as v1_router
@@ -52,6 +54,7 @@ async def init_db(pool: psycopg_pool.AsyncConnectionPool) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_api_keys()
+    validate_mcp_config()
     user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
     host = os.getenv("DB_HOST", "timescaledb")
@@ -86,6 +89,8 @@ async def lifespan(app: FastAPI):
             await conn.execute((Path(__file__).parent / "migrations" / "20261028_sky_collector.sql").read_text())
             await conn.execute((Path(__file__).parent / "migrations" / "20261016_reading_export_index.sql").read_text())
             await ensure_core_ready(conn)
+            if mcp_enabled():
+                await conn.execute((Path(__file__).parent / "migrations" / "20261101_mcp.sql").read_text())
         yield
     finally:
         await app.state.pool.close()

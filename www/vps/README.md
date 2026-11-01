@@ -12,6 +12,11 @@ alias. The frontend is a separate Next.js deployment on Vercel.
 
 ## Architecture Overview
 
+The optional anonymous read-only MCP service is documented in
+[mcp-server/README.md](mcp-server/README.md). It uses the existing public data
+boundaries through dedicated internal API routes and a separate service key.
+Enable it with `docker-compose.mcp.yml` only after preparing its secret files.
+
 ```
  [LoRa Tracker]
        │ (LoRaWAN 868MHz)

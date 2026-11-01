@@ -48,6 +48,7 @@ from regular_offers import (
     import_tvl_triathlon,
 )
 from ris_boards import import_ris_boards
+from run_evidence import begin_run, finish_run
 from satellite import import_satellite
 from schadlingsradar import import_schaedlingsradar
 from social_diagnostics import CURRENT
@@ -168,6 +169,7 @@ async def collect(source, settings):
         started_cursor = await conn.execute("SELECT clock_timestamp()")
         started = (await started_cursor.fetchone())[0]
         await conn.commit()
+        run_id = await begin_run(conn, source['id'])
         try:
             async with httpx.AsyncClient(
                 timeout=120,
@@ -177,6 +179,7 @@ async def collect(source, settings):
                 status = await ADAPTERS[source["adapter"]](conn, client, source)
             if social_token is not None:
                 await finish_social_diagnostics(conn, source, started)
+            await finish_run(conn, run_id, status or 'success')
             return {"source_id": source["id"], "status": status or "success"}
         except Exception as exc:  # noqa: BLE001 - isolate source jobs; record failure without secret URLs
             await conn.rollback()
@@ -187,6 +190,7 @@ async def collect(source, settings):
                  "storage" if isinstance(exc, (psycopg.Error, OSError)) else "processing"),
             )
             await conn.commit()
+            await finish_run(conn, run_id, 'failed')
             # Do not log a credential-bearing request URL from the exception.
             LOG.error("Source %s failed (%s)", source["id"], acquisition_error(exc))
             return {"source_id": source["id"], "status": "failed"}

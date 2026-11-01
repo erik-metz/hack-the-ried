@@ -27,6 +27,9 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.emf = self.emf_mock.start()
         self.emf.return_value = EmfSitesSummary(total_sites=0, providers={}, sites=[])
         self.addCleanup(self.emf_mock.stop)
+        self.publication_emf = patch('publication_service.get_emf_sites', self.emf)
+        self.publication_emf.start()
+        self.addCleanup(self.publication_emf.stop)
 
     async def test_emf_sites_reach_map_and_infrastructure(self):
         from endpoints.collected import map_layers

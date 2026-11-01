@@ -1,0 +1,109 @@
+{
+  "demographics/summary": [
+    "demographics-published-source"
+  ],
+  "demographics/facilities": [
+    "demographics-published-source"
+  ],
+  "demographics/commuters": [
+    "demographics-published-source"
+  ],
+  "demographics/municipalities": [
+    "demographics-published-source"
+  ],
+  "demographics/age-structure": [
+    "demographics-published-source"
+  ],
+  "realestate/summary": [
+    "realestate-published-source"
+  ],
+  "realestate/housing-stock": [
+    "realestate-published-source"
+  ],
+  "realestate/boris": [
+    "realestate-published-source"
+  ],
+  "realestate/construction-activity": [
+    "realestate-published-source"
+  ],
+  "realestate/market-benchmarks": [
+    "realestate-published-source"
+  ],
+  "realestate/development-plans": [
+    "realestate-published-source"
+  ],
+  "economy/overview": [
+    "economy-published-source"
+  ],
+  "economy/companies": [
+    "economy-published-source"
+  ],
+  "economy/taxes": [
+    "economy-published-source"
+  ],
+  "economy/registrations": [
+    "economy-published-source"
+  ],
+  "economy/industry-structure": [
+    "economy-published-source"
+  ],
+  "economy/startups": [
+    "economy-published-source"
+  ],
+  "finance/budgets": [
+    "finance-published-source"
+  ],
+  "finance/spending": [
+    "finance-published-source"
+  ],
+  "finance/compare": [
+    "finance-published-source"
+  ],
+  "elections": [
+    "elections-published-source"
+  ],
+  "environment/protected-areas": [
+    "environment-published-source"
+  ],
+  "environment/agriculture/stats": [
+    "environment-published-source"
+  ],
+  "environment/crop-zones": [
+    "environment-published-source"
+  ],
+  "environment/groundwater": [
+    "environment-published-source"
+  ],
+  "social/indicators/summary": [
+    "social-published-source"
+  ],
+  "social/waste-statistics": [
+    "social-published-source"
+  ],
+  "social/facilities": [
+    "social-published-source"
+  ],
+  "infrastructure/broadband": [
+    "infrastructure-published-source"
+  ],
+  "infrastructure/road-conditions": [
+    "infrastructure-published-source"
+  ],
+  "infrastructure/wifi": [
+    "infrastructure-published-source"
+  ],
+  "traffic/street-closures": [
+    "traffic-published-source"
+  ],
+  "infrastructure/energy": [
+    "energy-meter-feed"
+  ],
+  "social/events": [],
+  "social/regular-offers": [],
+  "transport/bahn/stations": [
+    "db-openstation-netex"
+  ],
+  "transport/bahn/facilities": [
+    "db-openstation-siri-fm"
+  ]
+}
