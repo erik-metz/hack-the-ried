@@ -3,6 +3,7 @@ Follows the Three-Table Core Schema (entities, measurement_definitions, readings
 and maintains sensor_metadata/sensor_latest for API/Map compatibility.
 """
 
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -23,8 +24,13 @@ async def persist_gateways(
     payload_bytes: bytes | None = None,
     payload_sha256: str | None = None,
     backfill: bool = False,
+    attempt_id: int | None = None,
 ) -> dict:
     now = now or datetime.now(UTC)
+    if payload_bytes is not None:
+        actual_hash = hashlib.sha256(payload_bytes).hexdigest()
+        if payload_sha256 != actual_hash:
+            raise ValueError("Gateway payload checksum mismatch")
     stats = {
         "gateways_updated": 0,
         "measurements_written": 0,
@@ -72,6 +78,22 @@ async def persist_gateways(
                 """,
                 (settings.packetbroker_api_url, settings.poll_seconds),
             )
+
+        # Keep the original response and link it to this poll, atomically with its data.
+        if payload_bytes is not None:
+            await cur.execute(
+                """INSERT INTO collected_payloads(sha256,body,content_type,received_at)
+                VALUES (%s,%s,'application/json',%s) ON CONFLICT DO NOTHING""",
+                (payload_sha256, payload_bytes, now),
+            )
+            if attempt_id is not None:
+                await cur.execute(
+                    """UPDATE collection_attempts SET payload_sha256=%s,http_status=200,
+                    fetched_at=%s WHERE id=%s AND source_id='ttnmapper'""",
+                    (payload_sha256, now, attempt_id),
+                )
+                if cur.rowcount != 1:
+                    raise ValueError("Gateway collection attempt missing")
 
         # Check Three-Table Core routine
         await cur.execute(
@@ -153,7 +175,14 @@ async def persist_gateways(
                     )
                     stats["measurements_written"] += 1
 
-                # Online status as observed state
+                # Online is the state returned by this poll. Gateway updatedAt
+                # belongs to the registry entry, not the observation of its status.
+                status_provenance = json.dumps({
+                    **json.loads(provenance),
+                    "gateway_updated_at": gw.updated_at.isoformat(),
+                    **({"payload_sha256": payload_sha256} if payload_bytes is not None else {}),
+                    **({"collection_attempt_id": attempt_id} if attempt_id is not None else {}),
+                })
                 online_val = 1.0 if gw.online else 0.0
                 await cur.execute(
                     """
@@ -163,7 +192,7 @@ async def persist_gateways(
                         'valid'::text, NULL::timestamptz, NULL::timestamptz, 'state'::text, %s::boolean
                     )
                     """,
-                    (entity_id, gw.updated_at, online_val, now, provenance, backfill),
+                    (entity_id, now, online_val, now, status_provenance, backfill),
                 )
                 stats["measurements_written"] += 1
 
@@ -183,12 +212,20 @@ async def persist_gateways(
 
             status_val = 1.0 if gw.online else 0.0
             await cur.execute(
-                """
-                INSERT INTO sensor_data (timestamp, sensor_id, metric, value, unit)
-                VALUES (%s, %s, 'online_status', %s, 'state')
-                ON CONFLICT DO NOTHING
-                """,
-                (gw.updated_at, gw.sensor_id, status_val),
+                """SELECT 1 FROM sensor_data WHERE timestamp=%s AND sensor_id=%s
+                AND metric='online_status' AND unit='state' AND value IS DISTINCT FROM %s LIMIT 1""",
+                (now, gw.sensor_id, status_val),
+            )
+            if await cur.fetchone() is not None:
+                raise ValueError("Conflicting gateway status for the same poll")
+            # sensor_data has no unique key: ON CONFLICT does not make retries idempotent.
+            # The collector advisory lock serializes the existence check and insertion.
+            await cur.execute(
+                """INSERT INTO sensor_data (timestamp, sensor_id, metric, value, unit)
+                SELECT %s, %s, 'online_status', %s, 'state' WHERE NOT EXISTS (
+                    SELECT 1 FROM sensor_data WHERE timestamp=%s AND sensor_id=%s
+                    AND metric='online_status' AND unit='state')""",
+                (now, gw.sensor_id, status_val, now, gw.sensor_id),
             )
             await cur.execute(
                 """
@@ -199,7 +236,7 @@ async def persist_gateways(
                     value = EXCLUDED.value
                 WHERE EXCLUDED.timestamp >= sensor_latest.timestamp
                 """,
-                (gw.sensor_id, gw.updated_at, status_val),
+                (gw.sensor_id, now, status_val),
             )
 
             stats["gateways_updated"] += 1

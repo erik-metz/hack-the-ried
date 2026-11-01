@@ -1,3 +1,4 @@
+import hashlib
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -69,7 +70,7 @@ class TTNMapperStorageTests(DatabaseCase):
             snapshot,
             settings,
             payload_bytes=b"{}",
-            payload_sha256="fake_sha",
+            payload_sha256=hashlib.sha256(b"{}").hexdigest(),
         )
 
         self.assertEqual(stats["gateways_updated"], 1)
@@ -133,6 +134,55 @@ class TTNMapperStorageTests(DatabaseCase):
             snapshot,
             settings,
             payload_bytes=b"{}",
-            payload_sha256="fake_sha",
+            payload_sha256=hashlib.sha256(b"{}").hexdigest(),
         )
         self.assertEqual(stats2["gateways_updated"], 1)
+
+    async def test_status_uses_poll_time_and_keeps_original_response(self):
+        from dataclasses import replace
+        from datetime import timedelta
+
+        sys.path.append(str(Path(__file__).resolve().parents[2] / 'api/v1'))
+        from measurement_migration import install
+        await install(self.conn)
+        settings = Settings(poll_seconds=900, state_dir="/tmp", db={},
+            min_lat=49.4, max_lat=50, min_lon=8.25, max_lon=8.8,
+            center_lat=49.64, center_lon=8.53, radius_meters=25000)
+        gateway = sample_gateway()
+        first = gateway.updated_at + timedelta(minutes=15)
+        second = first + timedelta(minutes=15)
+        payload = b'[{"online":true}]'
+        digest = hashlib.sha256(payload).hexdigest()
+        attempt = await (await self.conn.execute(
+            "INSERT INTO collection_attempts(source_id,status) VALUES('ttnmapper','received') RETURNING id"
+        )).fetchone()
+        await persist_gateways(self.conn, [gateway], replace(sample_snapshot([gateway]), observed_at=first), settings,
+            now=first, payload_bytes=payload, payload_sha256=digest, attempt_id=attempt[0])
+        offline = replace(gateway, online=False)
+        await persist_gateways(self.conn, [offline], replace(sample_snapshot([offline]), observed_at=second), settings, now=second)
+        rows = await (await self.conn.execute("""SELECT r.observed_at,r.value,r.provenance
+            FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
+            WHERE d.source_id='ttnmapper' AND d.metric='online_status' ORDER BY r.observed_at""")).fetchall()
+        self.assertEqual([(row[0], row[1]) for row in rows], [(first, 1), (second, 0)])
+        self.assertEqual(rows[0][2]['gateway_updated_at'], gateway.updated_at.isoformat())
+        self.assertEqual(rows[0][2]['payload_sha256'], digest)
+        self.assertEqual(rows[0][2]['collection_attempt_id'], attempt[0])
+        legacy = await (await self.conn.execute(
+            "SELECT timestamp,value FROM sensor_data WHERE sensor_id=%s ORDER BY timestamp",
+            (gateway.sensor_id,),
+        )).fetchall()
+        self.assertEqual(legacy, [(first, 1), (second, 0)])
+        receipt = await (await self.conn.execute("""SELECT p.body,a.fetched_at,a.http_status
+            FROM collection_attempts a JOIN collected_payloads p ON p.sha256=a.payload_sha256
+            WHERE a.id=%s""", (attempt[0],))).fetchone()
+        self.assertEqual(receipt, (payload, first, 200))
+        # A retry of the same poll cannot create another status observation.
+        await persist_gateways(self.conn, [offline], replace(sample_snapshot([offline]), observed_at=second), settings, now=second)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 2)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM reading_revisions"), 0)
+        with self.assertRaisesRegex(ValueError, 'Conflicting gateway status'):
+            await persist_gateways(self.conn, [gateway], replace(sample_snapshot([gateway]), observed_at=second), settings, now=second)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM reading_revisions"), 0)
+        with self.assertRaisesRegex(ValueError, 'checksum'):
+            await persist_gateways(self.conn, [gateway], sample_snapshot([gateway]), settings,
+                now=first, payload_bytes=payload, payload_sha256='incorrect')

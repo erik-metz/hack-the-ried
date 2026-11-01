@@ -74,6 +74,7 @@ async def _poll_cycle(client, settings, *, raw=None, dry_run=False, attempt_id=N
             fetched_at,
             payload_bytes=raw_bytes,
             payload_sha256=sha256,
+            attempt_id=attempt_id,
         )
         summary["ingestion"] = ingestion
 
