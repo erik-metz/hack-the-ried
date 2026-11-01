@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import SiteFooter from "../../components/SiteFooter";
 import SiteHeader from "../../components/SiteHeader";
-import { getQrDatabaseId, getQrSensor } from "@/lib/qrSensors";
+import { getQrDatabaseId, getQrSensor, getQrSensorModules } from "@/lib/qrSensors";
 
 type QrSensorPageProps = PageProps<"/q/[id]">;
 
@@ -43,6 +43,13 @@ export default async function QrSensorPage({ params }: QrSensorPageProps) {
     );
   }
   if (!sensor) notFound();
+
+  let modules;
+  try {
+    modules = await getQrSensorModules(sensor.id);
+  } catch {
+    modules = null;
+  }
 
   const coordinates = sensor.latitude != null && sensor.longitude != null
     ? `${sensor.latitude}, ${sensor.longitude}`
@@ -85,8 +92,40 @@ export default async function QrSensorPage({ params }: QrSensorPageProps) {
                 </dl>
               </section>
 
+              <section aria-labelledby="sensor-modules" className="space-y-4">
+                <div>
+                  <h2 id="sensor-modules" className="text-xl font-semibold">In den Messdaten erkannte Sensoren</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Abgeleitet aus gespeicherten Messgrößen; die Datenbank führt keine bestätigte Hardware-Stückliste.
+                  </p>
+                </div>
+                {modules === null ? (
+                  <p className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-slate-300">
+                    Die Messkanäle konnten gerade nicht geladen werden.
+                  </p>
+                ) : modules.length ? (
+                  <ul className="grid gap-4 sm:grid-cols-2">
+                    {modules.map((module) => (
+                      <li key={module.name} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <h3 className="font-medium">{module.name}</h3>
+                        <p className="mt-2 text-sm text-slate-400">Messgrößen: {module.metrics.join(", ")}</p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Letzter gespeicherter Messwert: {new Intl.DateTimeFormat("de-DE", {
+                            dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin",
+                          }).format(new Date(module.latestObservedAt))}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-slate-300">
+                    Für dieses Gerät sind noch keine Messkanäle gespeichert.
+                  </p>
+                )}
+              </section>
+
               <p className="border-t border-slate-800 pt-5 text-sm text-slate-400">
-                Diese Angaben werden direkt aus den öffentlichen Sensormetadaten der Datenbank geladen. Live-Messwerte sind hier nicht enthalten.
+                Stammdaten und Messkanäle werden direkt aus der Datenbank geladen. Diese Seite zeigt keine Live-Werte.
               </p>
             </div>
 
