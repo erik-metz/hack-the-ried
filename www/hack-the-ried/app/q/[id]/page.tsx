@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import SiteFooter from "../../components/SiteFooter";
 import SiteHeader from "../../components/SiteHeader";
+import SensorLocationMap from "../../components/SensorLocationMap";
 import { getQrDatabaseId, getQrSensor, getQrSensorModules } from "@/lib/qrSensors";
 
 type QrSensorPageProps = PageProps<"/q/[id]">;
@@ -51,13 +52,9 @@ export default async function QrSensorPage({ params }: QrSensorPageProps) {
     modules = null;
   }
 
-  const coordinates = sensor.latitude != null && sensor.longitude != null
-    ? `${sensor.latitude}, ${sensor.longitude}`
-    : null;
   const fields = [
     ["Datenbank-ID", sensor.id],
     ["Name", sensor.friendly_name],
-    ["Koordinaten", coordinates],
     ["Sichtbarkeit", sensor.is_hidden ? "Verborgen" : "Öffentlich"],
     ["Beschreibung", sensor.description],
     ["Erstellt", sensor.created_at],
@@ -90,6 +87,21 @@ export default async function QrSensorPage({ params }: QrSensorPageProps) {
                     </div>
                   ))}
                 </dl>
+              </section>
+
+              <section aria-labelledby="sensor-location" className="space-y-4">
+                <h2 id="sensor-location" className="text-xl font-semibold">Standort</h2>
+                {sensor.latitude != null && sensor.longitude != null ? (
+                  <SensorLocationMap
+                    latitude={sensor.latitude}
+                    longitude={sensor.longitude}
+                    name={sensor.friendly_name}
+                  />
+                ) : (
+                  <p className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-slate-300">
+                    Für diesen Sensor sind keine Koordinaten hinterlegt.
+                  </p>
+                )}
               </section>
 
               <section aria-labelledby="sensor-modules" className="space-y-4">
