@@ -89,14 +89,21 @@ and intended GHCR publications for the exact commit first.
 2. Run `python provision.py /root/secrets` on the VPS. No values are printed.
    The directory is host-private; only designated secret files are mounted.
 3. Validate the merged Compose configuration without printing resolved secrets.
-4. Enable the overlay and update the API. Its startup installs
-   `20261101_mcp.sql` only with `MCP_API_ENABLED=true`. This adds evidence tables
-   and source-policy triggers; it does not switch measurement readers.
-5. Verify API health and the internal router with the mounted service key.
-6. Update registry sync with `COLLECTION_RUN_EVIDENCE=true` only after migration.
-7. Start `mcp-server` and check `/ready` from inside its container.
-8. Run `nginx -t`, recreate Nginx if its networks changed, then reload rules.
-9. Check the external tools, blocked internal prefix on both hostnames and actual
+4. Apply `api/v1/migrations/20261101_mcp.sql` explicitly with a short lock timeout
+   before enabling the overlay. It adds evidence tables and policy triggers;
+   it does not switch measurement readers. Keep the existing API serving during
+   this step and retry later if a foreign transaction prevents the migration.
+   The optional `20261101_mcp_source_index.sql` must run outside a transaction;
+   defer it during long archive exports, which can delay concurrent index builds.
+5. Enable the overlay and update the API. `API_SCHEMA_MODE=validate` verifies the
+   existing schema without repeating startup DDL. This avoids an otherwise
+   unnecessary `ALTER TABLE ... IF NOT EXISTS` waiting behind a long export
+   and blocking unrelated writers. Missing schema capabilities fail startup.
+6. Verify API health and the internal router with the mounted service key.
+7. Update registry sync with `COLLECTION_RUN_EVIDENCE=true` only after migration.
+8. Start `mcp-server` and check `/ready` from inside its container.
+9. Run `nginx -t`, recreate Nginx if its networks changed, then reload rules.
+10. Check the external tools, blocked internal prefix on both hostnames and actual
    lack of DB reachability from MCP. Record running image IDs and commit labels.
 
 The opt-in overlay is `../docker-compose.mcp.yml`. Include it **after** the active

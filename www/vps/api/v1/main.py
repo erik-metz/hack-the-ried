@@ -14,6 +14,7 @@ from mcp_auth import validate_mcp_config
 from measurement_reads import ensure_core_ready
 from psycopg.rows import dict_row
 from router import api_router as v1_router
+from startup_schema import schema_mode, validate_existing_schema
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ async def init_db(pool: psycopg_pool.AsyncConnectionPool) -> None:
 async def lifespan(app: FastAPI):
     validate_api_keys()
     validate_mcp_config()
+    startup_mode = schema_mode()
     user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
     host = os.getenv("DB_HOST", "timescaledb")
@@ -74,23 +76,28 @@ async def lifespan(app: FastAPI):
     await app.state.pool.open()
 
     try:
-        await init_db(app.state.pool)
-        async with app.state.pool.connection() as conn:
-            await conn.execute((Path(__file__).parent / "migrations" / "20261007_archive_format.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261007_fuel.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261009_traffic_events.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261010_webcam_snapshots.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261010_webcam_retention.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261016_ttn_ingestion.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261020_sensor_window_statistics.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261027_newsletter_subscribers.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261030_qr_scan_events.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261029_registration_categories.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261028_sky_collector.sql").read_text())
-            await conn.execute((Path(__file__).parent / "migrations" / "20261016_reading_export_index.sql").read_text())
-            await ensure_core_ready(conn)
-            if mcp_enabled():
-                await conn.execute((Path(__file__).parent / "migrations" / "20261101_mcp.sql").read_text())
+        if startup_mode == 'validate':
+            async with app.state.pool.connection() as conn:
+                await validate_existing_schema(conn, mcp=mcp_enabled())
+                await ensure_core_ready(conn)
+        else:
+            await init_db(app.state.pool)
+            async with app.state.pool.connection() as conn:
+                await conn.execute((Path(__file__).parent / "migrations" / "20261007_archive_format.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261007_fuel.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261009_traffic_events.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261010_webcam_snapshots.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261010_webcam_retention.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261016_ttn_ingestion.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261020_sensor_window_statistics.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261027_newsletter_subscribers.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261030_qr_scan_events.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261029_registration_categories.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261028_sky_collector.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261016_reading_export_index.sql").read_text())
+                await ensure_core_ready(conn)
+                if mcp_enabled():
+                    await conn.execute((Path(__file__).parent / "migrations" / "20261101_mcp.sql").read_text())
         yield
     finally:
         await app.state.pool.close()

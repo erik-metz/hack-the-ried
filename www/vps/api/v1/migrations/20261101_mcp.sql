@@ -1,5 +1,4 @@
 -- Additive evidence only. No history backfill or measurement read cutover.
-CREATE INDEX IF NOT EXISTS measurement_definitions_mcp_source ON measurement_definitions(source_id,id);
 CREATE TABLE IF NOT EXISTS collection_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_id TEXT NOT NULL,

@@ -3,6 +3,7 @@
 services:
   backend-api:
     environment:
+      API_SCHEMA_MODE: validate
       MCP_API_ENABLED: "true"
       MCP_SERVICE_DIGESTS_FILE: /run/secrets/mcp-service-digests
     secrets:

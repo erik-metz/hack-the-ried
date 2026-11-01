@@ -22,12 +22,18 @@ from mcp_reliability import classify
 from measurement_migration import install
 from psycopg.rows import dict_row, tuple_row
 from psycopg.types.json import Jsonb
+from startup_schema import schema_mode, validate_existing_schema
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'tests'))
 from db_support import DatabaseCase
 
 
 class PolicyTests(unittest.TestCase):
+    def test_schema_startup_mode_is_explicit(self):
+        with patch.dict(os.environ, API_SCHEMA_MODE='validate'):
+            self.assertEqual(schema_mode(),'validate')
+        with patch.dict(os.environ, API_SCHEMA_MODE='unsafe'), self.assertRaises(RuntimeError):
+            schema_mode()
     def test_empty_results_do_not_fail_and_uninstrumented_success_is_unknown(self):
         now = datetime.now(UTC)
         source = {'enabled': True, 'interval_seconds': 300, 'received_at': now,
@@ -94,6 +100,11 @@ class MCPDatabaseTests(DatabaseCase):
             '{}'::jsonb,'2030-01-15T12:00:00Z',12.1234567890123456789,'2030-01-15T12:01:00Z',
             '{}'::jsonb,'valid',NULL,NULL,%s) AS id''',(identity,metric,semantics))).fetchone()
         return row['id']
+
+    async def test_existing_schema_startup_needs_no_ddl_locks(self):
+        async with self.conn.transaction():
+            await self.conn.execute('SET TRANSACTION READ ONLY')
+            await validate_existing_schema(self.conn,mcp=True)
 
     async def test_http_auth_disabled_missing_wrong_separation_and_rotation(self):
         for key in ('', 'wrong', os.getenv('API_KEY','ingestion'), os.getenv('ADMIN_API_KEY','admin')):
