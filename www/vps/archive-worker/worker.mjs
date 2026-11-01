@@ -43,9 +43,10 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
     const explicitPeriod = requestedPeriod || requestedMonth;
     const months = explicitPeriod ? [explicitPeriod] : (await client.query(`
       WITH earliest AS (SELECT min(time) AS time FROM (
-        SELECT min(r.observed_at) AS time FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
-          JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
-        UNION ALL SELECT min(t.timestamp) FROM sensor_data t JOIN sensor_metadata s ON s.id=t.sensor_id WHERE NOT s.is_hidden
+        (SELECT r.observed_at AS time FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
+          JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC} ORDER BY r.observed_at LIMIT 1)
+        UNION ALL (SELECT t.timestamp FROM sensor_data t JOIN sensor_metadata s ON s.id=t.sensor_id
+          WHERE NOT s.is_hidden ORDER BY t.timestamp LIMIT 1)
       ) dates), candidates AS (
         SELECT to_char(month_start,'YYYY-MM') AS month FROM generate_series(
           date_trunc('month',(SELECT time FROM earliest) AT TIME ZONE 'UTC'),

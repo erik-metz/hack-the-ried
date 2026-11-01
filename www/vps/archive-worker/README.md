@@ -38,10 +38,27 @@ workers. The current month is normally left to the live API. No external
 scheduler or AWS account is necessary. The service is opt-in and uses
 `ghcr.io/erik-metz/hack-the-ried-archive-worker:latest`, built by GitHub Actions
 after the validation jobs pass. No source folder or Docker build tools are
-needed on the VPS. Once started, the existing Watchtower service monitors and
-updates it like the other GHCR services. If the new GHCR package is private,
+needed on the VPS. Production Watchtower runs in monitor-only mode: it reports
+new images but does not update or start this service. Image publication alone
+does not deploy the worker or regenerate any archives. After each archive release,
+pull the image, recreate the service, and verify its logs and public catalogue.
+If the new GHCR package is private,
 make it public or configure the same registry credentials used for the other
 services before pulling it.
+
+Verify the rollout, including historical Parquet publication:
+
+```sh
+docker compose --profile archives ps archive-worker
+docker compose logs --tail=50 archive-worker
+docker compose exec archive-worker cat /data/status.json
+curl --fail https://hack-the-ried.duckdns.org/api/v1/archives
+```
+
+Confirm that the most recently closed month exists and every nonempty month has
+both `csv` and `parquet` files. A running container alone does not prove that its
+export succeeded. Conflicting legacy readings stop publication until source
+evidence resolves them; retain the existing archive while investigating.
 
 ## Refreshes and current-month snapshots
 
