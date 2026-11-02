@@ -29,7 +29,7 @@ async def init_db(pool: psycopg_pool.AsyncConnectionPool) -> None:
         row = await cursor.fetchone()
         if row['relation'] is not None:
             cursor = await conn.execute("""SELECT 1 FROM measurement_migration_state
-                WHERE name='retired_unused_registries'""")
+                WHERE name IN ('retired_unused_registries','core_storage')""")
             if await cursor.fetchone() is not None:
                 # Explicit versioned migrations own an upgraded database. The
                 # old bootstrap would recreate retired registries on restart.

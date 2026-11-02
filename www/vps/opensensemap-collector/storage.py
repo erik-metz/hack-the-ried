@@ -20,6 +20,11 @@ async def write_legacy(cur, sensor, metric, unit, stamp, value, attempt):
 
     Every physical sensor remains separate in the canonical measurement stream.
     """
+    await cur.execute("SELECT to_regprocedure('core_storage_enabled()') IS NOT NULL")
+    if (await cur.fetchone())[0]:
+        await cur.execute("SELECT core_storage_enabled()")
+        if (await cur.fetchone())[0]:
+            return  # Native measurement already stored; no compatibility copy or audit.
     await cur.execute("""SELECT value FROM sensor_data WHERE sensor_id=%s AND metric=%s
         AND unit=%s AND timestamp=%s""", (sensor, metric, unit, stamp))
     rows = await cur.fetchall()

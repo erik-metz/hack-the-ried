@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { monthRange } from './archive.mjs';
 import { buildMonthlyArchive, repackArchive } from './monthly.mjs';
 import { uploadThingStorage } from './storage.mjs';
-import { PUBLIC, ROWS, includeLegacy } from './canonical.mjs';
+import { PUBLIC, ROWS, CORE_ROWS, includeLegacy } from './canonical.mjs';
 
 export async function drainCleanup(client, storage) {
   const pending = (await client.query('SELECT key FROM archive_cleanup ORDER BY queued_at LIMIT 1000')).rows;
@@ -36,6 +36,8 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
     if (!lock.rows[0].locked) { console.log('Another archive export is running'); return; }
     // The API migration creates the catalogue. Fail clearly if not deployed yet.
     await client.query('SELECT month FROM data_archives LIMIT 0');
+    const compact = (await client.query("SELECT relkind='v' AS compact FROM pg_class WHERE oid=to_regclass('sensor_data')")).rows[0]?.compact === true;
+    const exportRows = compact ? CORE_ROWS : ROWS;
     await drainCleanup(client, storage);
     // Rebuild old formats and newly private snapshots without deleting valid URLs first.
     const staleCondition = `EXISTS (SELECT 1 FROM unnest(a.entity_ids) included(id)
@@ -70,7 +72,7 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
           repack = true;
         }
       }
-      const unresolved = repack ? [] : await includeLegacy(client, start, end);
+      const unresolved = repack || compact ? [] : await includeLegacy(client, start, end);
       if (unresolved.length) {
         const error = new Error('Unresolved legacy source conflict; repair source data before archiving');
         error.name = 'LegacySourceConflict';
@@ -102,7 +104,7 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
             if (signal?.aborted) throw new Error('Archive export interrupted');
             await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
             await client.query("SET LOCAL TIME ZONE 'UTC'");
-            const stream = client.query(new QueryStream(ROWS,
+            const stream = client.query(new QueryStream(exportRows,
               [new Date(windowStart), new Date(Math.min(windowStart + 3600000, end.getTime()))], { batchSize: 2000 }));
             let complete = false;
             try { yield* stream; complete = true; }

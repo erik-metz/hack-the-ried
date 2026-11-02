@@ -122,7 +122,7 @@ class MaengelmelderTests(unittest.TestCase):
         self.assertNotIn(b"private report text", safe_payload)
         self.assertNotIn(b"private street address", safe_payload)
         self.assertIn("INSERT INTO collection_attempts", " ".join(q for q, _ in conn.calls))
-        self.assertIn("INSERT INTO collected_dataset_versions", " ".join(q for q, _ in conn.calls))
+        self.assertNotIn("INSERT INTO collected_dataset_versions", " ".join(q for q, _ in conn.calls))
         self.assertTrue(any("INSERT INTO collected_datasets" in q for q, _ in conn.calls))
         self.assertIn("application/geo+json", payload_query)
         self.assertEqual(result, "success")

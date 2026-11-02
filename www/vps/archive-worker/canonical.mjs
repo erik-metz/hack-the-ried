@@ -111,3 +111,8 @@ export const ROWS = `SELECT entity,definition,reading FROM (SELECT
     AND (t.variants>1 OR NOT EXISTS (SELECT 1 FROM readings r
       WHERE r.measurement_id=d.id AND r.observed_at=t.timestamp AND r.observed_at >= $1 AND r.observed_at < $2))
   ) samples ORDER BY sort_time,sort_id`;
+
+// After verified retirement only the authoritative three tables are exported.
+// Keep the legacy query for pre-cutover installations and migration fixtures.
+export const CORE_ROWS = ROWS.slice(0, ROWS.indexOf('\n  UNION ALL SELECT'))
+  + '\n  ) samples ORDER BY sort_time,sort_id';

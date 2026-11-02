@@ -27,7 +27,7 @@ class BorisDatabaseTests(DatabaseCase):
             with self.assertRaisesRegex(ValueError, 'pagination'):
                 await import_boris(self.conn, client, SOURCE)
         self.assertEqual(await self.scalar("SELECT data FROM collected_datasets WHERE dataset='realestate/boris'"), data)
-        self.assertEqual(await self.scalar('SELECT count(*) FROM collected_dataset_versions'), 2)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM collected_dataset_versions'), 0)
 
     async def test_missing_municipality_does_not_publish(self):
         source = {**SOURCE, 'municipalities': {**SOURCE['municipalities'], '06431099': 'Fehlt'}}

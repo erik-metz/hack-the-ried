@@ -47,7 +47,7 @@ class ClubEventDatabaseTests(DatabaseCase):
             0,
         )
         self.assertEqual(
-            await self.scalar("SELECT count(*) FROM collected_dataset_versions"), 1
+            await self.scalar("SELECT count(*) FROM collected_dataset_versions"), 0
         )
 
     async def test_single_page_calendar_archives_publication_bundle(self):

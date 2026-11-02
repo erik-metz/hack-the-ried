@@ -159,7 +159,7 @@ class WebcamDatabaseTests(DatabaseCase):
                 "SELECT count(*) FROM collected_dataset_versions WHERE dataset=%s",
                 (dataset,),
             ),
-            3,
+            0,
         )
         self.assertEqual(requests, [SCOPE["url"]] * 5)
         self.assertEqual(

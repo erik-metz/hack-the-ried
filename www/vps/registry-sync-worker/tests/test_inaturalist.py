@@ -126,7 +126,7 @@ class InaturalistPersistenceTests(DatabaseCase):
         assert await self.scalar('SELECT count(*) FROM readings') == 1
         await self.ingest([record(quality_grade='needs_id', location='49.61,8.46')])
         assert (await self.data())['observations'][0]['latitude'] == 49.61
-        assert await self.scalar('SELECT count(*) FROM collected_dataset_versions WHERE dataset=%s', (DATASET,)) == 1
+        assert await self.scalar('SELECT count(*) FROM collected_dataset_versions WHERE dataset=%s', (DATASET,)) == 0
         archives = await (await self.conn.execute('SELECT body FROM collected_payloads')).fetchall()
         assert all(r[0] is None for r in archives)
         await self.ingest([record(obscured=True)])

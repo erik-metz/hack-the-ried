@@ -33,6 +33,10 @@ async def persist_environment_data(
 
     async with conn.transaction():
         await conn.execute("SELECT pg_advisory_xact_lock(hashtext('weather-legacy-repair'))")
+        compact = False
+        installed = await (await conn.execute("SELECT to_regprocedure('core_storage_enabled()') IS NOT NULL")).fetchone()
+        if installed[0]:
+            compact = (await (await conn.execute("SELECT core_storage_enabled()")).fetchone())[0]
         if mode == 'dual':
             from weather_measurements import replay_weather_receipt
 
@@ -94,12 +98,6 @@ async def persist_environment_data(
             ):
                 if value is None:
                     continue
-                await conn.execute(
-                    """INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
-                    SELECT %s,%s,%s,%s,%s WHERE NOT EXISTS (SELECT 1 FROM sensor_data
-                        WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s AND value=%s)""",
-                    (w.sensor_id, metric, unit, w.timestamp, value, w.sensor_id, metric, unit, w.timestamp, value),
-                )
                 latest_value = value
                 if mode == 'dual':
                     canonical = await (await conn.execute("""SELECT r.value FROM readings r
@@ -111,6 +109,21 @@ async def persist_environment_data(
                     if canonical is None:
                         raise ValueError('Canonical weather reading missing for legacy cache')
                     latest_value = canonical[0]
+                projected_value = latest_value if installed[0] else value
+                if installed[0] and not compact:
+                    # During transfer the physical UI table still exists. Replace
+                    # its superseded value without a revision/receipt trail.
+                    await conn.execute("""DELETE FROM sensor_data WHERE sensor_id=%s AND metric=%s
+                        AND unit=%s AND timestamp=%s AND value IS DISTINCT FROM %s""",
+                        (w.sensor_id,metric,unit,w.timestamp,projected_value))
+                await conn.execute(
+                    """INSERT INTO sensor_data(sensor_id,metric,unit,timestamp,value)
+                    SELECT %s,%s,%s,%s,%s WHERE NOT EXISTS (SELECT 1 FROM sensor_data
+                        WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s AND value=%s)""",
+                    (w.sensor_id,metric,unit,w.timestamp,projected_value,
+                     w.sensor_id,metric,unit,w.timestamp,projected_value),
+                )
+                if mode == 'dual' and not installed[0]:
                     cleaned = await (await conn.execute("SELECT clean_weather_legacy(%s,%s,%s,%s)",
                         (w.sensor_id, metric, unit, w.timestamp))).fetchone()
                     if not cleaned[0]:
@@ -314,11 +327,6 @@ async def persist_environment_data(
             ]
             source_time = min(g.measured_at for g in gauges)
             digest = payload["pegel_sha256"]
-            await conn.execute(
-                """INSERT INTO collected_dataset_versions(dataset,payload_sha256,source_updated_at,data)
-                VALUES ('environment/flood/gauges',%s,%s,%s) ON CONFLICT DO NOTHING""",
-                (digest, source_time, Jsonb(data)),
-            )
             await conn.execute(
                 """INSERT INTO collected_datasets(dataset,source_id,source_url,source_updated_at,fetched_at,expires_at,payload_sha256,data)
                 VALUES ('environment/flood/gauges','environment-pegel',%s,%s,%s,%s,%s,%s)

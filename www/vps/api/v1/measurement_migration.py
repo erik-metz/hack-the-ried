@@ -23,6 +23,9 @@ LOCK = 2026093001
 
 
 async def install(conn, shadow=False):
+    compact = await (await conn.execute("SELECT to_regprocedure('core_storage_enabled()') IS NOT NULL")).fetchone()
+    if compact[0] and (await (await conn.execute('SELECT core_storage_enabled()')).fetchone())[0]:
+        raise RuntimeError('Legacy migration installation is retired after canonical storage cutover')
     async with conn.transaction():
         await conn.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK,))
         await conn.execute("SET LOCAL lock_timeout = '10s'")

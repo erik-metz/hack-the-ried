@@ -206,7 +206,7 @@ class InventoryDatabaseTests(DatabaseCase):
                 "SELECT count(*) FROM collected_dataset_versions WHERE dataset=%s",
                 (dataset,),
             ),
-            2,
+            0,
         )
         self.assertEqual(
             await self.scalar(

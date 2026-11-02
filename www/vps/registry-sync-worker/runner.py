@@ -277,6 +277,9 @@ async def webcam_maintenance_loop(settings, stop):
         try:
             async with await psycopg.AsyncConnection.connect(**settings.db) as conn:
                 await conn.execute("DELETE FROM collection_failure_samples WHERE expires_at<=NOW()")
+                installed = await (await conn.execute("SELECT to_regprocedure('maintain_core_storage()') IS NOT NULL")).fetchone()
+                if installed[0]:
+                    await conn.execute("SELECT maintain_core_storage()")
                 await conn.commit()
                 result = await maintain_archive(conn)
             LOG.info("Webcam archive maintenance: %s", result)

@@ -21,6 +21,11 @@ async def write_legacy(cur, sensor_id, metric, unit, observed_at, value, attempt
     The caller holds the UBA advisory lock. Canonical revisions and source
     receipts are retained independently of this compatibility projection.
     """
+    await cur.execute("SELECT to_regprocedure('core_storage_enabled()') IS NOT NULL")
+    if (await cur.fetchone())[0]:
+        await cur.execute("SELECT core_storage_enabled()")
+        if (await cur.fetchone())[0]:
+            return  # Native measurement already stored; no compatibility copy or audit.
     await cur.execute(
         """SELECT value FROM sensor_data
         WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s""",

@@ -130,11 +130,6 @@ async def publish(conn, source, dataset, data, digest, source_time, now=None):
     expires = source_time + timedelta(seconds=source.get("max_age_seconds", 604800))
     json.dumps(data, allow_nan=False)
     await conn.execute(
-        """INSERT INTO collected_dataset_versions(dataset,payload_sha256,source_updated_at,data)
-        VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-        (dataset, digest, source_time, Jsonb(data)),
-    )
-    await conn.execute(
         """INSERT INTO collected_datasets
         (dataset,source_id,source_url,source_updated_at,fetched_at,expires_at,payload_sha256,data)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)

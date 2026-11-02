@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
-import { includeLegacy, ROWS } from './canonical.mjs';
+import { includeLegacy, ROWS, CORE_ROWS } from './canonical.mjs';
 
 test('physical openSenseMap channels export separately without exact UI copies', {
   skip: !process.env.ARCHIVE_TEST_DATABASE_URL,
@@ -27,6 +27,7 @@ test('physical openSenseMap channels export separately without exact UI copies',
       SELECT write_measurement('sensor:osem-box','temperature','C','legacy-sensor:osem-box',
       'unknown','{}','2026-10-01',19.2,'2026-10-01','{}','valid',NULL,NULL,'unknown');`);
     let rows = (await client.query(ROWS, [start,end])).rows;
+    assert.equal((await client.query(CORE_ROWS, [start,end])).rows.length, 2, 'Canonical export does not query or duplicate the UI history');
     assert.equal(rows.length, 2);
     assert.deepEqual(rows.map(row => row.reading.value).sort(), ['19.2','21.5']);
     assert.deepEqual(rows.map(row => JSON.parse(row.definition.dimensions).sensor_id).sort(), ['BME280','DHT22']);

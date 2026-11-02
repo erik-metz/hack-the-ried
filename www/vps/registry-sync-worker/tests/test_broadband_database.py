@@ -20,4 +20,4 @@ class BroadbandDatabaseTests(DatabaseCase):
             with self.assertRaisesRegex(ValueError, 'percentage'):
                 await import_broadband(self.conn, client, source)
             self.assertEqual(await self.scalar("SELECT data FROM collected_datasets WHERE dataset='infrastructure/broadband'"), before)
-            self.assertEqual(await self.scalar('SELECT count(*) FROM collected_dataset_versions'), 1)
+            self.assertEqual(await self.scalar('SELECT count(*) FROM collected_dataset_versions'), 0)

@@ -144,7 +144,7 @@ class SchadlingsradarTests(unittest.TestCase):
         self.assertEqual(len(published["features"]), len(RIED_POSTCODES))
         self.assertEqual(published["features"][1]["properties"]["reports"]["ratten"]["d30"], 2)
         self.assertNotIn(b'"tage"', encoded)
-        self.assertIn("INSERT INTO collected_dataset_versions", " ".join(query for query, _ in conn.calls))
+        self.assertNotIn("INSERT INTO collected_dataset_versions", " ".join(query for query, _ in conn.calls))
         self.assertTrue(
             any(
                 "INSERT INTO collected_datasets" in query and params[0] == DATASET
