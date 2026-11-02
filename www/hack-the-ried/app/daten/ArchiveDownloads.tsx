@@ -27,7 +27,7 @@ export default function ArchiveDownloads() {
   return (
     <section id="monatsarchive" className="scroll-mt-24 border-t border-slate-800 p-5 sm:p-6 space-y-4">
       <h3 className="text-lg font-semibold">Archivdateien</h3>
-      <p className="text-sm text-slate-300">Vollständige öffentliche Monatsdaten aller Quellen als Parquet-ZIP mit drei verknüpften Tabellen: Objekte, Messgrößen und Messwerte. Originalwerte und Zeitpunkte bleiben erhalten. Für einen vollständigen Monat alle Teile herunterladen.</p>
+      <p className="text-sm text-slate-300">Vollständige öffentliche Monatsdaten aller Quellen als Parquet-ZIP mit drei verknüpften Tabellen: Objekte, Messgrößen und Messwerte. Originalwerte und Zeitpunkte bleiben erhalten. Jeder Monat ist eine vollständige ZIP-Datei.</p>
       {archives === null ? (
         <p role="status" className="text-sm text-amber-300">Der Downloadkatalog ist momentan nicht erreichbar. Bitte später erneut versuchen.</p>
       ) : years.size === 0 ? (
@@ -53,8 +53,8 @@ export default function ArchiveDownloads() {
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{format}</p>
                           <div className="flex flex-wrap gap-2">
                             {files.map((file, partIndex) => (
-                              <a key={file.filename} href={file.url} aria-label={`${archive.month}: ${format} ${file.filename} herunterladen`} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-emerald-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-emerald-400">
-                                {files.length === 1 ? "ZIP" : `ZIP · Teil ${partIndex + 1}`} · {(file.size_bytes / (file.size_bytes < 1024 * 1024 ? 1024 : 1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} {file.size_bytes < 1024 * 1024 ? "KB" : "MB"} ↓
+                              <a key={file.filename} href={file.url} aria-label={files.length === 1 ? `${archive.month}: Gesamten Monat als Parquet-ZIP herunterladen` : `${archive.month}: ${format} ${file.filename} herunterladen`} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-emerald-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-emerald-400">
+                                {files.length === 1 ? "Gesamten Monat herunterladen" : `ZIP · Teil ${partIndex + 1}`} · {(file.size_bytes / (file.size_bytes < 1024 * 1024 ? 1024 : 1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} {file.size_bytes < 1024 * 1024 ? "KB" : "MB"} ↓
                               </a>
                             ))}
                           </div>

@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { buildArchives } from './archive.mjs';
 import { drainCleanup, runArchives } from './worker.mjs';
 
 // Uses a dedicated temporary PostgreSQL instance, never the production database.
@@ -42,10 +45,10 @@ test('database export, publication, retry, replacement and visibility', { skip: 
       async remove(keys) { removed.push(...keys); },
     };
     const run = (extra = {}) => runArchives({ storage, dbConfig, requestedMonth: '2025-01', partBytes: 256 * 1024, ...extra });
-    failAt = 2;
+    failAt = 1;
     await assert.rejects(run(), /upload failed/);
     assert.equal((await client.query('SELECT * FROM data_archives')).rowCount, 0);
-    assert.deepEqual(removed, ['key-1']);
+    assert.deepEqual(removed, []);
     failAt = Infinity;
     await run();
     let row = (await client.query('SELECT * FROM data_archives')).rows[0];
@@ -56,6 +59,45 @@ test('database export, publication, retry, replacement and visibility', { skip: 
     assert.deepEqual(row.station_ids, ['public']);
     assert.ok(row.files.every(file => file.format === 'parquet'));
     assert.ok(row.files.some(file => file.format === 'parquet'));
+    assert.equal(row.files.length, 1, 'The whole month must be one download');
+
+    // Upgrade a real multipart snapshot atomically, using its stored ZIPs only.
+    const sourceDir = await mkdtemp(path.join(tmpdir(), 'published-parts-'));
+    try {
+      const oldTime = '2025-02-02T00:00:00.000Z';
+      const source = await buildArchives([1, 2].map(i => ({
+        entity: { id: 'sensor:public', name: 'Public', entity_type: 'sensor', metadata: '{}' },
+        definition: { id: '123', entity_id: 'sensor:public', metric: 'temperature', unit: 'C', source_id: 'test', basis: 'observed', dimensions: '{}', semantics: 'instantaneous' },
+        reading: { measurement_id: '123', observed_at: `2025-01-01T00:00:0${i}Z`, value: String(i), provenance: '{}' },
+      })), sourceDir, '2025-01', oldTime, 1);
+      assert.equal(source.files.length, 2);
+      const blobs = new Map();
+      const oldFiles = [];
+      for (const [i, file] of source.files.entries()) {
+        const url = `https://test.ufs.sh/f/old-${i}`;
+        blobs.set(url, await readFile(file.path));
+        const { path: localPath, ...descriptor } = file;
+        assert.ok(localPath);
+        oldFiles.push({ ...descriptor, url, key: `old-${i}` });
+      }
+      await client.query("UPDATE data_archives SET files=$1, reading_count=2, generated_at=$2 WHERE month='2025-01'", [JSON.stringify(oldFiles), oldTime]);
+      const fetchImpl = async url => new Response(blobs.get(url));
+      await assert.rejects(run({ fetchImpl: async () => new Response('bad') }), /published snapshot remains unchanged/);
+      assert.deepEqual((await client.query("SELECT files FROM data_archives WHERE month='2025-01'")).rows[0].files, oldFiles);
+      failAt = sequence + 1;
+      await assert.rejects(run({ fetchImpl }), /upload failed/);
+      assert.ok(oldFiles.every(file => !removed.includes(file.key)));
+      failAt = Infinity;
+      // Conflicting later source data must not alter an already published snapshot.
+      await client.query("INSERT INTO sensor_data VALUES ('2025-01-01T00:00:01Z','public','temperature',99999,'C')");
+      await run({ fetchImpl });
+      row = (await client.query("SELECT * FROM data_archives WHERE month='2025-01'")).rows[0];
+      assert.equal(row.files.length, 1);
+      assert.equal(Number(row.reading_count), 2);
+      assert.equal(row.generated_at.toISOString(), oldTime);
+      assert.ok(oldFiles.every(file => removed.includes(file.key)));
+      await client.query('DELETE FROM sensor_data WHERE value=99999');
+    } finally { await rm(sourceDir, { recursive: true, force: true }); }
 
     const previousKeys = row.files.map(file => file.key);
     const beforeSkip = sequence;

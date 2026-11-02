@@ -7,11 +7,12 @@ There is no time alignment, interpolation, resampling or additional labelling.
 The existing public-data visibility rules still apply.
 
 Each ZIP contains the three Parquet tables, `manifest.json` and `README.txt`.
-Large months have several numbered ZIP parts. Download all parts for the full
-month; merge entities and definitions by `id`. Every part is referentially
-complete. Format version 4 publishes **only Parquet**, without CSV copies,
+Every nonempty month is one complete ZIP download. Entities and definitions
+have unique `id` values; all original reading rows are retained. Format version 4 publishes **only Parquet**, without CSV copies,
 day packages or on-demand monthly CSV generation. Existing older catalogues are
 rebuilt automatically and replaced only after their new files are uploaded.
+Existing multipart format-4 snapshots are combined from their verified stored
+ZIPs without re-exporting or changing the original measurements or snapshot time.
 
 IDs and exact decimal values are strings to avoid precision loss. Timestamps
 retain UTC microseconds. Structured fields remain JSON text. Unknown original
@@ -70,9 +71,12 @@ failure state and retries. The API serves `GET /api/v1/archives`.
 ## Resources and recovery
 
 `ARCHIVE_PART_MB=64` controls the approximate uncompressed JSON input per part
-(1–256 MiB). Metadata is written once per part, not once per reading. Temporary
-disk holds one part's input, Parquet tables and ZIP. Each completed part is
-uploaded immediately and its local files removed. The catalogue is updated only
+(1–256 MiB). Metadata is written once per part, not once per reading. Internal chunks bound JSON conversion memory. They are assembled locally into
+one complete ZIP before upload. Plan temporary disk for about three times the
+compressed month plus metadata scratch space: input ZIPs, merged Parquet tables
+and the final ZIP can coexist. Metadata is merged by ID in scratch SQLite,
+keeping its last exported version; readings are copied as typed Arrow batches.
+Source downloads are checked against catalogue sizes and SHA-256 checksums. The catalogue is updated only
 after the entire month succeeds. Incomplete uploads and replaced files enter a
 persistent cleanup queue; cleanup uses batches of at most 100 keys.
 
@@ -88,7 +92,7 @@ docker compose --profile archives run --rm archive-worker node worker.mjs --mont
 ```
 
 An explicit current-month snapshot is labelled incomplete and replaced after
-month end. Completed unchanged months are skipped. Visibility changes invalidate
+month end. Completed unchanged single-file months are skipped. Visibility changes invalidate
 existing catalogue entries; remote cleanup cannot recall downloaded copies.
 
 ## Tests and bulk downloads

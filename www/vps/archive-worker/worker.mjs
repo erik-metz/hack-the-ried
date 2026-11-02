@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { buildArchives, monthRange } from './archive.mjs';
+import { monthRange } from './archive.mjs';
+import { buildMonthlyArchive, repackArchive } from './monthly.mjs';
 import { uploadThingStorage } from './storage.mjs';
 import { PUBLIC, ROWS, includeLegacy } from './canonical.mjs';
 
@@ -27,7 +28,7 @@ async function queueCleanup(client, keys) {
   if (keys.length) await client.query('INSERT INTO archive_cleanup(key) SELECT unnest($1::text[]) ON CONFLICT DO NOTHING', [keys]);
 }
 
-export async function runArchives({ storage, dbConfig, requestedMonth = null, requestedPeriod = null, refresh = false, partBytes = 64 * 1024 * 1024, signal = null }) {
+export async function runArchives({ storage, dbConfig, requestedMonth = null, requestedPeriod = null, refresh = false, partBytes = 64 * 1024 * 1024, signal = null, fetchImpl = globalThis.fetch }) {
   const client = new pg.Client(dbConfig);
   await client.connect();
   try {
@@ -54,18 +55,22 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
           date_trunc('month',now() AT TIME ZONE 'UTC')-interval '1 month',interval '1 month') months(month_start)
         UNION SELECT month FROM data_archives WHERE format_version < 4
       ) SELECT c.month FROM candidates c LEFT JOIN data_archives a ON a.month=c.month
-      WHERE a.month IS NULL OR NOT a.is_complete OR a.format_version < 4 OR ${staleCondition}
+      WHERE a.month IS NULL OR NOT a.is_complete OR a.format_version < 4 OR jsonb_array_length(a.files)>1 OR ${staleCondition}
       ORDER BY c.month`)).rows.map(row => row.month);
     for (const month of months) {
       if (signal?.aborted) break;
       const { start, end } = monthRange(month);
       if (start > new Date()) throw new Error('Cannot export a future period');
       const previous = (await client.query('SELECT * FROM data_archives WHERE month=$1', [month])).rows[0];
+      let repack = false;
       if (previous?.is_complete && previous.format_version === 4 && !refresh) {
         const stale = await client.query(`SELECT 1 FROM data_archives a WHERE month=$1 AND (${staleCondition})`, [month]);
-        if (!stale.rowCount) continue;
+        if (!stale.rowCount) {
+          if (previous.files.length <= 1) continue;
+          repack = true;
+        }
       }
-      const unresolved = await includeLegacy(client, start, end);
+      const unresolved = repack ? [] : await includeLegacy(client, start, end);
       if (unresolved.length) {
         const error = new Error('Unresolved legacy source conflict; repair source data before archiving');
         error.name = 'LegacySourceConflict';
@@ -75,12 +80,13 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
       const uploaded = [];
       let published = false;
       try {
-        const generatedAt = (await client.query('SELECT transaction_timestamp() AS time')).rows[0].time.toISOString();
+        const generatedAt = repack ? previous.generated_at.toISOString()
+          : (await client.query('SELECT transaction_timestamp() AS time')).rows[0].time.toISOString();
         // Existing small snapshots usually contain a few historical reference dates.
         // Discover every currently populated hour instead of issuing thousands of
         // empty cursor transactions while upgrading old catalogues. Dense/new
         // months retain the full hourly scan. Late arrivals still require refresh.
-        const windows = previous && Number(previous.reading_count) <= 100000
+        const windows = repack ? [] : previous && Number(previous.reading_count) <= 100000
           ? (await client.query(`SELECT DISTINCT date_trunc('hour',r.observed_at,'UTC') AS window_start
               FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id
               JOIN entities e ON e.id=d.entity_id WHERE ${PUBLIC}
@@ -106,13 +112,17 @@ export async function runArchives({ storage, dbConfig, requestedMonth = null, re
             }
           }
         }
-        const archive = await buildArchives(periodRows(), directory, month, generatedAt, partBytes, async files => {
+        async function upload(files) {
           for (const file of files) {
             const remote = await storage.upload(file);
             uploaded.push({ filename: file.filename, format: file.format, size_bytes: file.size_bytes, reading_count: file.reading_count, sha256: file.sha256, ...remote });
           }
-          console.log(`Uploaded ${month} part ${uploaded.length}: ${files[0].reading_count} readings in Parquet`);
-        });
+          console.log(`Uploaded complete ${month}: ${files[0].reading_count} readings in one Parquet ZIP`);
+        }
+        const archive = repack
+          ? await repackArchive(previous, directory, fetchImpl)
+          : await buildMonthlyArchive(periodRows(), directory, month, generatedAt, partBytes);
+        if (archive.files.length) await upload(archive.files);
         // Lock station visibility until publication; downloads also filter current visibility.
         await client.query('BEGIN');
         const entityIds = archive.entity_ids;
