@@ -124,7 +124,7 @@ async def windows(conn, family, after=None):
             if next_row[0] is None:
                 break
             start=next_row[0]
-            end = min(start+timedelta(minutes=60),bounds[1]+timedelta(microseconds=1))
+            end = min(start+timedelta(minutes=60 if family=='sensors' else 15),bounds[1]+timedelta(microseconds=1))
             yield start,end
             start = end
 

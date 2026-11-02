@@ -402,6 +402,8 @@ BEGIN
         INSERT INTO readings(measurement_id,observed_at,value,quality,collected_at,provenance)
         SELECT d.id,w.observed_at,w.value,'valid',NOW(),compact_reading_details(w.provenance)
         FROM migration_window w JOIN measurement_definitions d USING(entity_id,metric,unit,source_id,basis,dimensions)
+        WHERE NOT EXISTS(SELECT 1 FROM readings r WHERE r.measurement_id=d.id
+            AND r.observed_at=w.observed_at AND r.observed_at>=p_start AND r.observed_at<p_end)
         ORDER BY d.id,w.observed_at ON CONFLICT(measurement_id,observed_at) DO NOTHING
         RETURNING measurement_id,observed_at,value,quality,collected_at,provenance
     ) SELECT * FROM added;
