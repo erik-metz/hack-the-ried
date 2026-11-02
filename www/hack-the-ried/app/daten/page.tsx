@@ -28,20 +28,6 @@ export default function DataDocsPage() {
             <h1 className="text-3xl sm:text-5xl font-bold tracking-tight">Daten nutzen</h1>
             <p className="text-base leading-relaxed text-slate-300">Für deine Analyse, deine Anwendung oder deinen KI-Client. Wähle den Zugang, der zu deinem Vorhaben passt.</p>
           </div>
-          <nav aria-label="Datenzugang wählen" className="grid gap-3 md:grid-cols-3">
-            <a href="#datasets" className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition-colors hover:border-emerald-500/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
-              <span className="block font-semibold text-slate-100">Dateien herunterladen <span aria-hidden="true" className="text-emerald-300">↓</span></span>
-              <span className="mt-2 block text-sm leading-relaxed text-slate-400">Messdaten, Monatsarchive und Satellitenbilder für eigene Auswertungen.</span>
-            </a>
-            <a href="#schnittstellen" className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition-colors hover:border-emerald-500/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
-              <span className="block font-semibold text-slate-100">API &amp; KI anbinden <span aria-hidden="true" className="text-emerald-300">↓</span></span>
-              <span className="mt-2 block text-sm leading-relaxed text-slate-400">Öffentliche Daten direkt in deiner Anwendung oder per MCP nutzen.</span>
-            </a>
-            <Link href="/quellen" className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition-colors hover:border-emerald-500/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
-              <span className="block font-semibold text-slate-100">Quellen verstehen <span aria-hidden="true" className="text-emerald-300">→</span></span>
-              <span className="mt-2 block text-sm leading-relaxed text-slate-400">Herkunft, Aktualität und Nutzungsbedingungen der Daten prüfen.</span>
-            </Link>
-          </nav>
         </header>
 
         <div className="space-y-4">
