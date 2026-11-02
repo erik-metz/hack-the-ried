@@ -2,7 +2,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from db_support import DatabaseCase
+from db_support import DatabaseCase, payload_digest
 from regular_offers import import_tv_lauftreff, import_tvl_triathlon, tvl_triathlon
 from test_club_events import SOURCES
 from test_regular_offers import BODY as RUNNING_BODY
@@ -55,9 +55,9 @@ class TvlOfferDatabaseTests(DatabaseCase):
         )
         self.assertEqual(
             await self.scalar(
-                "SELECT convert_from(p.body,'UTF8') FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/regular-offers/tvl-triathlon-regular-offers'"
+                "SELECT p.sha256 FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/regular-offers/tvl-triathlon-regular-offers'"
             ),
-            BODY,
+            payload_digest(BODY),
         )
         async with httpx.AsyncClient(
             transport=httpx.MockTransport(

@@ -127,7 +127,7 @@ async def enrich_rasters(conn, source, body, scenes, stac_digest):
             stats, raw, sha, metadata = await asyncio.to_thread(read_scene, feat)
             async with conn.transaction():
                 await conn.execute(
-                    "INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/x-npz') ON CONFLICT DO NOTHING",
+                    "SELECT store_collected_file(%s,%s,'application/x-npz')",
                     (sha, raw),
                 )
                 attempt = await (

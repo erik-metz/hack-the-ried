@@ -1,9 +1,8 @@
-"""Disk-backed acquisition with bounded client memory and exact raw DB archival."""
+"""Disk-backed acquisition with bounded client memory and checksum receipts without raw DB archival."""
 
 import asyncio
 import hashlib
 import os
-import struct
 from urllib.parse import urlsplit
 
 import httpx
@@ -13,32 +12,12 @@ MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 
 
 async def archive_file(conn, file, digest, content_type):
-    """Binary COPY avoids bytea's text encoding and a full Python parameter copy."""
-    async with conn.transaction():
-        existing = await conn.execute(
-            "SELECT 1 FROM collected_payloads WHERE sha256=%s", (digest,)
-        )
-        if await existing.fetchone():
-            return
-        await conn.execute("""CREATE TEMP TABLE archive_upload
-            (sha256 TEXT, body BYTEA, content_type TEXT) ON COMMIT DROP""")
-        file.seek(0, 2)
-        size = file.tell()
-        file.seek(0)
-        async with conn.cursor() as cursor, cursor.copy(
-            "COPY archive_upload (sha256,body,content_type) FROM STDIN (FORMAT BINARY)"
-        ) as copy:
-            await copy.write(b"PGCOPY\n\xff\r\n\0" + struct.pack("!ii", 0, 0))
-            encoded = digest.encode()
-            await copy.write(struct.pack("!hi", 3, len(encoded)) + encoded)
-            await copy.write(struct.pack("!i", size))
-            while chunk := file.read(CHUNK_SIZE):
-                await copy.write(chunk)
-            encoded = content_type.encode()
-            await copy.write(struct.pack("!i", len(encoded)) + encoded)
-            await copy.write(struct.pack("!h", -1))
-        await conn.execute("""INSERT INTO collected_payloads(sha256,body,content_type)
-            SELECT sha256,body,content_type FROM archive_upload ON CONFLICT DO NOTHING""")
+    """Record the fingerprint; parsing uses the caller's temporary file directly."""
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    await conn.execute("""INSERT INTO collected_payloads(sha256,size_bytes,content_type)
+        VALUES (%s,%s,%s) ON CONFLICT DO NOTHING""", (digest,size,content_type))
     await conn.commit()
 
 

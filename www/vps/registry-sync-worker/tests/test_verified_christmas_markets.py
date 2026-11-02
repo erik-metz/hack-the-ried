@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from db_support import DatabaseCase
+from db_support import DatabaseCase, payload_digest
 from test_club_events import SOURCES
 from verified_christmas_markets import (
     SOURCE_ID,
@@ -62,7 +62,7 @@ class ChristmasDatabaseTests(DatabaseCase):
             data = await self.scalar("SELECT data FROM collected_datasets WHERE dataset='social/events'")
             self.assertEqual(len(data), 9)
             self.assertEqual(await self.scalar('SELECT count(*) FROM collection_attempts WHERE status=\'success\''), 2)
-            self.assertEqual(await self.scalar("SELECT convert_from(body,'UTF8') FROM collected_payloads LIMIT 1"), HTML)
+            self.assertEqual(await self.scalar('SELECT sha256 FROM collected_payloads LIMIT 1'), payload_digest(HTML))
             html = HTML.replace('Öffnungszeiten 2026:', 'Öffnungszeiten:')
             with self.assertRaises(ValueError):
                 await import_christmas_markets(self.conn, client, SOURCE)

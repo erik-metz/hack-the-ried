@@ -79,12 +79,12 @@ async def persist_gateways(
                 (settings.packetbroker_api_url, settings.poll_seconds),
             )
 
-        # Keep the original response and link it to this poll, atomically with its data.
+        # Link the response fingerprint to this poll, atomically with its data.
         if payload_bytes is not None:
             await cur.execute(
-                """INSERT INTO collected_payloads(sha256,body,content_type,received_at)
+                """INSERT INTO collected_payloads(sha256,size_bytes,content_type,received_at)
                 VALUES (%s,%s,'application/json',%s) ON CONFLICT DO NOTHING""",
-                (payload_sha256, payload_bytes, now),
+                (payload_sha256, len(payload_bytes), now),
             )
             if attempt_id is not None:
                 await cur.execute(

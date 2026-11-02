@@ -138,7 +138,8 @@ class InventoryDatabaseTests(DatabaseCase):
         self.assertEqual(saved["timestampBasis"], "collector_observed")
         self.assertIsNone(saved["sourceUpdatedAt"])
         archived = await self.scalar("SELECT body FROM collected_payloads LIMIT 1")
-        self.assertEqual(json.loads(bytes(archived)), body)
+        self.assertIsNone(archived)
+        self.assertGreater(await self.scalar("SELECT size_bytes FROM collected_payloads LIMIT 1"),0)
         for payload, code, error in [
             ({}, 200, TypeError),
             (body, 503, httpx.HTTPStatusError),

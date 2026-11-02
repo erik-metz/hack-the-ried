@@ -298,10 +298,23 @@ def address_key(source, address):
     return hashlib.sha256(json.dumps(identity, ensure_ascii=False).encode()).hexdigest()
 
 
+def minimal_address_inventory(inventory):
+    """Keep only address labels and coordinates consumed by the calendar parser."""
+    if not isinstance(inventory.get('elements'),list):
+        raise ValueError('Invalid address inventory')
+    elements=[]
+    for item in inventory['elements']:
+        tags=item['tags']
+        center=item.get('center',item)
+        elements.append({'tags':{key:tags[key] for key in ('addr:city','addr:street','addr:housenumber') if key in tags},
+                         'center':{key:center[key] for key in ('lat','lon') if key in center}})
+    return {'elements':elements}
+
+
 async def calendar_for_address(conn, client, source, address, now, locations=None, *, refresh=False):
     key = address_key(source, address)
     cursor = await conn.execute(
-        """SELECT p.body,c.payload_sha256,c.fetched_at FROM collection_checkpoints c
+        """SELECT c.parsed_data,c.payload_sha256,c.fetched_at,p.body FROM collection_checkpoints c
         JOIN collected_payloads p ON p.sha256=c.payload_sha256
         WHERE c.source_id=%s AND c.item_key=%s AND c.fetched_at>%s""",
         (source["id"], key, now-timedelta(seconds=source.get("calendar_cache_seconds", source["interval_seconds"]))),
@@ -309,8 +322,11 @@ async def calendar_for_address(conn, client, source, address, now, locations=Non
     cached = await cursor.fetchone()
     await conn.commit()
     if cached and not refresh:
-        body, digest, fetched = cached
-        return parse_ical(bytes(body), address), digest, fetched, True
+        parsed, digest, fetched, old_body = cached
+        if parsed is not None:
+            return [{**event, **address} for event in parsed], digest, fetched, True
+        if old_body is not None:
+            return parse_ical(bytes(old_body), address), digest, fetched, True
 
     async def request(fields=None):
         # Pace every provider request, not just the gap between address workflows.
@@ -386,6 +402,8 @@ async def calendar_for_address(conn, client, source, address, now, locations=Non
         SET payload_sha256=EXCLUDED.payload_sha256,fetched_at=EXCLUDED.fetched_at""",
         (source["id"], key, digest, fetched),
     )
+    await conn.execute("UPDATE collection_checkpoints SET parsed_data=%s WHERE source_id=%s AND item_key=%s",
+                       (Jsonb([{k:v for k,v in event.items() if k not in address} for event in events]),source["id"],key))
     await conn.execute("DELETE FROM collection_item_failures WHERE source_id=%s AND item_key=%s", (source["id"], key))
     await conn.commit()
     return events, digest, fetched, False
@@ -411,16 +429,16 @@ async def import_zakb(conn, client, source):
         query = f'[out:json][timeout:90];nwr["addr:city"~"^({city_pattern})$"]["addr:street"]["addr:housenumber"]({south},{west},{north},{east});out center tags;'
         inventory_key = "address-inventory:" + hashlib.sha256((source["address_url"] + query).encode()).hexdigest()
         cursor = await conn.execute(
-            """SELECT p.body,c.payload_sha256 FROM collection_checkpoints c
+            """SELECT c.parsed_data,c.payload_sha256,p.body FROM collection_checkpoints c
             JOIN collected_payloads p ON p.sha256=c.payload_sha256
             WHERE c.source_id=%s AND c.item_key=%s AND c.fetched_at>%s""",
             (source["id"], inventory_key, now-timedelta(seconds=source.get("calendar_cache_seconds", source["interval_seconds"]))),
         )
         cached_inventory = await cursor.fetchone()
         await conn.commit()
-        if cached_inventory:
-            raw_inventory, geo_digest = cached_inventory
-            inventory = json.loads(bytes(raw_inventory))
+        if cached_inventory and (cached_inventory[0] is not None or cached_inventory[2] is not None):
+            parsed, geo_digest, old_body = cached_inventory
+            inventory = parsed if parsed is not None else json.loads(bytes(old_body))
         else:
             async with asyncio.timeout(max(1, deadline-loop.time())):
                 response, geo_digest, _ = await acquire(
@@ -435,6 +453,8 @@ async def import_zakb(conn, client, source):
                 SET payload_sha256=EXCLUDED.payload_sha256,fetched_at=EXCLUDED.fetched_at""",
                 (source["id"], inventory_key, geo_digest, datetime.now(UTC)),
             )
+            await conn.execute("UPDATE collection_checkpoints SET parsed_data=%s WHERE source_id=%s AND item_key=%s",
+                               (Jsonb(minimal_address_inventory(inventory)),source["id"],inventory_key))
             await conn.commit()
     addresses = {}
     candidates = defaultdict(dict)
@@ -615,8 +635,8 @@ async def import_zakb(conn, client, source):
     digest = hashlib.sha256(manifest).hexdigest()
     async with conn.transaction():
         await conn.execute(
-            "INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
-            (digest, manifest),
+            "INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
+            (digest, len(manifest)),
         )
         await publish(conn, source, "waste/coverage", json.loads(manifest), digest, now)
         # Keep the previous valid calendar/schedules if no address could be verified.

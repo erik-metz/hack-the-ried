@@ -225,8 +225,8 @@ async def tile(
         raise HTTPException(404)
     async with pool.connection() as conn:
         cursor = await conn.execute(
-            """SELECT p.body,p.content_type,p.sha256 FROM collected_map_tiles t
-            JOIN collected_payloads p ON p.sha256=t.payload_sha256
+            """SELECT COALESCE(f.body,p.body) AS body,p.content_type,p.sha256 FROM collected_map_tiles t
+            JOIN collected_payloads p ON p.sha256=t.payload_sha256 LEFT JOIN collected_file_assets f ON f.sha256=p.sha256
             WHERE layer=%s AND z=%s AND x=%s AND y=%s""",
             (layer, z, x, y),
         )
@@ -234,6 +234,8 @@ async def tile(
     if not row:
         # Deliberately no on-demand external fetch.
         raise HTTPException(404, "Tile not collected")
+    if row["body"] is None:
+        raise HTTPException(503,"Tile content is unavailable")
     headers = {
         "Cache-Control": "public, max-age=86400",
         "ETag": '"' + row["sha256"] + '"',

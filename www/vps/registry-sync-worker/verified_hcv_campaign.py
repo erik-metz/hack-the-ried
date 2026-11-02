@@ -124,8 +124,8 @@ async def import_hcv_campaign(conn, client, source):
     digest = hashlib.sha256(bundle).hexdigest()
     async with conn.transaction():
         await conn.execute(
-            "INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
-            (digest, bundle),
+            "INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
+            (digest, len(bundle)),
         )
         await reconcile_future(conn, source, events, now)
         await sync_cultural_events_to_db_and_publish(conn, source, events, digest, now)

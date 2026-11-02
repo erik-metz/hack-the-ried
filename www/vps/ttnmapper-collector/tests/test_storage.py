@@ -175,7 +175,7 @@ class TTNMapperStorageTests(DatabaseCase):
         receipt = await (await self.conn.execute("""SELECT p.body,a.fetched_at,a.http_status
             FROM collection_attempts a JOIN collected_payloads p ON p.sha256=a.payload_sha256
             WHERE a.id=%s""", (attempt[0],))).fetchone()
-        self.assertEqual(receipt, (payload, first, 200))
+        self.assertEqual(receipt, (None, first, 200))
         # A retry of the same poll cannot create another status observation.
         await persist_gateways(self.conn, [offline], replace(sample_snapshot([offline]), observed_at=second), settings, now=second)
         self.assertEqual(await self.scalar("SELECT count(*) FROM sensor_data"), 2)

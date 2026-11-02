@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import httpx
-from db_support import DatabaseCase
+from db_support import DatabaseCase, payload_digest
 from regular_offers import (
     buerstadt_lauftreff,
     import_buerstadt_lauftreff,
@@ -61,9 +61,9 @@ class IndependentOfferDatabaseTests(DatabaseCase):
         self.assertEqual(len(b), 1)
         self.assertEqual(
             await self.scalar(
-                "SELECT convert_from(p.body,'UTF8') FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/regular-offers/tv-buerstadt-lauftreff'"
+                "SELECT p.sha256 FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/regular-offers/tv-buerstadt-lauftreff'"
             ),
-            BODY,
+            payload_digest(BODY),
         )
         async with httpx.AsyncClient(
             transport=httpx.MockTransport(

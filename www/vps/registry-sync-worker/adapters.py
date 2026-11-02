@@ -310,6 +310,8 @@ async def import_tiles(conn, client, source):
         if not response.headers.get("content-type", "").startswith("image/"):
             raise ValueError("Tile endpoint did not return an image")
         async with conn.transaction():
+            await conn.execute("SELECT store_collected_file(%s,%s,%s)",
+                               (digest,response.content,response.headers["content-type"].split(";")[0]))
             await conn.execute(
                 """INSERT INTO collected_map_tiles(layer,z,x,y,payload_sha256,fetched_at)
                 VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT(layer,z,x,y) DO UPDATE SET

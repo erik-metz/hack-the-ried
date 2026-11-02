@@ -1,4 +1,3 @@
-import json
 from urllib.parse import parse_qs
 
 import httpx
@@ -22,8 +21,8 @@ class BorisDatabaseTests(DatabaseCase):
         geo = await self.scalar("SELECT data FROM collected_datasets WHERE dataset='map/layers/boris'")
         self.assertEqual(geo['features'][0]['geometry'], data[0]['geometry'])
         self.assertEqual(await self.scalar('SELECT count(*) FROM collected_payloads'), 3)
-        manifest = json.loads(bytes(await self.scalar("SELECT body FROM collected_payloads WHERE content_type LIKE 'application/vnd.openried.%'")))
-        self.assertEqual([p['returned'] for p in manifest['parts']], [4, 0])
+        self.assertEqual(await self.scalar('SELECT count(*) FROM collected_payloads WHERE body IS NOT NULL'),0)
+        self.assertGreater(await self.scalar("SELECT size_bytes FROM collected_payloads WHERE content_type LIKE 'application/vnd.openried.%'"),0)
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, content=page()))) as client:
             with self.assertRaisesRegex(ValueError, 'pagination'):
                 await import_boris(self.conn, client, SOURCE)

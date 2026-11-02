@@ -224,8 +224,8 @@ async def import_addresses(conn, client, source):
     body = json.dumps(inventory, sort_keys=True).encode()
     digest = hashlib.sha256(body).hexdigest()
     async with conn.transaction():
-        await conn.execute('INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING',
-                           (digest, body, 'application/vnd.openriedsens.osm-address-extract+json'))
+        await conn.execute('INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING',
+                           (digest, len(body), 'application/vnd.openriedsens.osm-address-extract+json'))
         await publish(conn, source, 'waste/address-inventory', inventory, digest, now)
         await publish(conn, source, 'map/layers/crossings', inventory['crossings'], digest, now)
         for layer, features in inventory['map_layers'].items():

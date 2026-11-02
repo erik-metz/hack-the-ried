@@ -83,16 +83,8 @@ def parse_csv(body, now=None):
 
 async def archive(conn, source, body, status, http_status=None, error=None, content_type="text/csv"):
     digest = hashlib.sha256(body).hexdigest()
-    usage = await (await conn.execute(
-        "SELECT COALESCE(sum(octet_length(body)),0) FROM collected_payloads WHERE sha256 IN (SELECT payload_sha256 FROM collection_attempts WHERE source_id=%s)",
-        (source['id'],))).fetchone()
-    referenced = await (await conn.execute(
-        'SELECT 1 FROM collection_attempts WHERE source_id=%s AND payload_sha256=%s LIMIT 1',
-        (source['id'], digest))).fetchone()
-    if not referenced and usage[0] + len(body) > ARCHIVE_BUDGET:
-        raise ValueError('FIRMS archive budget reached')
     async with conn.transaction():
-        await conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", (digest, body, content_type))
+        await conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", (digest, len(body), content_type))
         row = await (await conn.execute(
             'INSERT INTO collection_attempts(source_id,payload_sha256,status,http_status,error) VALUES (%s,%s,%s,%s,%s) RETURNING id',
             (source['id'], digest, status, http_status, error))).fetchone()

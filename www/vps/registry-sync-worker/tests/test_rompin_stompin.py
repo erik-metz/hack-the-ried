@@ -2,7 +2,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from db_support import DatabaseCase
+from db_support import DatabaseCase, payload_digest
 from regular_offers import import_rompin_stompin, import_tv_lauftreff, rompin_stompin
 from test_club_events import SOURCES
 from test_regular_offers import BODY as GROSS_BODY
@@ -69,9 +69,9 @@ class RompinOfferDatabaseTests(DatabaseCase):
         )
         self.assertEqual(
             await self.scalar(
-                "SELECT convert_from(p.body,'UTF8') FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/regular-offers/rompin-stompin-regular-offers'"
+                "SELECT p.sha256 FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/regular-offers/rompin-stompin-regular-offers'"
             ),
-            BODY,
+            payload_digest(BODY),
         )
         async with httpx.AsyncClient(
             transport=httpx.MockTransport(

@@ -1,7 +1,6 @@
 """Exercise provider acquisition through publication with real foreign keys."""
 
 import hashlib
-import json
 from unittest.mock import patch
 
 import httpx
@@ -37,17 +36,10 @@ class ClubEventDatabaseTests(DatabaseCase):
             WHERE d.dataset='social/events'"""
             )
         ).fetchone()
-        self.assertEqual(hashlib.sha256(row[1]).hexdigest(), row[0])
-        bundle = json.loads(row[1])
-        self.assertEqual(bundle["source_id"], source_id)
-        self.assertEqual(len(bundle["payload_sha256"]), len(responses))
-        for digest in bundle["payload_sha256"]:
-            self.assertEqual(
-                await self.scalar(
-                    "SELECT count(*) FROM collected_payloads WHERE sha256=%s", (digest,)
-                ),
-                1,
-            )
+        self.assertIsNone(row[1])
+        for name in responses.values():
+            digest=hashlib.sha256(fixture(name).encode()).hexdigest()
+            self.assertEqual(await self.scalar('SELECT count(*) FROM collected_payloads WHERE sha256=%s AND body IS NULL',(digest,)),1)
         self.assertEqual(
             await self.scalar(
                 "SELECT count(*) FROM collection_attempts WHERE status <> 'success'"

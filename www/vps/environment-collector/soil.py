@@ -63,14 +63,14 @@ async def acquire(client, settings, conn, now=None):
     body = response.content
     digest = hashlib.sha256(body).hexdigest()
     async with conn.transaction():
-        await conn.execute("""INSERT INTO collected_payloads(sha256,body,content_type)
-            VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""", (digest, body))
+        await conn.execute("""INSERT INTO collected_payloads(sha256,size_bytes,content_type)
+            VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""", (digest, len(body)))
         row = await (await conn.execute("""INSERT INTO collection_attempts
             (source_id,http_status,payload_sha256,status) VALUES (%s,%s,%s,%s) RETURNING id""",
             (SOURCE, response.status_code, digest, 'received' if response.is_success else 'failed'))).fetchone()
     await conn.commit()
     response.raise_for_status()
-    return {'data': json.loads(body), 'run': run.isoformat(), 'url': url, 'attempt_id': row[0]}
+    return {'_body': body, 'data': json.loads(body), 'run': run.isoformat(), 'url': url, 'attempt_id': row[0]}
 
 
 def normalize(bundle):
@@ -121,11 +121,12 @@ async def persist(conn, bundle, points):
     count = 0
     async with conn.transaction():
         # Re-validate the archived bytes rather than trusting a caller-supplied bundle.
-        row = await (await conn.execute("""SELECT p.body FROM collection_attempts a
+        row = await (await conn.execute("""SELECT p.body,a.payload_sha256 FROM collection_attempts a
             JOIN collected_payloads p ON p.sha256=a.payload_sha256
             WHERE a.id=%s AND a.source_id=%s AND a.http_status=200
                 AND a.status IN ('received','success')""", (bundle['attempt_id'], SOURCE))).fetchone()
-        if row is None or json.loads(bytes(row[0])) != bundle['data']:
+        raw = bundle.get('_body', row[0] if row else None)
+        if row is None or raw is None or json.loads(bytes(raw)) != bundle['data'] or hashlib.sha256(bytes(raw)).hexdigest() != row[1]:
             raise ValueError('Soil bundle differs from archived response')
         if points != normalize(bundle):
             raise ValueError('Normalized soil points do not match source')

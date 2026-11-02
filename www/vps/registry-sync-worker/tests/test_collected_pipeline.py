@@ -109,7 +109,8 @@ class AcquisitionTests(unittest.IsolatedAsyncioTestCase):
         queries=[call.args[0] for call in conn.execute.call_args_list]
         self.assertIn('collected_payloads',queries[0])
         self.assertIn('collection_attempts',queries[1])
-        self.assertEqual(conn.execute.call_args_list[0].args[1][1],b'provider failure')
+        self.assertEqual(conn.execute.call_args_list[0].args[1][1],len(b'provider failure'))
+        self.assertEqual(conn.execute.call_args_list[2].args[1],(1,b'provider failure'))
         conn.commit.assert_awaited()
 
     async def test_invalid_publication_never_replaces_last_good_data(self):

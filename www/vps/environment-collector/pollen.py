@@ -40,14 +40,14 @@ async def acquire(client, settings, conn, now=None):
     body = response.content
     digest = hashlib.sha256(body).hexdigest()
     async with conn.transaction():
-        await conn.execute("""INSERT INTO collected_payloads(sha256,body,content_type)
-            VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""", (digest, body))
+        await conn.execute("""INSERT INTO collected_payloads(sha256,size_bytes,content_type)
+            VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""", (digest, len(body)))
         row = await (await conn.execute("""INSERT INTO collection_attempts
             (source_id,http_status,payload_sha256,status) VALUES (%s,%s,%s,%s) RETURNING id,received_at""",
             (SOURCE, response.status_code, digest, 'received' if response.is_success else 'failed'))).fetchone()
     await conn.commit()
     response.raise_for_status()
-    return {'data': json.loads(body), 'attempt_id': row[0], 'snapshot_at': row[1].isoformat(), 'sha256': digest}
+    return {'_body': body, 'data': json.loads(body), 'attempt_id': row[0], 'snapshot_at': row[1].isoformat(), 'sha256': digest}
 
 
 def normalize(bundle):
@@ -103,8 +103,9 @@ async def persist(conn, bundle, points):
             JOIN collected_payloads p ON p.sha256=a.payload_sha256
             WHERE a.id=%s AND a.source_id=%s AND a.http_status=200
                 AND a.status IN ('received','success')""", (bundle['attempt_id'], SOURCE))).fetchone()
-        if (receipt is None or json.loads(bytes(receipt[0])) != bundle['data']
-                or hashlib.sha256(bytes(receipt[0])).hexdigest() != receipt[1]
+        raw = bundle.get('_body', receipt[0] if receipt else None)
+        if (receipt is None or raw is None or json.loads(bytes(raw)) != bundle['data']
+                or hashlib.sha256(bytes(raw)).hexdigest() != receipt[1]
                 or bundle['sha256'] != receipt[1]
                 or datetime.fromisoformat(bundle['snapshot_at']) != receipt[2]
                 or points != normalize(bundle)):

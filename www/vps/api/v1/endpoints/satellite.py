@@ -87,11 +87,11 @@ async def archived_crop(conn, scene_id):
     sha = raster["archive_sha256"]
     payload = await (
         await conn.execute(
-            "SELECT p.body FROM collected_payloads p JOIN collection_attempts a ON a.payload_sha256=p.sha256 WHERE p.sha256=%s AND p.content_type='application/x-npz' AND a.id=%s AND a.status='success' AND a.source_id='copernicus-sentinel2:raster'",
+            "SELECT COALESCE(f.body,p.body) AS body FROM collected_payloads p LEFT JOIN collected_file_assets f USING(sha256) JOIN collection_attempts a ON a.payload_sha256=p.sha256 WHERE p.sha256=%s AND p.content_type='application/x-npz' AND a.id=%s AND a.status='success' AND a.source_id='copernicus-sentinel2:raster'",
             (sha, raster["attempt_id"]),
         )
     ).fetchone()
-    if not payload or hashlib.sha256(bytes(payload["body"])).hexdigest() != sha:
+    if not payload or payload["body"] is None or hashlib.sha256(bytes(payload["body"])).hexdigest() != sha:
         raise HTTPException(503, "Archived raster evidence unavailable or invalid")
     return bytes(payload["body"])
 
@@ -231,9 +231,9 @@ async def ecostress_crop_body(scene_id: str, pool: DbPool):
             raise HTTPException(404, "No ECOSTRESS temperature crop available")
         sha = raster["archive_sha256"]
         payload = await (await conn.execute(
-            "SELECT p.body FROM collected_payloads p JOIN collection_attempts a ON a.payload_sha256=p.sha256 WHERE p.sha256=%s AND p.content_type='application/x-npz' AND a.id=%s AND a.status='success' AND a.source_id='nasa-ecostress:raster'", (sha, raster["attempt_id"])
+            "SELECT COALESCE(f.body,p.body) AS body FROM collected_payloads p LEFT JOIN collected_file_assets f USING(sha256) JOIN collection_attempts a ON a.payload_sha256=p.sha256 WHERE p.sha256=%s AND p.content_type='application/x-npz' AND a.id=%s AND a.status='success' AND a.source_id='nasa-ecostress:raster'", (sha, raster["attempt_id"])
         )).fetchone()
-    if not payload or hashlib.sha256(bytes(payload["body"])).hexdigest() != sha:
+    if not payload or payload["body"] is None or hashlib.sha256(bytes(payload["body"])).hexdigest() != sha:
         raise HTTPException(503, "ECOSTRESS archive evidence unavailable")
     return bytes(payload["body"]), sha
 

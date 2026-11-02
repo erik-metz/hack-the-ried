@@ -104,6 +104,18 @@ async def gbif_index(conn):
         WHERE NOT e.is_hidden AND d.source_id='environment-gbif'
         AND d.dimensions->>'snapshot_sha256'=%s""", (metadata['snapshot_sha256'],))).fetchall()
     current = {int(r[0]) for r in rows if r[0] and r[0].isdigit()}
+    derived = await (await conn.execute("""SELECT metadata FROM entities
+        WHERE id=ANY(%s) AND metadata->>'origin_snapshot_sha256'=%s""",
+        ([f'environment:gbif:{key}' for key in current],metadata['snapshot_sha256']))).fetchall()
+    if len(derived)==len(current) and all(row[0].get('origin_links_checked') for row in derived):
+        index = {}
+        for row in derived:
+            for identifier in row[0].get('inaturalist_ids',[]):
+                index.setdefault(identifier,set()).add(int(row[0]['gbif_id']))
+        return {k:sorted(v) for k,v in index.items()}, {
+            'status':'checked','gbif_records':len(current),'origin_records_inspected':len(current),
+            'gbif_snapshot_sha256':metadata['snapshot_sha256'],'gbif_checked_at':metadata.get('last_checked_at'),
+            'note':'Herkunftskennungen wurden beim GBIF-Import aus den Originaldaten extrahiert.'}
     receipts = await (await conn.execute("""SELECT payload_sha256 FROM collection_attempts
         WHERE source_id='environment-gbif' AND status='success' AND http_status=200
         ORDER BY id DESC LIMIT 10""")).fetchall()
@@ -211,7 +223,7 @@ async def _import_inaturalist(conn, client, source):
                         'rejected': rejected, 'projection_sha256': hashlib.sha256(json.dumps(publication, sort_keys=True).encode()).hexdigest()}, sort_keys=True).encode()
     digest = hashlib.sha256(audit).hexdigest()
     async with conn.transaction():
-        await conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (digest, audit))
+        await conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (digest, len(audit)))
         receipt = (await (await conn.execute("INSERT INTO collection_attempts(source_id,payload_sha256,status,http_status) VALUES (%s,%s,'success',200) RETURNING id", (source['id'], digest))).fetchone())[0]
         # Replace the source's core slice, including revision history: withdrawals
         # must not remain accessible via generic measurement or entity endpoints.

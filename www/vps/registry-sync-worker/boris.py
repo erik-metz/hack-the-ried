@@ -127,8 +127,8 @@ async def import_boris(conn, client, source):
         {'type': 'Feature', 'id': z['id'], 'geometry': z['geometry'],
          'properties': {k: v for k, v in z.items() if k != 'geometry'}} for z in zones]}
     async with conn.transaction():
-        await conn.execute('INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING',
-                           (digest, manifest, 'application/vnd.openried.boris-page-manifest+json'))
+        await conn.execute('INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING',
+                           (digest, len(manifest), 'application/vnd.openried.boris-page-manifest+json'))
         await publish(conn, source, 'realestate/boris', zones, digest, stamp)
         await publish(conn, source, 'map/layers/boris', geo, digest, stamp)
         await conn.execute("UPDATE collection_attempts SET status='success' WHERE id=ANY(%s)", (attempts,))

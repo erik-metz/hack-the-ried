@@ -97,11 +97,11 @@ async def persist_stations(
         if payload_bytes and payload_sha256:
             await cur.execute(
                 """
-                INSERT INTO collected_payloads (sha256, body, content_type)
+                INSERT INTO collected_payloads (sha256, size_bytes, content_type)
                 VALUES (%s, %s, 'application/json')
                 ON CONFLICT DO NOTHING
                 """,
-                (payload_sha256, payload_bytes),
+                (payload_sha256, len(payload_bytes)),
             )
             await cur.execute(
                 """

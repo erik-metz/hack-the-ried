@@ -3,7 +3,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from db_support import DatabaseCase
+from db_support import DatabaseCase, payload_digest
 from test_club_events import SOURCES
 from verified_hcv_campaign import campaign_asset, campaign_events, import_hcv_campaign
 
@@ -62,10 +62,10 @@ class CampaignDatabaseTests(DatabaseCase):
             self.assertEqual(await self.scalar("SELECT count(*) FROM cultural_events"), 8)
             data = await self.scalar("SELECT data FROM collected_datasets WHERE dataset='social/events'")
             self.assertEqual(len(data), 8)
-            bodies = await self.conn.execute("SELECT convert_from(body,'UTF8') FROM collected_payloads")
+            bodies = await self.conn.execute("SELECT sha256 FROM collected_payloads")
             archived = [row[0] for row in await bodies.fetchall()]
-            self.assertIn(HTML, archived)
-            self.assertIn(SCRIPT, archived)
+            self.assertIn(payload_digest(HTML), archived)
+            self.assertIn(payload_digest(SCRIPT), archived)
             script = SCRIPT.replace("19:31", "25:31")
             with self.assertRaises(ValueError):
                 await import_hcv_campaign(self.conn, client, SOURCE)

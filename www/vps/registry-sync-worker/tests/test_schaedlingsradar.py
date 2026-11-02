@@ -136,12 +136,14 @@ class SchadlingsradarTests(unittest.TestCase):
         payload_query, payload_params = next(
             (query, params) for query, params in conn.calls if "INSERT INTO collected_payloads" in query
         )
-        self.assertEqual(payload_params[0], hashlib.sha256(payload_params[1]).hexdigest())
-        published = json.loads(payload_params[1])
+        published = next(params[7].obj for query,params in conn.calls if "INSERT INTO collected_datasets" in query)
+        encoded = json.dumps(published,sort_keys=True,ensure_ascii=False).encode()
+        self.assertEqual(payload_params[0], hashlib.sha256(encoded).hexdigest())
+        self.assertEqual(payload_params[1],len(encoded))
         self.assertEqual(published["type"], "FeatureCollection")
         self.assertEqual(len(published["features"]), len(RIED_POSTCODES))
         self.assertEqual(published["features"][1]["properties"]["reports"]["ratten"]["d30"], 2)
-        self.assertNotIn(b'"tage"', payload_params[1])
+        self.assertNotIn(b'"tage"', encoded)
         self.assertIn("INSERT INTO collected_dataset_versions", " ".join(query for query, _ in conn.calls))
         self.assertTrue(
             any(

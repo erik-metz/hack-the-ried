@@ -78,17 +78,19 @@ class SoilStorageTests(DatabaseCase):
         from measurement_migration import install
         await install(self.conn)
 
-    async def archive(self, data, attempt=1):
+    async def archive(self, sample, attempt=1):
+        data=sample["data"]
         import hashlib
         body = json.dumps(data).encode()
+        sample["_body"]=body
         sha = hashlib.sha256(body).hexdigest()
-        await self.conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (sha, body))
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (sha, len(body)))
         await self.conn.execute("""INSERT INTO collection_attempts(id,source_id,received_at,http_status,payload_sha256,status)
             VALUES (%s,'environment-soil-icon',%s,200,%s,'received')""", (attempt,datetime(2026,10,6,12,tzinfo=UTC),sha))
 
     async def test_atomic_archived_replay_and_distinct_runs(self):
         sample = bundle()
-        await self.archive(sample['data'])
+        await self.archive(sample)
         points = normalize(sample)
         count = await persist(self.conn, sample, points)
         await persist(self.conn, sample, points)
@@ -96,13 +98,13 @@ class SoilStorageTests(DatabaseCase):
         self.assertEqual(await self.scalar('SELECT COUNT(*) FROM reading_revisions'), 0)
         self.assertEqual(await self.scalar("SELECT status FROM collection_attempts WHERE id=1"), 'success')
         retry = deepcopy(sample); retry['attempt_id']=3
-        await self.archive(retry['data'], 3)
+        await self.archive(retry, 3)
         self.assertEqual(await persist(self.conn, retry, normalize(retry)), 0)
         self.assertEqual(await self.scalar('SELECT COUNT(*) FROM reading_revisions'), 0)
         second = deepcopy(sample)
         second['run']='2026-10-05T18:00:00+00:00'
         second['attempt_id']=2
-        await self.archive(second['data'], 2)
+        await self.archive(second, 2)
         await persist(self.conn, second, normalize(second))
         self.assertEqual(await self.scalar('SELECT COUNT(*) FROM readings'), count*2)
         tampered = deepcopy(sample); tampered['data'][0]['hourly']['soil_temperature_0cm'][1]=42
@@ -113,7 +115,7 @@ class SoilStorageTests(DatabaseCase):
     async def test_cadence_and_failed_receipt_do_not_write(self):
         from soil import acquire
         sample = bundle()
-        await self.archive(sample['data'])
+        await self.archive(sample)
         await self.conn.execute("UPDATE collection_attempts SET status='success' WHERE id=1")
         from unittest.mock import AsyncMock
         client = AsyncMock()

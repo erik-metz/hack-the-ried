@@ -45,7 +45,10 @@ async def persist_environment_data(
                 (payload['weather_attempt_id'],payload['weather_sha256']))).fetchone()
             if receipt is None:
                 raise ValueError('Weather receipt missing or does not match payload')
-            await replay_weather_receipt(conn, *receipt)
+            raw = payload.get('weather_body', receipt[3])
+            if raw is None:
+                raise ValueError('Weather response is not available in the current acquisition')
+            await replay_weather_receipt(conn, *receipt[:3], raw)
         # 1. Update Gauges
         for g in gauges:
             await conn.execute(

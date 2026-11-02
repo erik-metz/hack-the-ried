@@ -77,11 +77,11 @@ async def fetch(client, settings, conn=None):
         )
         if conn:
             await conn.execute(
-                """INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,%s)
+                """INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,%s)
                 ON CONFLICT DO NOTHING""",
                 (
                     digest,
-                    body,
+                    len(body),
                     content_type,
                 ),
             )
@@ -110,6 +110,10 @@ async def fetch(client, settings, conn=None):
             await conn.commit()
 
         if not response.is_success:
+            if conn:
+                await conn.execute("SELECT retain_collection_failure(%s,%s)",
+                                   (payload[name + "_attempt_id"],body[:65536]))
+                await conn.commit()
             if required:
                 await interrupt_receipts(conn, payload)
                 response.raise_for_status()
@@ -133,11 +137,15 @@ async def fetch(client, settings, conn=None):
                     """UPDATE collection_attempts SET status='failed',error=%s,error_stage='processing'
                     WHERE id=%s""", (type(exc).__name__, payload[name + '_attempt_id']),
                 )
+                await conn.execute("SELECT retain_collection_failure(%s,%s)",
+                                   (payload[name + "_attempt_id"],body[:65536]))
                 await conn.commit()
             if required:
                 await interrupt_receipts(conn, payload)
                 raise
             continue
+        if name == "weather":
+            payload["weather_body"] = body
         payload[name + "_sha256"] = digest
     return payload
 

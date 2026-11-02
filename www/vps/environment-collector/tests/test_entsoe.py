@@ -128,8 +128,8 @@ class EntsoeStorageTests(DatabaseCase):
         await install(self.conn)
 
     async def archive(self,sample,attempt=1):
-        body=sample['xml'].encode();sha=hashlib.sha256(body).hexdigest();sample.update(sha256=sha,attempt_id=attempt)
-        await self.conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/xml') ON CONFLICT DO NOTHING",(sha,body))
+        body=sample['xml'].encode();sha=hashlib.sha256(body).hexdigest();sample.update(sha256=sha,attempt_id=attempt,_body=body)
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/xml') ON CONFLICT DO NOTHING",(sha,len(body)))
         await self.conn.execute("INSERT INTO collection_attempts(id,source_id,received_at,http_status,payload_sha256,status) VALUES (%s,%s,%s,200,%s,'received')",(attempt,source(sample['product']),datetime.fromisoformat(sample['snapshot_at']),sha))
 
     async def test_idempotence_corrections_and_receipt_integrity(self):

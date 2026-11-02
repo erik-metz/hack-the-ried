@@ -104,8 +104,8 @@ class GbifStorageTests(DatabaseCase):
     async def archive(self, sample, attempt=1):
         page = sample['pages'][0]
         body = json.dumps(page['data']).encode(); sha = hashlib.sha256(body).hexdigest()
-        page.update(sha256=sha, attempt_id=attempt)
-        await self.conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (sha,body))
+        page.update(sha256=sha, attempt_id=attempt, _body=body)
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (sha,len(body)))
         await self.conn.execute("INSERT INTO collection_attempts(id,source_id,received_at,http_status,payload_sha256,status) VALUES (%s,%s,%s,200,%s,'received')", (attempt,SOURCE,datetime.fromisoformat(page['received_at']),sha))
 
     async def test_replay_distinct_snapshots_and_archive_tampering(self):

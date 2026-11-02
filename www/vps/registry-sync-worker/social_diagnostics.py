@@ -70,9 +70,9 @@ async def finish(conn, source, started):
     digest = hashlib.sha256(body).hexdigest()
     async with conn.transaction():
         await conn.execute(
-            """INSERT INTO collected_payloads(sha256,body,content_type)
+            """INSERT INTO collected_payloads(sha256,size_bytes,content_type)
             VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""",
-            (digest, body),
+            (digest, len(body)),
         )
         await publish(
             conn,

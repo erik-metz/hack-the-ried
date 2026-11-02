@@ -34,7 +34,7 @@ def acquisition_error(exc):
 
 
 async def acquire(conn, client, source, url=None, *, form=None):
-    """Bounded retries for safe reads; every attempted response remains archived."""
+    """Bounded retries for safe reads; only fingerprints are retained."""
     retries = min(3, max(0, int(source.get("http_retries", 0)))) if form is None else 0
     for attempt in range(retries + 1):
         try:
@@ -58,7 +58,7 @@ async def acquire(conn, client, source, url=None, *, form=None):
 
 
 async def _acquire_once(conn, client, source, url=None, *, form=None):
-    """Archive every response before parsing. Secrets never enter receipt metadata."""
+    """Record the response fingerprint before parsing. Secrets never enter receipt metadata."""
     target = url or source["url"]
     if urlsplit(target).scheme != "https":
         raise ValueError("Collector source must use HTTPS")
@@ -88,11 +88,11 @@ async def _acquire_once(conn, client, source, url=None, *, form=None):
     digest = hashlib.sha256(body).hexdigest()
     async with conn.transaction():
         await conn.execute(
-            """INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,%s)
+            """INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,%s)
             ON CONFLICT DO NOTHING""",
             (
                 digest,
-                body,
+                len(body),
                 response.headers.get("content-type", "application/octet-stream"),
             ),
         )
@@ -110,6 +110,14 @@ async def _acquire_once(conn, client, source, url=None, *, form=None):
         )
         attempt_id = (await cursor.fetchone())[0]
     await conn.commit()
+    if not response.is_success:
+        sample = body
+        for variable in [*source.get("header_env", {}).values(), source.get("token_env")]:
+            secret = os.environ.get(variable, "") if variable else ""
+            if secret:
+                sample = sample.replace(secret.encode(), b"[REDACTED]")
+        await conn.execute("SELECT retain_collection_failure(%s,%s)", (attempt_id,sample[:65536]))
+        await conn.commit()
     response.raise_for_status()
     return response, digest, attempt_id
 

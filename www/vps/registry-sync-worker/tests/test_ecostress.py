@@ -128,7 +128,7 @@ class EcostressPersistenceTests(DatabaseCase):
                 assert download.call_count == 1
             assert await self.scalar("SELECT count(*) FROM collection_attempts WHERE source_id='nasa-ecostress:raster' AND status='success'") == 1
             assert await self.scalar("SELECT count(*) FROM readings") == 1
-            archived = await self.scalar("SELECT body FROM collected_payloads WHERE content_type='application/x-npz'")
+            archived = await self.scalar("SELECT body FROM collected_file_assets WHERE content_type='application/x-npz'")
             with np.load(io.BytesIO(bytes(archived)), allow_pickle=False) as crop:
                 assert crop["valid"].sum() == 2
 

@@ -292,9 +292,9 @@ async def import_ris_boards(conn, client, source):
     combined_digest = hashlib.sha256(bundle).hexdigest()
     async with conn.transaction():
         await conn.execute(
-            """INSERT INTO collected_payloads(sha256,body,content_type)
+            """INSERT INTO collected_payloads(sha256,size_bytes,content_type)
             VALUES (%s,%s,%s) ON CONFLICT DO NOTHING""",
-            (combined_digest, bundle, "application/json"),
+            (combined_digest, len(bundle), "application/json"),
         )
         await publish(
             conn,

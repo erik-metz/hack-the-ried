@@ -3,8 +3,9 @@
 import hashlib
 import json
 import math
+import re
 from datetime import UTC, datetime
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from psycopg.types.json import Jsonb
 
@@ -37,12 +38,12 @@ async def acquire(client, settings, conn, now=None):
             if len(body) > 20 * 1024 * 1024:
                 raise ValueError('GBIF page exceeds 20 MiB')
             sha = hashlib.sha256(body).hexdigest()
-            await conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (sha, body))
+            await conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (sha, len(body)))
             receipt = await (await conn.execute("INSERT INTO collection_attempts(source_id,http_status,payload_sha256,status) VALUES (%s,%s,%s,%s) RETURNING id,received_at", (SOURCE, response.status_code, sha, 'received' if response.is_success else 'failed'))).fetchone()
             await conn.commit()
             response.raise_for_status()
             data = json.loads(body)
-            pages.append({'data': data, 'sha256': sha, 'attempt_id': receipt[0], 'received_at': receipt[1].isoformat(), 'url': url})
+            pages.append({'_body': body, 'data': data, 'sha256': sha, 'attempt_id': receipt[0], 'received_at': receipt[1].isoformat(), 'url': url})
             if data.get('endOfRecords') is True:
                 break
     except Exception as exc:
@@ -120,7 +121,19 @@ def normalize(bundle):
             evidence.update(gbif_id=key, date_precision='day', license=license_url,
                 source_url=f'https://www.gbif.org/occurrence/{key}', dataset_url=f'https://www.gbif.org/dataset/{record["datasetKey"]}',
                 spatial_reference={'crs': 'EPSG:4326', 'latitude': lat, 'longitude': lon, 'coordinate_uncertainty_m': uncertainty})
-            rows.append({'key': key, 'stamp': stamp, 'evidence': evidence, 'attempt_id': page['attempt_id']})
+            origin_ids = set()
+            for field in ('occurrenceID','references','identifier'):
+                value = record.get(field)
+                if not isinstance(value,str):
+                    continue
+                try:
+                    url = urlsplit(value)
+                    match = re.fullmatch(r'/observations/([1-9][0-9]*)/?',url.path)
+                    if url.scheme in ('http','https') and url.hostname in ('inaturalist.org','www.inaturalist.org') and not url.username and not url.password and match:
+                        origin_ids.add(int(match[1]))
+                except ValueError:
+                    continue
+            rows.append({'key': key, 'stamp': stamp, 'evidence': evidence, 'attempt_id': page['attempt_id'], 'inaturalist_ids': sorted(origin_ids)})
     if not pages[-1]['data']['endOfRecords'] and scanned != MAX_RECORDS:
         raise ValueError('GBIF acquisition ended before configured cap')
     sha = hashlib.sha256(''.join(p['sha256'] for p in pages).encode()).hexdigest()
@@ -135,7 +148,8 @@ async def persist(conn, bundle, normalized):
             raise ValueError('GBIF normalization differs from archived input')
         for page in bundle['pages']:
             receipt = await (await conn.execute("SELECT p.body,a.received_at,a.payload_sha256 FROM collection_attempts a JOIN collected_payloads p ON p.sha256=a.payload_sha256 WHERE a.id=%s AND a.source_id=%s AND a.http_status=200 AND a.status IN ('received','success')", (page['attempt_id'], SOURCE))).fetchone()
-            if (receipt is None or json.loads(bytes(receipt[0])) != page['data'] or hashlib.sha256(bytes(receipt[0])).hexdigest() != page['sha256']
+            raw = page.get('_body', receipt[0] if receipt else None)
+            if (receipt is None or raw is None or json.loads(bytes(raw)) != page['data'] or hashlib.sha256(bytes(raw)).hexdigest() != page['sha256']
                     or receipt[2] != page['sha256'] or receipt[1] != datetime.fromisoformat(page['received_at'])
                     or page['url'] != 'https://api.gbif.org/v1/occurrence/search?' + urlencode({**bundle['query'], 'limit': PAGE_SIZE, 'offset': page['data']['offset']})):
                 raise ValueError('GBIF input differs from archived receipt')
@@ -152,6 +166,11 @@ async def persist(conn, bundle, normalized):
                 await conn.execute("INSERT INTO entities(id,name,entity_type,metadata) VALUES (%s,%s,'biodiversity_occurrence',%s) ON CONFLICT(id) DO UPDATE SET metadata=entities.metadata || EXCLUDED.metadata,updated_at=NOW()", (entity, item['evidence']['scientificName'], Jsonb({'gbif_id': item['key']})))
                 await conn.execute("SELECT write_environment_measurement(%s,'occurrence_presence','count',%s,'observation',%s,%s,1,%s,%s)",
                     (entity, SOURCE, Jsonb({'snapshot_sha256': normalized['snapshot_sha256']}), item['stamp'], item['attempt_id'], Jsonb(item['evidence'])))
+        # Keep only the origin identifiers needed by the cross-source comparison.
+        for item in normalized['rows']:
+            await conn.execute("UPDATE entities SET metadata=metadata || %s WHERE id=%s",
+                (Jsonb({'inaturalist_ids':item['inaturalist_ids'], 'origin_links_checked':True,
+                        'origin_snapshot_sha256':normalized['snapshot_sha256']}),f'environment:gbif:{item["key"]}'))
         await conn.execute("INSERT INTO entities(id,name,entity_type,metadata) VALUES (%s,'GBIF Suchausschnitt Ried','monitoring_area',%s) ON CONFLICT(id) DO UPDATE SET metadata=entities.metadata || EXCLUDED.metadata,updated_at=NOW()", (REGION, Jsonb(metadata)))
         for page in bundle['pages']:
             await conn.execute("UPDATE collection_attempts SET status='success' WHERE id=%s", (page['attempt_id'],))

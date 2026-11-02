@@ -1,3 +1,4 @@
+import hashlib
 """Real publication contracts using provider-format fixtures, never fake live points."""
 
 import io
@@ -108,13 +109,12 @@ class FirmsPersistenceTests(DatabaseCase):
             finally:
                 conn.row_factory = tuple_row
 
-    async def test_archive_capacity_includes_retry_bodies_but_not_repeats(self):
-        with patch('firms.ARCHIVE_BUDGET', 10):
-            await archive(self.conn, SOURCE, b'123456', 'failed')
-            await archive(self.conn, SOURCE, b'123456', 'failed')
-            with pytest.raises(ValueError, match='budget'):
-                await archive(self.conn, SOURCE, b'abcdef', 'failed')
-        assert await self.scalar('SELECT count(*) FROM collected_payloads') == 1
+    async def test_response_fingerprints_deduplicate_without_storing_retry_bodies(self):
+        await archive(self.conn, SOURCE, b'123456', 'failed')
+        await archive(self.conn, SOURCE, b'123456', 'failed')
+        await archive(self.conn, SOURCE, b'abcdef', 'failed')
+        assert await self.scalar('SELECT count(*) FROM collected_payloads')==2
+        assert await self.scalar('SELECT count(*) FROM collected_payloads WHERE body IS NOT NULL')==0
 
     async def test_no_redirect_or_secret_archival(self):
         captured = io.StringIO()
@@ -132,8 +132,8 @@ class FirmsPersistenceTests(DatabaseCase):
                 with pytest.raises(ValueError, match='302'):
                     await fetch_csv(self.conn, client, SOURCE, KEY)
             assert len(requests) == 1
-            archived = bytes(await self.scalar('SELECT body FROM collected_payloads LIMIT 1'))
-            assert KEY.encode() not in archived and b'[REDACTED]' in archived
+            assert await self.scalar('SELECT body FROM collected_payloads LIMIT 1') is None
+            assert await self.scalar('SELECT sha256 FROM collected_payloads LIMIT 1') == hashlib.sha256(b'Error [REDACTED]').hexdigest()
             assert KEY not in captured.getvalue()
         finally:
             logger.removeHandler(handler)

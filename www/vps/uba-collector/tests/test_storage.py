@@ -203,6 +203,8 @@ class UbaStorageTests(DatabaseCase):
             received = first + timedelta(seconds=index * 10)
             await persist_stations(self.conn, [observed], settings, now=received,
                                    payload_bytes=body, payload_sha256=digest)
+            # Historical repair fixture predates metadata-only collection.
+            await self.conn.execute("UPDATE collected_payloads SET body=%s WHERE sha256=%s",(body,digest))
             await self.conn.execute("UPDATE collection_attempts SET received_at=%s WHERE payload_sha256=%s", (received, digest))
         # Simulate the old compatibility writer: all provider versions remained.
         await self.conn.execute("INSERT INTO sensor_data(timestamp,sensor_id,metric,value,unit) VALUES (%s,%s,'air_quality_index',1,'index')", (stamp, st.sensor_id))

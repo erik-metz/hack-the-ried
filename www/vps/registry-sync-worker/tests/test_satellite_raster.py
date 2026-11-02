@@ -246,7 +246,7 @@ class RasterDatabaseTests(DatabaseCase):
         )
         # A corrupted archive can never be rendered as if the receipt were valid.
         await self.conn.execute(
-            "UPDATE collected_payloads SET body=%s WHERE content_type='application/x-npz'",
+            "UPDATE collected_file_assets SET body=%s WHERE content_type='application/x-npz'",
             (b"tampered",),
         )
         self.conn.row_factory = dict_row

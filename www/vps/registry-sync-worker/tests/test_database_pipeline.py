@@ -1,5 +1,6 @@
 """Real SQL coverage; explicit disposable database required."""
 import hashlib
+import os
 import sys
 from pathlib import Path
 
@@ -23,7 +24,8 @@ class PipelineDatabaseTests(DatabaseCase):
             file.write(body)
             await archive_file(self.conn, file, digest, 'application/zip')
             await archive_file(self.conn, file, digest, 'application/zip')
-        self.assertEqual(await self.scalar('SELECT body FROM collected_payloads'), body)
+        self.assertIsNone(await self.scalar('SELECT body FROM collected_payloads'))
+        self.assertEqual(await self.scalar('SELECT size_bytes FROM collected_payloads'), len(body))
         self.assertEqual(await self.scalar('SELECT count(*) FROM collected_payloads'), 1)
 
     async def test_publication_and_shared_prediction_are_replay_safe(self):
@@ -72,7 +74,11 @@ class PipelineDatabaseTests(DatabaseCase):
         await self.conn.execute('DELETE FROM movement_stop_times')
         await self.conn.execute('DELETE FROM collector_schema_versions WHERE version=20260927')
         schema = (Path(__file__).resolve().parents[2] / 'api/v1/schema.sql').read_text()
+        if os.getenv('COLLECTOR_TEST_TIMESCALE') != '1':
+            schema = schema.replace('CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;', '').replace("SELECT create_hypertable('sensor_data', 'timestamp', if_not_exists => TRUE);", '').replace("SELECT create_hypertable('movement_positions','timestamp',if_not_exists => TRUE);", '')
         await self.conn.execute(schema)
+        if os.getenv('COLLECTOR_TEST_TIMESCALE') != '1':
+            schema = schema.replace('CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;', '').replace("SELECT create_hypertable('sensor_data', 'timestamp', if_not_exists => TRUE);", '').replace("SELECT create_hypertable('movement_positions','timestamp',if_not_exists => TRUE);", '')
         await self.conn.execute(schema)
         self.assertEqual(await self.scalar('SELECT COUNT(*) FROM movement_stop_times'),count)
 

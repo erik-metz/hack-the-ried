@@ -155,8 +155,8 @@ async def import_news_events(conn, client, source):
             (source["id"], links, [event["id"] for event in events], datetime.now(UTC)),
         )
         await conn.execute(
-            "INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
-            (digest, bundle),
+            "INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
+            (digest, len(bundle)),
         )
         await sync_cultural_events_to_db_and_publish(
             conn, source, events, digest, datetime.now(UTC)

@@ -114,8 +114,8 @@ async def persist_sample(conn, sample, body, source, source_url=None, content_ty
     digest = hashlib.sha256(body).hexdigest()
     stamp = sample['timestamp']
     async with conn.transaction():
-        await conn.execute("""INSERT INTO collected_payloads(sha256,body,content_type)
-            VALUES (%s,%s,%s) ON CONFLICT DO NOTHING""", (digest, body, content_type))
+        await conn.execute("""INSERT INTO collected_payloads(sha256,size_bytes,content_type)
+            VALUES (%s,%s,%s) ON CONFLICT DO NOTHING""", (digest, len(body), content_type))
         await conn.execute("""INSERT INTO ais_vessels(mmsi,updated_at,metadata) VALUES (%s,%s,%s)
             ON CONFLICT(mmsi) DO UPDATE SET updated_at=EXCLUDED.updated_at,
             metadata=ais_vessels.metadata || EXCLUDED.metadata

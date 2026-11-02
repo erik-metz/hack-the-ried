@@ -105,8 +105,8 @@ async def persist(conn, payload, now=None):
             exists = await (await conn.execute("SELECT 1 FROM movement_positions WHERE timestamp=%s AND entity_id=%s AND basis='observed'", (stamp, identity))).fetchone()
             if exists:
                 continue
-            await conn.execute("""INSERT INTO collected_payloads(sha256,body,content_type)
-                VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""", (digest, body))
+            await conn.execute("""INSERT INTO collected_payloads(sha256,size_bytes,content_type)
+                VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""", (digest, len(body)))
             inserted = await (await conn.execute("""INSERT INTO movement_positions(timestamp,entity_id,kind,
                 latitude,longitude,basis,source_id,payload_sha256,metadata)
                 VALUES (%s,%s,'aircraft',%s,%s,'observed',%s,%s,%s)

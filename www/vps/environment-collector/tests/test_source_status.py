@@ -121,7 +121,7 @@ class SourceStatusTests(DatabaseCase):
         row = await (await self.conn.execute("SELECT status,item_count FROM collection_attempts WHERE source_id='environment-xweather'")).fetchone()
         self.assertEqual(row, ('success', 1))
         body = await self.scalar("SELECT body FROM collected_payloads WHERE sha256=%s", (payload['xweather_sha256'],))
-        self.assertNotIn(b'private-secret', bytes(body))
+        self.assertIsNone(body)
         row = await (await self.conn.execute("SELECT d.source_id,r.value,r.period_end-r.period_start FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.source_id='environment-xweather' AND d.metric='lightning_strikes_count'")).fetchone()
         from datetime import timedelta
         self.assertEqual(row, ('environment-xweather', 0, timedelta(minutes=5)))

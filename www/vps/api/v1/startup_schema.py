@@ -18,6 +18,8 @@ async def validate_existing_schema(conn, *, mcp=False):
         raise RuntimeError('Existing collector schema is not ready')
     await conn.execute('SELECT id,is_hidden FROM sensor_metadata LIMIT 0')
     await conn.execute('SELECT dataset,data,expires_at FROM collected_datasets LIMIT 0')
+    await conn.execute('SELECT sha256,size_bytes FROM collected_payloads LIMIT 0')
+    await conn.execute('SELECT sha256,body FROM collected_file_assets LIMIT 0')
     if mcp:
         for probe in (
             'SELECT id,metadata,is_hidden FROM entities LIMIT 0',

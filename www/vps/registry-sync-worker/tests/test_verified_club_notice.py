@@ -74,14 +74,9 @@ class VerifiedClubNoticeDatabaseTests(DatabaseCase):
         )
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["source_events"][0]["source"], SOURCE["id"])
-        bundle = await self.scalar(
-            "SELECT convert_from(p.body,'UTF8')::jsonb FROM collected_payloads p JOIN collected_datasets d ON d.payload_sha256=p.sha256 WHERE d.dataset='social/events'"
-        )
-        self.assertEqual(len(bundle["payload_sha256"]), 3)
-        self.assertEqual(
-            bundle["verified_event"]["start_time"],
-            SOURCE["verified_event"]["start_time"],
-        )
+        self.assertEqual(await self.scalar('SELECT count(*) FROM collected_payloads WHERE body IS NOT NULL'),0)
+        self.assertEqual(len(data),1)
+
         self.assertEqual(
             await self.scalar(
                 "SELECT count(*) FROM collection_attempts WHERE status='success'"

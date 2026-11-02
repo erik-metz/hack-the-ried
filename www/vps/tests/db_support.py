@@ -1,5 +1,6 @@
 """Disposable-schema integration harness; requires an explicit test DSN."""
 
+import hashlib
 import os
 import unittest
 from pathlib import Path
@@ -9,6 +10,10 @@ import psycopg
 from psycopg import sql
 
 DSN = os.getenv("COLLECTOR_TEST_DATABASE_URL")
+
+
+def payload_digest(body):
+    return hashlib.sha256(body.encode() if isinstance(body, str) else body).hexdigest()
 
 
 class DatabaseCase(unittest.IsolatedAsyncioTestCase):

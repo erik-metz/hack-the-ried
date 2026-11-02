@@ -84,6 +84,7 @@ async def lifespan(app: FastAPI):
             await init_db(app.state.pool)
             async with app.state.pool.connection() as conn:
                 await conn.execute((Path(__file__).parent / "migrations" / "20261007_archive_format.sql").read_text())
+                await conn.execute((Path(__file__).parent / "migrations" / "20261102_payload_retention.sql").read_text())
                 await conn.execute((Path(__file__).parent / "migrations" / "20261007_fuel.sql").read_text())
                 await conn.execute((Path(__file__).parent / "migrations" / "20261009_traffic_events.sql").read_text())
                 await conn.execute((Path(__file__).parent / "migrations" / "20261010_webcam_snapshots.sql").read_text())

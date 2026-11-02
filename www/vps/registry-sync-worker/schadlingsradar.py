@@ -128,9 +128,9 @@ async def import_schaedlingsradar(conn, client, source):
     digest = hashlib.sha256(safe_payload).hexdigest()
     async with conn.transaction():
         await conn.execute(
-            """INSERT INTO collected_payloads(sha256,body,content_type)
+            """INSERT INTO collected_payloads(sha256,size_bytes,content_type)
             VALUES (%s,%s,'application/geo+json') ON CONFLICT DO NOTHING""",
-            (digest, safe_payload),
+            (digest, len(safe_payload)),
         )
         await conn.execute(
             """INSERT INTO collection_attempts

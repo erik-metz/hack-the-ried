@@ -102,7 +102,7 @@ async def import_ecostress(conn, client, source):
     enabled = os.getenv("ECOSTRESS_RASTER_ENABLED", "false").lower() == "true"
     state = "not_configured" if not enabled or not token else "ready"
     archive_bytes = await (await conn.execute(
-        "SELECT COALESCE(SUM(octet_length(body)),0) FROM collected_payloads WHERE sha256 IN (SELECT payload_sha256 FROM collection_attempts WHERE source_id=%s)",
+        "SELECT COALESCE(SUM(octet_length(body)),0) FROM collected_file_assets WHERE sha256 IN (SELECT payload_sha256 FROM collection_attempts WHERE source_id=%s)",
         (source["id"] + ":raster",),
     )).fetchone()
     used = 0
@@ -143,7 +143,7 @@ async def import_ecostress(conn, client, source):
                 stored_bytes += len(crop)
                 async with conn.transaction():
                     await conn.execute(
-                        "INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/x-npz') ON CONFLICT DO NOTHING",
+                        "SELECT store_collected_file(%s,%s,'application/x-npz')",
                         (sha, crop),
                     )
                     attempt = await (

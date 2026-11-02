@@ -56,13 +56,13 @@ async def acquire(client, settings, conn, product, now=None):
         await conn.commit()
         raise ValueError('ENTSO-E acquisition failed') from None
     sha = hashlib.sha256(body).hexdigest()
-    await conn.execute("INSERT INTO collected_payloads(sha256,body,content_type) VALUES (%s,%s,'application/xml') ON CONFLICT DO NOTHING", (sha,body))
+    await conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/xml') ON CONFLICT DO NOTHING", (sha,len(body)))
     # The transaction starts before HTTP; now() would predate the response document.
     receipt = await (await conn.execute("INSERT INTO collection_attempts(source_id,http_status,payload_sha256,status,received_at) VALUES (%s,%s,%s,%s,clock_timestamp()) RETURNING id,received_at", (source(product),response.status_code,sha,'received' if response.is_success else 'failed'))).fetchone()
     await conn.commit()
     if not response.is_success:
         raise ValueError(f'ENTSO-E HTTP status {response.status_code}')
-    return {'product': product, 'xml': body.decode('utf-8-sig'), 'sha256': sha, 'attempt_id': receipt[0],
+    return {'_body': body, 'product': product, 'xml': body.decode('utf-8-sig'), 'sha256': sha, 'attempt_id': receipt[0],
             'snapshot_at': receipt[1].isoformat(), 'start': start.isoformat(), 'end': end.isoformat(), 'parameters': params}
 
 
@@ -180,8 +180,9 @@ async def persist(conn,bundle,rows):
     async with conn.transaction():
         await conn.execute('SELECT pg_advisory_xact_lock(hashtext(%s))',(sid,))
         receipt=await (await conn.execute("SELECT p.body,a.payload_sha256,a.received_at FROM collection_attempts a JOIN collected_payloads p ON p.sha256=a.payload_sha256 WHERE a.id=%s AND a.source_id=%s AND a.http_status=200 AND a.status IN ('received','success')",(bundle['attempt_id'],sid))).fetchone()
-        if (not receipt or bytes(receipt[0]).decode('utf-8-sig') != bundle['xml'] or receipt[1] != bundle['sha256']
-                or hashlib.sha256(bytes(receipt[0])).hexdigest()!=receipt[1] or receipt[2]!=instant(bundle['snapshot_at']) or rows!=normalize(bundle)):
+        raw = bundle.get('_body', receipt[0] if receipt else None)
+        if (not receipt or raw is None or bytes(raw).decode('utf-8-sig') != bundle['xml'] or receipt[1] != bundle['sha256']
+                or hashlib.sha256(bytes(raw)).hexdigest()!=receipt[1] or receipt[2]!=instant(bundle['snapshot_at']) or rows!=normalize(bundle)):
             raise ValueError('ENTSO-E input differs from archived receipt')
         unchanged=await (await conn.execute("SELECT EXISTS(SELECT 1 FROM collection_attempts WHERE source_id=%s AND payload_sha256=%s AND status='success')",(sid,receipt[1]))).fetchone()
         if unchanged[0]:

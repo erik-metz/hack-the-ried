@@ -696,9 +696,9 @@ async def import_club_events(conn, client, source):
             (source["id"], ids, today, until),
         )
         await conn.execute(
-            """INSERT INTO collected_payloads(sha256,body,content_type)
+            """INSERT INTO collected_payloads(sha256,size_bytes,content_type)
             VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING""",
-            (digest, bundle),
+            (digest, len(bundle)),
         )
         await sync_cultural_events_to_db_and_publish(conn, source, events, digest, now)
         for attempt in receipts:

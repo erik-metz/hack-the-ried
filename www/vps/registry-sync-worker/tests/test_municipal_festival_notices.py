@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 from adapters import sync_cultural_events_to_db_and_publish
-from db_support import DatabaseCase
+from db_support import DatabaseCase, payload_digest
 from long_term_events import import_long_term_events
 from municipal_festival_notices import (
     import_municipal_festival_notice,
@@ -103,10 +103,10 @@ class MunicipalFestivalDatabaseTests(DatabaseCase):
         )
         for key, *_ in CASES:
             archived = await self.scalar(
-                "SELECT convert_from(p.body,'UTF8') FROM collected_payloads p JOIN collection_attempts a ON a.payload_sha256=p.sha256 WHERE a.source_id=%s ORDER BY a.id DESC LIMIT 1",
+                "SELECT p.sha256 FROM collected_payloads p JOIN collection_attempts a ON a.payload_sha256=p.sha256 WHERE a.source_id=%s ORDER BY a.id DESC LIMIT 1",
                 (source_for(key)["id"],),
             )
-            self.assertEqual(archived, body_for(key))
+            self.assertEqual(archived, payload_digest(body_for(key)))
         async with httpx.AsyncClient(
             transport=httpx.MockTransport(
                 lambda request: httpx.Response(

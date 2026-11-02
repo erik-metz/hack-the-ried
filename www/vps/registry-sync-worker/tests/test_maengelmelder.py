@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import unittest
 
 from maengelmelder import API_URL, BOUNDS, import_maengelmelder, parse_geojson
@@ -114,7 +115,9 @@ class MaengelmelderTests(unittest.TestCase):
         payload_query, payload_params = next(
             (query, params) for query, params in conn.calls if "INSERT INTO collected_payloads" in query
         )
-        safe_payload = payload_params[1]
+        published = next(params[7].obj for query,params in conn.calls if "INSERT INTO collected_datasets" in query)
+        safe_payload = json.dumps(published,sort_keys=True,ensure_ascii=False).encode()
+        self.assertEqual(payload_params[1],len(safe_payload))
         self.assertEqual(payload_params[0], hashlib.sha256(safe_payload).hexdigest())
         self.assertNotIn(b"private report text", safe_payload)
         self.assertNotIn(b"private street address", safe_payload)
