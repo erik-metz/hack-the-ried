@@ -175,3 +175,14 @@ still compare every copied key/value before retirement. One-hour occupied
 windows bound each transaction. TTN retry receipts expire after seven days;
 interval buffers expire only once every min/mean/max statistic, interval and
 sample count is present exactly in the core.
+
+## Unresolvable November weather conflicts
+
+The transfer gate found nine legacy weather quantity/time keys on 1 November
+without a native accepted value; their original HTTP responses no longer exist.
+`quarantine_ambiguous_weather.py --apply` secures only such unresolved keys in
+an external PostgreSQL binary COPY gzip file with a checksum/restore manifest.
+It restores that exact file into a temporary table and compares both row multisets
+before removing the unresolved rows from the live legacy store. It never guesses
+a value or removes an already accepted native observation. No persistent
+in-database quarantine/history is created for this cleanup.

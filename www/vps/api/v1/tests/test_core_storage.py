@@ -283,3 +283,27 @@ class CoreStorageTests(DatabaseCase):
         self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_measurement_windows'),0)
         self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_window_metrics'),0)
         self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),3)
+
+    async def test_only_unresolvable_weather_keys_are_secured_outside_database(self):
+        import gzip
+        import tempfile
+
+        from quarantine_ambiguous_weather import quarantine
+
+        await self.conn.execute("INSERT INTO sensor_metadata(id,friendly_name) VALUES('weather-dwd-ried','Weather')")
+        await self.conn.execute("""INSERT INTO sensor_data VALUES(%s,'weather-dwd-ried',6.5,'C','temperature'),
+            (%s,'weather-dwd-ried',6.6,'C','temperature'),(%s,'test',2,'C','temperature')""",(self.now,self.now,self.now))
+        later=self.now+timedelta(minutes=15)
+        await self.conn.execute("INSERT INTO entities(id,name,entity_type) VALUES('sensor:weather-dwd-ried','Weather','weather_model')")
+        await self.conn.execute("""SELECT write_measurement('sensor:weather-dwd-ried','temperature','C',
+            'environment-weather','model','{}',%s,7,%s)""",(later,later))
+        await self.conn.execute("""INSERT INTO sensor_data VALUES(%s,'weather-dwd-ried',7,'C','temperature'),
+            (%s,'weather-dwd-ried',8,'C','temperature')""",(later,later))
+        with tempfile.TemporaryDirectory() as directory:
+            result=await quarantine(self.conn,directory)
+            self.assertEqual(result['quarantined_keys'],1)
+            self.assertEqual(result['quarantined_rows'],2)
+            self.assertTrue(gzip.decompress(Path(result['backup']).read_bytes()).startswith(b'PGCOPY'))
+            self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_data'),3)
+            self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
+            self.assertEqual((await quarantine(self.conn,directory))['quarantined_rows'],0)
