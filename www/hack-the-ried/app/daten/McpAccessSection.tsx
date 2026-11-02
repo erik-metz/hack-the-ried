@@ -1,63 +1,40 @@
-import Link from "next/link";
-
 export default function McpAccessSection() {
   return (
-    <section id="mcp" aria-labelledby="mcp-title" className="scroll-mt-24 rounded-2xl border border-emerald-500/30 bg-slate-900/50 p-6 space-y-6">
-      <div className="space-y-3">
-        <p className="text-sm font-semibold text-emerald-300">Offener Zugang für KI-Clients</p>
-        <h2 id="mcp-title" className="text-2xl font-bold">Daten mit KI nutzen: unser MCP-Server</h2>
-        <p className="max-w-3xl text-sm leading-relaxed text-slate-300">
-          Verbinde deinen KI-Client direkt mit den öffentlichen Daten von HackTheRied.
-          MCP (Model Context Protocol) ermöglicht deiner KI, passende Daten selbst abzurufen:
-          öffentliche Objekte und Messwerte, Veranstaltungen, Regionalatlas und den Zustand der Datenquellen.
-          Du brauchst keinen lokalen Server, kein Konto und keinen API-Schlüssel für diesen Zugang.
-        </p>
+    <section id="mcp" aria-labelledby="mcp-title" className="scroll-mt-24 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 sm:p-6 space-y-5">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Für KI-Clients</p>
+        <h3 id="mcp-title" className="text-xl font-semibold">MCP-Server</h3>
+        <p className="text-sm leading-relaxed text-slate-300">Lass deine KI öffentliche Daten selbst abrufen: Messwerte, Veranstaltungen, Regionalatlas und Quellenstatus über das Model Context Protocol.</p>
       </div>
-
-      <div className="rounded-xl border border-slate-700 bg-slate-950 p-4 space-y-3">
-        <h3 className="font-semibold">Verbindungsdaten</h3>
-        <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]">
-          <dt className="text-slate-400">Server-URL</dt>
-          <dd className="min-w-0"><code className="select-all break-all text-emerald-300">https://hack-the-ried.duckdns.org/mcp</code></dd>
-          <dt className="text-slate-400">Transport</dt>
-          <dd>Streamable HTTP</dd>
-          <dt className="text-slate-400">Authentifizierung</dt>
-          <dd>Keine / anonym</dd>
-          <dt className="text-slate-400">Name, z. B.</dt>
-          <dd><code>hack-the-ried</code></dd>
-        </dl>
-        <p className="text-xs leading-relaxed text-slate-400">Die URL ist eine Schnittstelle für MCP-Clients. Trage sie in deinem Client ein; sie ist keine Webseite zum Öffnen im Browser.</p>
+      <dl className="flex flex-wrap gap-x-6 gap-y-2 border-y border-slate-800 py-3 text-xs">
+        <div><dt className="text-slate-500">Zugang</dt><dd className="mt-1 text-slate-300">Ohne Konto oder Schlüssel</dd></div>
+        <div><dt className="text-slate-500">Transport</dt><dd className="mt-1 text-slate-300">Streamable HTTP · nur lesend</dd></div>
+      </dl>
+      <div className="min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3">
+        <p className="mb-1 text-xs text-slate-400">Server-URL zum Kopieren</p>
+        <code className="select-all break-all text-sm text-emerald-300">https://hack-the-ried.duckdns.org/mcp</code>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-3">
-          <h3 className="font-semibold">So verbindest du dich</h3>
-          <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-300">
-            <li>Öffne die MCP- oder Integrations-Einstellungen deines KI-Clients und füge einen eigenen MCP-Server hinzu.</li>
+      <details className="border-t border-slate-800 pt-4">
+        <summary className="cursor-pointer text-sm font-medium text-slate-200 focus-visible:outline-2 focus-visible:outline-emerald-400">Einrichtung &amp; Beispielanfragen</summary>
+        <div className="pt-3 space-y-5 text-sm leading-relaxed text-slate-400">
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>Füge in den MCP- oder Integrations-Einstellungen deines KI-Clients einen eigenen Server hinzu, z. B. mit dem Namen <code>hack-the-ried</code>.</li>
             <li>Trage die Server-URL ein, wähle Streamable HTTP und keine Authentifizierung.</li>
-            <li>Speichere die Verbindung und lade bei Bedarf die Werkzeuge neu oder starte den Client neu. Wähle HackTheRied für deine Anfrage aus.</li>
+            <li>Speichere die Verbindung und lade bei Bedarf die Werkzeuge neu oder starte den Client neu.</li>
           </ol>
-          <p className="text-xs leading-relaxed text-slate-400">Dein Client muss entfernte MCP-Server mit Streamable HTTP unterstützen. Verfügbarkeit und Bezeichnung der Einstellungen hängen vom Client ab.</p>
+          <p>Dein Client muss entfernte MCP-Server mit Streamable HTTP unterstützen. Du brauchst keinen lokalen Server. Die URL ist eine Schnittstelle für deinen Client, keine Webseite.</p>
+          <div className="space-y-2">
+            <h4 className="font-medium text-slate-200">Probiere zum Beispiel</h4>
+            <ul className="space-y-2">
+              <li>„Welche Veranstaltungen finden nächste Woche im Ried statt?“</li>
+              <li>„Zeige den Pegelverlauf von Worms der letzten sieben Tage.“</li>
+              <li>„Welche Quellen haben zuletzt keine Daten geliefert?“</li>
+            </ul>
+          </div>
+          <p>Der Zugang ist ausschließlich lesend. Abfragen sind begrenzt; größere Ergebnisse werden seitenweise geliefert. Fehlende oder abgelaufene Daten bleiben als solche erkennbar. Fehlende Quellenhistorie bedeutet „unbekannt“.</p>
+          <a href="https://github.com/erik-metz/hack-the-ried/blob/main/www/vps/mcp-server/README.md" target="_blank" rel="noopener noreferrer" className="inline-block text-emerald-300 hover:underline">Technische Dokumentation ↗</a>
         </div>
-        <div className="space-y-3">
-          <h3 className="font-semibold">Das kannst du fragen</h3>
-          <ul className="space-y-2 text-sm leading-relaxed text-slate-300">
-            <li>„Welche Daten gibt es über Biblis?“</li>
-            <li>„Welche Veranstaltungen finden nächste Woche im Ried statt?“</li>
-            <li>„Zeige mir den Pegelverlauf von Worms der letzten sieben Tage.“</li>
-            <li>„Welche Quellen haben zuletzt keine Daten mehr geliefert?“</li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="border-t border-slate-800 pt-4 space-y-2 text-sm leading-relaxed text-slate-400">
-        <p>Der Zugang ist ausschließlich lesend. Deine KI kann Daten abfragen, aber darüber keine Daten ändern oder Dienste reparieren. Abfragen sind begrenzt und größere Ergebnisse werden seitenweise geliefert.</p>
-        <p>Der Katalog zeigt auch fehlende oder abgelaufene Daten. Fehlende Quellenhistorie bedeutet „unbekannt“. Beachte Quellenangaben, Einheiten, Bezugszeiträume und die jeweiligen Nutzungsbedingungen.</p>
-        <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">
-          <Link href="/quellen" className="text-emerald-300 hover:underline">Quellen &amp; Aktualität →</Link>
-          <a href="https://github.com/erik-metz/hack-the-ried/blob/main/www/vps/mcp-server/README.md" target="_blank" rel="noopener noreferrer" className="text-emerald-300 hover:underline">Technische Dokumentation ↗</a>
-        </div>
-      </div>
+      </details>
     </section>
   );
 }

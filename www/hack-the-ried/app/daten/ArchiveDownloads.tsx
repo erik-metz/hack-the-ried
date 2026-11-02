@@ -11,7 +11,7 @@ type Archive = {
 
 export default function ArchiveDownloads() {
   const publication = usePublicDatasets<[Archive[]]>(["archives"]);
-  if (!publication) return <p role="status">Monatsarchive werden geladen…</p>;
+  if (!publication) return <section id="monatsarchive" className="scroll-mt-24 px-6 pb-6"><p role="status" className="text-sm text-slate-400">Monatsarchive werden geladen …</p></section>;
   const result = publication.results[0];
   const archives = result.status === "fulfilled" && Array.isArray(result.value) ? result.value : null;
 
@@ -25,8 +25,8 @@ export default function ArchiveDownloads() {
   }
 
   return (
-    <section id="monatsarchive" className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
-      <h2 className="text-2xl font-bold">Monatsarchive</h2>
+    <section id="monatsarchive" className="scroll-mt-24 border-t border-slate-800 p-5 sm:p-6 space-y-4">
+      <h3 className="text-lg font-semibold">Archivdateien</h3>
       <p className="text-sm text-slate-300">Vollständige öffentliche Monatsdaten aller Quellen als Parquet-ZIP mit drei verknüpften Tabellen: Objekte, Messgrößen und Messwerte. Originalwerte und Zeitpunkte bleiben erhalten. Für einen vollständigen Monat alle Teile herunterladen.</p>
       {archives === null ? (
         <p role="status" className="text-sm text-amber-300">Der Downloadkatalog ist momentan nicht erreichbar. Bitte später erneut versuchen.</p>
@@ -43,7 +43,7 @@ export default function ArchiveDownloads() {
               <ul className="grid gap-3 p-3 pt-0 sm:grid-cols-2 lg:grid-cols-3">
                 {months.map(archive => (
                   <li key={archive.month} className="min-w-0 rounded-lg border border-slate-800 bg-slate-950/40 p-4 space-y-2">
-                    <h3 className="font-semibold">{new Date(`${archive.month}-01T00:00:00Z`).toLocaleDateString("de-DE", { month: "long", timeZone: "UTC" })}</h3>
+                    <h4 className="font-semibold">{new Date(`${archive.month}-01T00:00:00Z`).toLocaleDateString("de-DE", { month: "long", timeZone: "UTC" })}</h4>
                     <p className="text-sm text-slate-300">{archive.reading_count.toLocaleString("de-DE")} Messwerte{archive.is_complete ? "" : " · laufender Zeitraum"}</p>
                     <p className="text-xs text-slate-400">Stand {new Date(archive.generated_at).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" })}</p>
                     {(["parquet"] as const).map(format => {

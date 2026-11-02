@@ -21,30 +21,68 @@ export default function DataDocsPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <SiteHeader />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-        <header className="space-y-4">
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight">Daten nutzen</h1>
-          <p className="max-w-2xl text-slate-300">Daten aus dem Ried für deine Auswertung, App oder Hackathon-Idee. Lade Dateien herunter, nutze die API oder verbinde deinen KI-Client über MCP.</p>
-          <nav aria-label="Bereiche der Datenseite" className="flex flex-wrap gap-4 text-sm text-emerald-300">
-            <a href="#datasets" className="hover:underline">Downloads</a>
-            <a href="#monatsarchive" className="hover:underline">Sensorarchive</a>
-            <a href="#api-tools" className="hover:underline">API</a>
-            <a href="#mcp" className="hover:underline">MCP für KI</a>
-            <Link href="/quellen" className="hover:underline">Quellen &amp; Aktualität →</Link>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12">
+        <header className="space-y-6">
+          <div className="max-w-3xl space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Open Data · Hessisches Ried</p>
+            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight">Daten nutzen</h1>
+            <p className="text-base leading-relaxed text-slate-300">Für deine Analyse, deine Anwendung oder deinen KI-Client. Wähle den Zugang, der zu deinem Vorhaben passt.</p>
+          </div>
+          <nav aria-label="Datenzugang wählen" className="grid gap-3 md:grid-cols-3">
+            <a href="#datasets" className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition-colors hover:border-emerald-500/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
+              <span className="block font-semibold text-slate-100">Dateien herunterladen <span aria-hidden="true" className="text-emerald-300">↓</span></span>
+              <span className="mt-2 block text-sm leading-relaxed text-slate-400">Messdaten, Monatsarchive und Satellitenbilder für eigene Auswertungen.</span>
+            </a>
+            <a href="#schnittstellen" className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition-colors hover:border-emerald-500/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
+              <span className="block font-semibold text-slate-100">API &amp; KI anbinden <span aria-hidden="true" className="text-emerald-300">↓</span></span>
+              <span className="mt-2 block text-sm leading-relaxed text-slate-400">Öffentliche Daten direkt in deiner Anwendung oder per MCP nutzen.</span>
+            </a>
+            <Link href="/quellen" className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 transition-colors hover:border-emerald-500/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-400">
+              <span className="block font-semibold text-slate-100">Quellen verstehen <span aria-hidden="true" className="text-emerald-300">→</span></span>
+              <span className="mt-2 block text-sm leading-relaxed text-slate-400">Herkunft, Aktualität und Nutzungsbedingungen der Daten prüfen.</span>
+            </Link>
           </nav>
         </header>
-        <CommunitySection />
-        <McpAccessSection />
-        <HackathonDataSection />
-        <Suspense fallback={<p role="status" className="text-slate-400">Sensorarchive werden geladen …</p>}>
-          <ArchiveDownloads />
-        </Suspense>
-        <SatelliteDownloadSection />
-        <ApiDevToolsSection />
-        <section className="rounded-2xl border border-slate-800 p-6 space-y-2">
-          <h2 className="text-lg font-semibold">Quellen &amp; Nutzungsbedingungen</h2>
-          <p className="text-sm text-slate-400">Herkunft, Erfassungsstatus und regionale Kataloge findest du unter <Link href="/quellen" className="text-emerald-300 hover:underline">Quellen</Link>. Beachte bei der Weiterverwendung die Lizenz und Namensnennung der jeweiligen Quelle.</p>
+
+        <div className="space-y-4">
+          <HackathonDataSection />
+          <details className="group rounded-2xl border border-slate-800 bg-slate-900/40">
+            <summary className="cursor-pointer rounded-2xl p-5 sm:p-6 text-slate-100 hover:bg-slate-800/40 focus-visible:outline-2 focus-visible:outline-emerald-400">
+              <span className="ml-2 font-semibold">Monatsarchive</span>
+              <span className="mt-1 block pl-6 text-sm leading-relaxed text-slate-400">Vollständige Monatsdaten als Parquet-ZIP für langfristige Analysen.</span>
+            </summary>
+            <Suspense fallback={<p role="status" className="p-6 text-sm text-slate-400">Monatsarchive werden geladen …</p>}>
+              <ArchiveDownloads />
+            </Suspense>
+          </details>
+          <details className="group rounded-2xl border border-slate-800 bg-slate-900/40">
+            <summary className="cursor-pointer rounded-2xl p-5 sm:p-6 text-slate-100 hover:bg-slate-800/40 focus-visible:outline-2 focus-visible:outline-emerald-400">
+              <span className="ml-2 font-semibold">Satellitenbilder</span>
+              <span className="mt-1 block pl-6 text-sm leading-relaxed text-slate-400">Sentinel-2-Aufnahmen als Bilderarchiv oder GIS-Manifest herunterladen.</span>
+            </summary>
+            <SatelliteDownloadSection />
+          </details>
+        </div>
+
+        <section id="schnittstellen" aria-labelledby="interfaces-title" className="scroll-mt-24 space-y-5">
+          <div className="space-y-2">
+            <h2 id="interfaces-title" className="text-2xl sm:text-3xl font-bold">API &amp; KI anbinden</h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-slate-400">Zwei Wege zu den öffentlichen Daten: HTTP-Endpunkte für deine Anwendung oder MCP für deinen KI-Client.</p>
+          </div>
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <ApiDevToolsSection />
+            <McpAccessSection />
+          </div>
         </section>
+
+        <section className="flex flex-col gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-3xl space-y-2">
+            <h2 className="text-base font-semibold">Quellen &amp; Nutzungsbedingungen</h2>
+            <p className="text-sm leading-relaxed text-slate-400">Beachte bei der Weiterverwendung die Lizenz und Namensnennung der jeweiligen Quelle. Verfügbarkeit und Bezugszeitraum können je nach Datensatz abweichen.</p>
+          </div>
+          <Link href="/quellen" className="shrink-0 text-sm font-medium text-emerald-300 hover:underline">Quellen &amp; Aktualität →</Link>
+        </section>
+        <CommunitySection />
       </main>
       <SiteFooter />
     </div>

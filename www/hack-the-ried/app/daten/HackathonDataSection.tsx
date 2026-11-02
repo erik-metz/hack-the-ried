@@ -47,8 +47,8 @@ export default function HackathonDataSection() {
   }
 
   return (
-    <section id="datasets" className="space-y-5">
-      <h2 className="text-2xl sm:text-3xl font-bold">Daten herunterladen</h2>
+    <section id="datasets" className="scroll-mt-24 space-y-5">
+      <h2 className="text-2xl sm:text-3xl font-bold">Dateien herunterladen</h2>
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-2">
           <h3 className="text-lg font-semibold">Mit einer Stichprobe starten</h3>
@@ -101,7 +101,7 @@ export default function HackathonDataSection() {
         <button type="submit" disabled={busy} className={`${buttonClass} border border-slate-700 text-emerald-300 hover:bg-slate-800`}>{format === "csv" ? "CSV-Auswahl laden (ZIP)" : "Parquet-Auswahl laden (ZIP)"}</button>
       </form>
       <p role="status" aria-live="polite" className="text-sm text-slate-300">{busy ? "Auswahl wird geprüft …" : message}</p>
-      <p className="text-sm text-slate-400">Für den Hackathon: Ein Paket für den gewünschten Zeitraum laden und gemeinsam im lokalen Netzwerk bereitstellen. Langfristige Sensordaten findest du in den Sensorarchiven.</p>
+      <p className="text-xs leading-relaxed text-slate-400">Für längere Zeiträume stehen unten vollständige Monatsarchive bereit.</p>
     </section>
   );
 }
