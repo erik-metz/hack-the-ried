@@ -32,22 +32,22 @@ async def sensor_window(conn, start, end):
     """Copy only observations not already represented by a native channel."""
     async with conn.transaction():
         await conn.execute("SELECT pg_advisory_xact_lock(2026093001)")
-        await conn.execute("""CREATE TEMP TABLE core_sensor_transfer ON COMMIT DROP AS
-            SELECT sensor_id,metric,unit,timestamp,min(legacy_numeric(value)) AS value,
-                count(DISTINCT value) AS variants FROM sensor_data
-            WHERE timestamp>=%s AND timestamp<%s GROUP BY sensor_id,metric,unit,timestamp""", (start,end))
-        await conn.execute('ANALYZE core_sensor_transfer')
-        conflicts = await (await conn.execute("SELECT sensor_id,metric,unit,timestamp FROM core_sensor_transfer WHERE variants>1 LIMIT 5")).fetchall()
-        if conflicts:
-            raise ValueError(f'Unresolved sensor values; no deletion: {conflicts}')
         await conn.execute("""CREATE TEMP TABLE core_sensor_native ON COMMIT DROP AS
             SELECT a.sensor_id,a.metric,a.unit,r.observed_at,r.value FROM core_sensor_aliases a
             JOIN readings r USING(measurement_id) WHERE r.observed_at>=%s AND r.observed_at<%s
                 AND r.quality='valid'""",(start,end))
         await conn.execute('ANALYZE core_sensor_native')
-        await conn.execute("""DELETE FROM core_sensor_transfer t USING core_sensor_native n
-            WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit
-                AND n.observed_at=t.timestamp AND n.value=t.value""")
+        await conn.execute("""CREATE TEMP TABLE core_sensor_transfer ON COMMIT DROP AS
+            SELECT s.sensor_id,s.metric,s.unit,s.timestamp,min(legacy_numeric(s.value)) AS value,
+                count(DISTINCT s.value) AS variants FROM sensor_data s
+            WHERE s.timestamp>=%s AND s.timestamp<%s AND NOT EXISTS(
+                SELECT 1 FROM core_sensor_native n WHERE n.sensor_id=s.sensor_id AND n.metric=s.metric
+                    AND n.unit=s.unit AND n.observed_at=s.timestamp AND n.value=legacy_numeric(s.value))
+            GROUP BY s.sensor_id,s.metric,s.unit,s.timestamp""", (start,end))
+        await conn.execute('ANALYZE core_sensor_transfer')
+        conflicts = await (await conn.execute("SELECT sensor_id,metric,unit,timestamp FROM core_sensor_transfer WHERE variants>1 LIMIT 5")).fetchall()
+        if conflicts:
+            raise ValueError(f'Unresolved sensor values; no deletion: {conflicts}')
         conflicts = await (await conn.execute("""SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM core_sensor_transfer t
             WHERE EXISTS(SELECT 1 FROM core_sensor_native n
                 WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit

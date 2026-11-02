@@ -307,3 +307,12 @@ class CoreStorageTests(DatabaseCase):
             self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_data'),3)
             self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
             self.assertEqual((await quarantine(self.conn,directory))['quarantined_rows'],0)
+
+    async def test_distinct_physical_channel_values_are_not_legacy_conflicts(self):
+        await self.write(7,channel='one')
+        await self.write(8,channel='two')
+        await self.conn.execute("""INSERT INTO sensor_data VALUES(%s,'test',7,'C','temperature'),
+            (%s,'test',8,'C','temperature')""",(self.now,self.now))
+        self.assertEqual(await sensor_window(self.conn,self.now,self.now+timedelta(minutes=15)),0)
+        await verify_sensor_window(self.conn,self.now,self.now+timedelta(minutes=15))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),2)
