@@ -16,6 +16,7 @@ from consolidate_core_storage import (
     consolidate_traffic,
     retire,
     sensor_window,
+    transfer,
     transfer_publications,
     verify_movement_window,
     verify_sensor_window,
@@ -337,14 +338,16 @@ class CoreStorageTests(DatabaseCase):
     async def test_retirement_checks_coverage_atomically_in_bounded_windows(self):
         from unittest.mock import patch
 
+        await self.write(1)
         await self.conn.execute("INSERT INTO sensor_data VALUES(%s,'test',2,'C','temperature')",(self.now,))
         with patch('consolidate_core_storage.MIGRATIONS',MIGRATIONS):
-            with self.assertRaisesRegex(ValueError,'Sensor coverage incomplete'):
+            with self.assertRaisesRegex(ValueError,'Native/legacy disagreement'):
                 await retire(self.conn)
             self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='sensor_data'::regclass"),'r')
-            await sensor_window(self.conn,self.now,self.now+timedelta(minutes=15))
+            await self.conn.execute('UPDATE sensor_data SET value=1')
             await retire(self.conn)
             await retire(self.conn)
+            await transfer(self.conn)
         self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='sensor_data'::regclass"),'v')
         self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
 
@@ -364,3 +367,19 @@ class CoreStorageTests(DatabaseCase):
         await verify_sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
         self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='temperature'"),expected)
         self.assertEqual(await self.scalar('SHOW extra_float_digits'),'0')
+
+    async def test_retirement_recovers_late_values_behind_transfer_checkpoint(self):
+        from unittest.mock import patch
+
+        await self.conn.execute("INSERT INTO sensor_data VALUES(%s,'test',2,'C','temperature')",(self.now,))
+        await sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
+        await self.conn.execute("INSERT INTO sensor_data VALUES(%s,'test',3,'C','temperature')",(self.now+timedelta(minutes=5),))
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",('a'*64,))
+        for hour in (0,2):
+            await self.conn.execute("""INSERT INTO movement_positions(timestamp,entity_id,kind,latitude,longitude,basis,source_id,payload_sha256,metadata)
+                VALUES(%s,'late-ship','ship',49.5,8.4,'observed','gps',%s,'{}')""",(self.now+timedelta(hours=hour),'a'*64))
+        with patch('consolidate_core_storage.MIGRATIONS',MIGRATIONS):
+            await retire(self.conn)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),6)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.entity_id='movement:late-ship'"),4)
+        self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='sensor_data'::regclass"),'v')

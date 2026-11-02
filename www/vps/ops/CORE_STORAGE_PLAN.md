@@ -201,3 +201,10 @@ windows in one transaction. Reads remain available during verification. The
 final DROP upgrades that lock only after all windows pass. No single proof
 materializes the entire multi-gigabyte movement or core history. A failed check
 rolls back the complete retirement and preserves the old physical stores.
+
+Sensor copy and verification share one repeatable-read transaction. The final
+write-locked proof also copies any unambiguous late arrivals behind a saved
+checkpoint; already accepted conflicting values still stop retirement. Temporary
+transfer tables are dropped after each batch, including inside the final outer
+transaction. Re-running transfer after cutover is a no-op. Tests simulate late
+sensor and movement rows in multiple windows and confirm full recovery.

@@ -14,6 +14,7 @@ from pathlib import Path
 
 import psycopg
 from psycopg import sql
+from psycopg.pq import TransactionStatus
 
 MIGRATIONS = Path(os.getenv('CORE_STORAGE_MIGRATIONS', '/app/v1/migrations'))
 MAX_TRANSFER_VALUES = 90000
@@ -30,8 +31,11 @@ async def report(conn):
 
 
 async def sensor_window(conn, start, end):
-    """Copy only observations not already represented by a native channel."""
+    """Copy and verify one stable snapshot; late arrivals are caught at cutover."""
+    own_transaction=conn.info.transaction_status==TransactionStatus.IDLE
     async with conn.transaction():
+        if own_transaction:
+            await conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         await conn.execute("SET LOCAL extra_float_digits=3")
         await conn.execute("SELECT pg_advisory_xact_lock(2026093001)")
         await conn.execute("""CREATE TEMP TABLE core_sensor_native ON COMMIT DROP AS
@@ -86,9 +90,11 @@ async def sensor_window(conn, start, end):
         await conn.execute("SET LOCAL session_replication_role='origin'")
         await conn.execute('SELECT refresh_core_transfer_heads()')
         inserted=(await (await conn.execute('SELECT count(*) FROM core_inserted')).fetchone())[0]
+        await verify_sensor_window(conn,start,end)
         await conn.execute("""INSERT INTO measurement_migration_state(name,state)
             VALUES('compact:sensors',jsonb_build_object('through',%s::timestamptz))
             ON CONFLICT(name) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW()""", (end,))
+        await conn.execute('DROP TABLE pg_temp.core_inserted,pg_temp.core_sensor_transfer,pg_temp.core_sensor_native')
         return inserted
 
 
@@ -145,6 +151,9 @@ async def windows(conn, family, after=None):
 
 
 async def transfer(conn):
+    if (await (await conn.execute('SELECT core_storage_enabled()')).fetchone())[0]:
+        print('Canonical storage already enabled; historical transfer skipped',flush=True)
+        return
     for family in ('sensors','movements'):
         saved = await (await conn.execute("SELECT state->>'through' FROM measurement_migration_state WHERE name=%s", ('compact:'+family,))).fetchone()
         checkpoint = datetime.fromisoformat(saved[0]) if saved else None
@@ -155,7 +164,6 @@ async def transfer(conn):
                 continue
             if family == 'sensors':
                 count = await sensor_window(conn,start,end)
-                await verify_sensor_window(conn,start,end)
             else:
                 await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata)
                     SELECT DISTINCT ON(entity_id) 'movement:'||entity_id,entity_id,
@@ -260,9 +268,18 @@ async def retire(conn):
         for family in ('sensors','movements'):
             async for start,end in windows(conn,family):
                 if family=='sensors':
-                    await verify_sensor_window(conn,start,end)
+                    try:
+                        await verify_sensor_window(conn,start,end)
+                    except ValueError:
+                        count=await sensor_window(conn,start,end)
+                        print(json.dumps({'recovered_sensor_values':count,'through':end.isoformat()}),flush=True)
                 else:
-                    await verify_movement_window(conn,start,end)
+                    try:
+                        await verify_movement_window(conn,start,end)
+                    except ValueError:
+                        await conn.execute("SELECT backfill_measurement_window('movements',%s,%s)",(start,end))
+                        await verify_movement_window(conn,start,end)
+                        print(json.dumps({'recovered_movement_window':end.isoformat()}),flush=True)
                 print(json.dumps({'verified_family':family,'through':end.isoformat()}),flush=True)
         await conn.execute("SET LOCAL ried.core_retirement_verified='yes'")
         await conn.execute((MIGRATIONS/'20261103_core_retirement.sql').read_text())

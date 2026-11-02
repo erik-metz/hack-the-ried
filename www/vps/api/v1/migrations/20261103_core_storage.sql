@@ -413,6 +413,8 @@ BEGIN
     INSERT INTO measurement_migration_state(name,state)
     VALUES ('window:'||p_family,jsonb_build_object('through',p_end,'last_window_samples',total))
     ON CONFLICT(name) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW();
+    DROP TABLE pg_temp.core_inserted,pg_temp.migration_window;
+    DROP TABLE IF EXISTS pg_temp.migration_positions;
     RETURN total;
 END $$;
 
