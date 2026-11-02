@@ -224,7 +224,7 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION maintain_core_storage() RETURNS JSONB LANGUAGE plpgsql AS $$
-DECLARE batches BIGINT; attempts BIGINT; payloads BIGINT; refs TEXT; fk RECORD;
+DECLARE batches BIGINT; attempts BIGINT; payloads BIGINT; uplinks BIGINT; windows BIGINT; refs TEXT; fk RECORD;
 BEGIN
  IF NOT core_storage_enabled() THEN RETURN '{"pending_cutover":true}'; END IF;
  DELETE FROM telemetry_ingest_batches WHERE batch_id IN(
@@ -268,6 +268,30 @@ BEGIN
    DELETE FROM collection_runs WHERE finished_at<NOW()-INTERVAL '7 days';
    UPDATE collection_run_coverage SET since=GREATEST(since,NOW()-INTERVAL '7 days');
  END IF;
+ -- Seven-day TTN retry/window caches: discard only after exact main-table
+ -- coverage of every numeric statistic and its interval/sample count is proven.
+ windows:=0;uplinks:=0;
+ IF to_regclass('sensor_measurement_windows') IS NOT NULL THEN
+ DELETE FROM sensor_measurement_windows w WHERE (w.sensor_id,w.window_end) IN(
+   SELECT old.sensor_id,old.window_end FROM sensor_measurement_windows old
+   WHERE old.window_end<NOW()-INTERVAL '7 days' AND NOT EXISTS(
+     SELECT 1 FROM sensor_window_metrics m
+     CROSS JOIN LATERAL (VALUES ('min',m.minimum),('mean',m.mean),('max',m.maximum)) v(statistic,value)
+     WHERE m.sensor_id=old.sensor_id AND m.window_end=old.window_end AND v.value IS NOT NULL
+       AND NOT EXISTS(SELECT 1 FROM measurement_definitions d JOIN readings r ON r.measurement_id=d.id
+         WHERE d.entity_id='sensor:'||old.sensor_id AND d.metric=m.metric AND d.unit=m.unit
+           AND d.source_id LIKE 'ttn:%' AND d.basis='observed'
+           AND d.dimensions=jsonb_build_object('statistic',v.statistic)
+           AND r.observed_at=old.window_end AND r.value=legacy_numeric(v.value) AND r.quality='valid'
+           AND r.period_start=old.window_start AND r.period_end=old.window_end
+           AND (r.provenance->>'sample_count')::integer=m.sample_count)) LIMIT 5000);
+ GET DIAGNOSTICS windows=ROW_COUNT;
+ END IF;
+ IF to_regclass('ttn_uplink_events') IS NOT NULL THEN
+ DELETE FROM ttn_uplink_events WHERE (application_id,event_id) IN(
+   SELECT application_id,event_id FROM ttn_uplink_events WHERE accepted_at<NOW()-INTERVAL '7 days' LIMIT 5000);
+ GET DIAGNOSTICS uplinks=ROW_COUNT;
+ END IF;
  -- Honour all actual foreign keys, including file products. Never collect an
  -- asset checksum or a current checkpoint as an unreferenced receipt.
  refs:='';
@@ -279,7 +303,26 @@ BEGIN
  EXECUTE 'DELETE FROM collected_payloads WHERE sha256 IN(SELECT p.sha256 FROM collected_payloads p '
    ||'WHERE p.received_at<NOW()-INTERVAL ''7 days'''||refs||' LIMIT 5000)';
  GET DIAGNOSTICS payloads=ROW_COUNT;
- RETURN jsonb_build_object('expired_batch_receipts',batches,'expired_attempts',attempts,'unused_receipts',payloads);
+ RETURN jsonb_build_object('expired_batch_receipts',batches,'expired_attempts',attempts,'unused_receipts',payloads,'expired_ttn_receipts',uplinks,'expired_window_caches',windows);
+END $$;
+
+-- Explicit migration-only batch refresh. pg_temp.core_inserted contains just
+-- rows inserted in this transaction, never a retained second history.
+CREATE OR REPLACE FUNCTION refresh_core_transfer_heads() RETURNS VOID LANGUAGE plpgsql AS $$
+BEGIN
+ IF (SELECT relkind FROM pg_class WHERE oid='latest_readings'::regclass)='v' THEN
+   INSERT INTO measurement_heads(measurement_id,observed_at)
+   SELECT measurement_id,max(observed_at) FROM pg_temp.core_inserted GROUP BY measurement_id
+   ON CONFLICT(measurement_id) DO UPDATE SET observed_at=EXCLUDED.observed_at
+   WHERE EXCLUDED.observed_at>measurement_heads.observed_at;
+ ELSE
+   INSERT INTO latest_readings(measurement_id,observed_at,value,quality,collected_at,provenance)
+   SELECT DISTINCT ON(measurement_id) measurement_id,observed_at,value,quality,collected_at,provenance
+   FROM pg_temp.core_inserted ORDER BY measurement_id,observed_at DESC
+   ON CONFLICT(measurement_id) DO UPDATE SET observed_at=EXCLUDED.observed_at,
+     value=EXCLUDED.value,quality=EXCLUDED.quality,collected_at=EXCLUDED.collected_at,provenance=EXCLUDED.provenance
+   WHERE EXCLUDED.observed_at>=latest_readings.observed_at;
+ END IF;
 END $$;
 
 -- Bounded historical transfer uses the same compact record contract.
@@ -344,10 +387,26 @@ BEGIN
     INSERT INTO measurement_definitions(entity_id,metric,unit,source_id,basis,dimensions,semantics)
     SELECT DISTINCT entity_id,metric,unit,source_id,basis,dimensions,semantics FROM migration_window
     ON CONFLICT(entity_id,metric,unit,source_id,basis,dimensions) DO NOTHING;
-    INSERT INTO readings(measurement_id,observed_at,value,quality,collected_at,provenance)
-    SELECT d.id,w.observed_at,w.value,'valid',NOW(),w.provenance
-    FROM migration_window w JOIN measurement_definitions d USING(entity_id,metric,unit,source_id,basis,dimensions)
-    ORDER BY d.id,w.observed_at ON CONFLICT(measurement_id,observed_at) DO NOTHING;
+    IF EXISTS(SELECT 1 FROM migration_window w
+        JOIN measurement_definitions d USING(entity_id,metric,unit,source_id,basis,dimensions)
+        WHERE w.value::text IN('NaN','Infinity','-Infinity') OR d.semantics<>w.semantics
+          OR w.value<d.minimum OR w.value>d.maximum
+          OR (w.metric='latitude' AND w.value NOT BETWEEN -90 AND 90)
+          OR (w.metric='longitude' AND w.value NOT BETWEEN -180 AND 180)) THEN
+        RAISE EXCEPTION 'Invalid historical measurement' USING ERRCODE='23514';
+    END IF;
+    -- Validate the batch above, then refresh latest keys once per definition.
+    -- Only this explicit maintenance transaction suppresses row side effects.
+    PERFORM set_config('session_replication_role','replica',true);
+    CREATE TEMP TABLE core_inserted ON COMMIT DROP AS WITH added AS (
+        INSERT INTO readings(measurement_id,observed_at,value,quality,collected_at,provenance)
+        SELECT d.id,w.observed_at,w.value,'valid',NOW(),compact_reading_details(w.provenance)
+        FROM migration_window w JOIN measurement_definitions d USING(entity_id,metric,unit,source_id,basis,dimensions)
+        ORDER BY d.id,w.observed_at ON CONFLICT(measurement_id,observed_at) DO NOTHING
+        RETURNING measurement_id,observed_at,value,quality,collected_at,provenance
+    ) SELECT * FROM added;
+    PERFORM set_config('session_replication_role','origin',true);
+    PERFORM refresh_core_transfer_heads();
     -- Store transfer progress in the same transaction as the copied values.
     INSERT INTO measurement_migration_state(name,state)
     VALUES ('window:'||p_family,jsonb_build_object('through',p_end,'last_window_samples',total))

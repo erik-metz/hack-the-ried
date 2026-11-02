@@ -167,3 +167,11 @@ the same core, verifies exact historical coverage and replaces the physical
 corridor snapshot table with a writable compatibility view. Unknown delay
 semantics never manufacture an accepted delay measurement. Online backfill
 precedes the final lock and delta verification.
+
+Historical bulk transfer validates scalar bounds as a batch and updates current
+keys once per definition. It suppresses per-row side effects only inside its own
+explicit maintenance transaction, never in collector sessions. Coverage checks
+still compare every copied key/value before retirement. One-hour occupied
+windows bound each transaction. TTN retry receipts expire after seven days;
+interval buffers expire only once every min/mean/max statistic, interval and
+sample count is present exactly in the core.

@@ -255,3 +255,31 @@ class CoreStorageTests(DatabaseCase):
             (%s,'corridor:A5','A5','clear',0,0,0,'unknown')""",(self.now+timedelta(minutes=15),))
         self.assertEqual(await self.scalar('SELECT count(*) FROM traffic_corridor_snapshots'),2)
         self.assertEqual(await self.scalar("SELECT count(*) FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='delay'"),1)
+
+    async def test_batch_sensor_transfer_validates_bounds_before_inserting(self):
+        await self.conn.execute("INSERT INTO sensor_data VALUES(%s,'test',100,'degrees','latitude')",(self.now,))
+        with self.assertRaisesRegex(ValueError,'Invalid historical'):
+            await sensor_window(self.conn,self.now,self.now+timedelta(minutes=15))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),0)
+        self.assertEqual(await self.scalar("SHOW session_replication_role"),'origin')
+
+    async def test_window_cache_expires_only_after_exact_core_coverage(self):
+        await self.conn.execute((MIGRATIONS/'20261020_sensor_window_statistics.sql').read_text())
+        await self.cutover()
+        old=self.now-timedelta(days=30)
+        start=old-timedelta(minutes=15)
+        await self.conn.execute("""INSERT INTO sensor_measurement_windows
+            VALUES('test',%s,%s,900,'event-one')""",(old,start))
+        await self.conn.execute("INSERT INTO sensor_window_metrics VALUES('test',%s,'temperature','C',1,2,3,4)",(old,))
+        for statistic,value in [('min',1),('mean',2)]:
+            await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C','ttn:test','observed',
+                %s,%s,%s,%s,'{"sample_count":4}','valid',%s,%s,'interval_statistic')""",
+                (Jsonb({'statistic':statistic}),old,value,self.now,start,old))
+        await self.conn.execute('SELECT maintain_core_storage()')
+        self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_measurement_windows'),1)
+        await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C','ttn:test','observed',
+            '{"statistic":"max"}',%s,3,%s,'{"sample_count":4}','valid',%s,%s,'interval_statistic')""",(old,self.now,start,old))
+        await self.conn.execute('SELECT maintain_core_storage()')
+        self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_measurement_windows'),0)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_window_metrics'),0)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),3)

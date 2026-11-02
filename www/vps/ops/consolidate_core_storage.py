@@ -59,16 +59,32 @@ async def sensor_window(conn, start, end):
         await conn.execute("""INSERT INTO measurement_definitions(entity_id,metric,unit,source_id,basis,dimensions,semantics)
             SELECT DISTINCT 'sensor:'||sensor_id,metric,unit,'legacy-sensor:'||sensor_id,'unknown','{}'::jsonb,'unknown'
             FROM core_sensor_transfer ON CONFLICT(entity_id,metric,unit,source_id,basis,dimensions) DO NOTHING""")
-        result = await conn.execute("""INSERT INTO readings(measurement_id,observed_at,value,quality,collected_at)
+        invalid=await (await conn.execute("""SELECT t.sensor_id FROM core_sensor_transfer t
+            JOIN measurement_definitions d ON d.entity_id='sensor:'||t.sensor_id AND d.metric=t.metric
+                AND d.unit=t.unit AND d.source_id='legacy-sensor:'||t.sensor_id
+                AND d.basis='unknown' AND d.dimensions='{}'
+            WHERE t.value::text IN('NaN','Infinity','-Infinity') OR t.value<d.minimum OR t.value>d.maximum
+                OR (t.metric='latitude' AND t.value NOT BETWEEN -90 AND 90)
+                OR (t.metric='longitude' AND t.value NOT BETWEEN -180 AND 180) LIMIT 1""")).fetchone()
+        if invalid:
+            raise ValueError(f'Invalid historical sensor value: {invalid}')
+        await conn.execute("SET LOCAL session_replication_role='replica'")
+        await conn.execute("""CREATE TEMP TABLE core_inserted ON COMMIT DROP AS WITH added AS (
+            INSERT INTO readings(measurement_id,observed_at,value,quality,collected_at)
             SELECT d.id,t.timestamp,t.value,'valid',NOW() FROM core_sensor_transfer t
             JOIN measurement_definitions d ON d.entity_id='sensor:'||t.sensor_id AND d.metric=t.metric
                 AND d.unit=t.unit AND d.source_id='legacy-sensor:'||t.sensor_id
                 AND d.basis='unknown' AND d.dimensions='{}'
-            ON CONFLICT DO NOTHING""")
+            ORDER BY d.id,t.timestamp ON CONFLICT DO NOTHING
+            RETURNING measurement_id,observed_at,value,quality,collected_at,provenance
+        ) SELECT * FROM added""")
+        await conn.execute("SET LOCAL session_replication_role='origin'")
+        await conn.execute('SELECT refresh_core_transfer_heads()')
+        inserted=(await (await conn.execute('SELECT count(*) FROM core_inserted')).fetchone())[0]
         await conn.execute("""INSERT INTO measurement_migration_state(name,state)
             VALUES('compact:sensors',jsonb_build_object('through',%s::timestamptz))
             ON CONFLICT(name) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW()""", (end,))
-        return result.rowcount
+        return inserted
 
 
 async def verify_sensor_window(conn, start, end):
@@ -101,7 +117,7 @@ async def windows(conn, family, after=None):
             if next_row[0] is None:
                 break
             start=next_row[0]
-            end = min(start+timedelta(minutes=15),bounds[1]+timedelta(microseconds=1))
+            end = min(start+timedelta(minutes=60),bounds[1]+timedelta(microseconds=1))
             yield start,end
             start = end
 
