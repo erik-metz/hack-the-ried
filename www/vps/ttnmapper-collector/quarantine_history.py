@@ -72,7 +72,7 @@ async def quarantine(conn, name, *, snapshot=False):
         await conn.execute(sql.SQL('''UPDATE data_archives SET files='[]',reading_count=0,size_bytes=0,
             is_complete=false WHERE ''') + sql.SQL(SCOPES['data_archives']))
         # Clear caches first so per-row delete triggers need not find a replacement repeatedly.
-        for table in ('latest_readings', 'sensor_latest', 'sensor_data', 'readings', 'reading_revisions'):
+        for table in ('sensor_latest', 'sensor_data', 'readings', 'reading_revisions'):
             await conn.execute(sql.SQL('DELETE FROM {} WHERE ' + SCOPES[table]).format(sql.Identifier(table)))
         after = await counts(conn)
         if any(after[table] for table in SCOPES if table != 'data_archives'):

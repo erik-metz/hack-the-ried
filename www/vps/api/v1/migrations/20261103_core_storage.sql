@@ -52,6 +52,9 @@ CREATE OR REPLACE FUNCTION write_measurement(
 ) RETURNS BIGINT LANGUAGE plpgsql AS $$
 DECLARE definition_id BIGINT; existing_semantics TEXT; details JSONB;
 BEGIN
+ IF to_regclass('measurement_current_members') IS NOT NULL THEN
+   p_dimensions:=p_dimensions-'snapshot_sha256';
+ END IF;
  SELECT id,semantics INTO definition_id,existing_semantics FROM measurement_definitions
  WHERE entity_id=p_entity AND metric=p_metric AND unit=p_unit AND source_id=p_source
    AND basis=p_basis AND dimensions=p_dimensions;
@@ -85,6 +88,10 @@ END $$;
 
 -- Old names are API projections only. A physical senseBox channel is never
 -- discarded: DISTINCT ON applies to the old UI projection, not stored readings.
+CREATE INDEX IF NOT EXISTS core_sensor_alias_lookup
+ ON measurement_definitions((substr(entity_id,8)),metric,unit)
+ WHERE entity_id LIKE 'sensor:%';
+
 CREATE OR REPLACE VIEW core_sensor_aliases AS
  SELECT d.id AS measurement_id,substr(d.entity_id,8) AS sensor_id,d.metric,d.unit,
    d.basis,d.source_id,d.dimensions
@@ -237,6 +244,14 @@ BEGIN
        AND r.value=legacy_numeric(o.value))
    AND EXISTS(SELECT 1 FROM nextbike_observations newer WHERE newer.sensor_id=o.sensor_id
      AND newer.metric=o.metric AND newer.observed_at>o.observed_at);
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema()
+     AND table_name='sensor_latest' AND column_name='cached_at') THEN
+   DELETE FROM sensor_latest WHERE cached_at<NOW()-INTERVAL '7 days';
+ END IF;
+ IF to_regclass('measurement_current_members') IS NOT NULL THEN
+   DELETE FROM measurement_current_members m WHERE m.seen_at<NOW()-INTERVAL '7 days'
+     AND m.seen_at<(SELECT max(current.seen_at) FROM measurement_current_members current WHERE current.source_id=m.source_id);
+ END IF;
  DELETE FROM movement_latest WHERE valid_until<NOW()-INTERVAL '1 day';
  DELETE FROM movement_trip_updates WHERE valid_until<NOW()-INTERVAL '7 days';
  DELETE FROM movement_schedules WHERE ends_at<NOW()-INTERVAL '7 days';

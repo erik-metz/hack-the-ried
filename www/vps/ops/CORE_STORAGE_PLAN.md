@@ -100,7 +100,9 @@ remain available; subsequent exports use the authoritative core only.
   triggers: full core coverage must be proved before dropping either history.
 - Live publication versions are dominated by events (~1.35 GiB JSON), waste
   calendar (~1.13 GiB) and coverage (~286 MiB), not numeric measurements alone.
-- Implementation in progress; no production data removed by this plan yet.
+- The first release passed all 18 CI jobs including TimescaleDB compression checks
+  and every planned GHCR publication (commit `b727e83`). Historical transfer is
+  gated by exact coverage checks before any physical legacy table is removed.
 
 ## Operational commands (exact committed code only)
 
@@ -121,3 +123,32 @@ Current-value caches have one row per key or one current publication per dataset
 They support existing UI shapes; numeric historical authority is the core. File
 products and geometric/calendar objects are not flattened into artificial scalar
 measurements. Empty compatibility views for retired audit names store zero rows.
+
+## Response-derived definition cleanup
+
+A response SHA must not create a new measurement definition for the same quantity.
+The snapshot-aware API/registry release precedes `normalize_snapshot_identity.py
+--apply`. This merges definitions that differ only by `snapshot_sha256`, retaining
+the most recently accepted value per original time. Equally recent disagreements
+stop that group for review. Units, source, observation basis, actual forecast issue
+times, resolution and physical sensor dimensions remain distinct.
+
+Current pollen, discharge, energy and GBIF result sets use a bounded membership
+index containing only measurement keys. Earlier accepted values stay in `readings`;
+no JSON response or historical snapshot copy is needed. Superseded memberships
+expire after seven days; one current set is retained per source. This normalization
+must precede physical compaction/compression so obsolete copies are not compressed.
+
+After deploying the snapshot-aware release, apply its updated helper migration
+with `--install`, complete transfer/retirement, run snapshot normalization, then
+run `--deduplicate --maintain --compact --compress`. Existing archive URLs remain
+available throughout; any refreshed month uses only accepted canonical readings.
+
+## Current-value index
+
+`--heads` replaces the physical `latest_readings` value copy with a read-only view
+joining the core to a small key-only index (`measurement_heads`). Corrections are
+visible immediately from the original row. There is no second numeric/provenance
+copy. The legacy UI cache gets a refresh timestamp and expires after seven days.
+Apply `--heads` after retirement and before snapshot normalization. Withdrawal
+paths delete from `readings`; its trigger maintains the key index atomically.

@@ -8,13 +8,14 @@ import argparse
 import asyncio
 import json
 import os
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import psycopg
 from psycopg import sql
 
-MIGRATIONS = Path(os.getenv('CORE_STORAGE_MIGRATIONS', '/app/migrations'))
+MIGRATIONS = Path(os.getenv('CORE_STORAGE_MIGRATIONS', '/app/v1/migrations'))
 
 
 async def report(conn):
@@ -35,17 +36,19 @@ async def sensor_window(conn, start, end):
             SELECT sensor_id,metric,unit,timestamp,min(legacy_numeric(value)) AS value,
                 count(DISTINCT value) AS variants FROM sensor_data
             WHERE timestamp>=%s AND timestamp<%s GROUP BY sensor_id,metric,unit,timestamp""", (start,end))
+        await conn.execute('ANALYZE core_sensor_transfer')
         conflicts = await (await conn.execute("SELECT sensor_id,metric,unit,timestamp FROM core_sensor_transfer WHERE variants>1 LIMIT 5")).fetchall()
         if conflicts:
             raise ValueError(f'Unresolved sensor values; no deletion: {conflicts}')
         await conn.execute("""DELETE FROM core_sensor_transfer t WHERE EXISTS(
             SELECT 1 FROM core_sensor_aliases a JOIN readings r USING(measurement_id)
             WHERE a.sensor_id=t.sensor_id AND a.metric=t.metric AND a.unit=t.unit
-                AND r.observed_at=t.timestamp AND r.value=t.value AND r.quality='valid')""")
+                AND r.observed_at=t.timestamp AND r.observed_at>=%s AND r.observed_at<%s
+                AND r.value=t.value AND r.quality='valid')""",(start,end))
         conflicts = await (await conn.execute("""SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM core_sensor_transfer t
             WHERE EXISTS(SELECT 1 FROM core_sensor_aliases a JOIN readings r USING(measurement_id)
                 WHERE a.sensor_id=t.sensor_id AND a.metric=t.metric AND a.unit=t.unit
-                    AND r.observed_at=t.timestamp) LIMIT 5""")).fetchall()
+                    AND r.observed_at=t.timestamp AND r.observed_at>=%s AND r.observed_at<%s) LIMIT 5""",(start,end))).fetchall()
         if conflicts:
             raise ValueError(f'Native/legacy disagreement; accepted value needs review: {conflicts}')
         await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata,is_hidden)
@@ -73,7 +76,8 @@ async def verify_sensor_window(conn, start, end):
         WHERE t.timestamp>=%s AND t.timestamp<%s AND NOT EXISTS(
             SELECT 1 FROM core_sensor_aliases a JOIN readings r USING(measurement_id)
             WHERE a.sensor_id=t.sensor_id AND a.metric=t.metric AND a.unit=t.unit
-                AND r.observed_at=t.timestamp AND r.value=legacy_numeric(t.value) AND r.quality='valid') LIMIT 1""", (start,end))).fetchone()
+                AND r.observed_at=t.timestamp AND r.observed_at>=%s AND r.observed_at<%s
+                AND r.value=legacy_numeric(t.value) AND r.quality='valid') LIMIT 1""", (start,end,start,end))).fetchone()
     if row:
         raise ValueError(f'Sensor coverage incomplete; no retirement: {row}')
 
@@ -107,6 +111,8 @@ async def transfer(conn):
         saved = await (await conn.execute("SELECT state->>'through' FROM measurement_migration_state WHERE name=%s", ('compact:'+family,))).fetchone()
         checkpoint = datetime.fromisoformat(saved[0]) if saved else None
         async for start,end in windows(conn,family,after=checkpoint):
+            if shutil.disk_usage('/').free<4*1024**3:
+                raise RuntimeError('Transfer paused at the 4 GiB free-space reserve')
             if checkpoint and end<=checkpoint:
                 continue
             if family == 'sensors':
@@ -136,7 +142,8 @@ async def verify_movement_window(conn,start,end):
         WHERE p.timestamp>=%s AND p.timestamp<%s AND NOT EXISTS(
             SELECT 1 FROM measurement_positions c WHERE c.entity_id='movement:'||p.entity_id
                 AND c.source_id=p.source_id AND c.basis=p.basis AND c.observed_at=p.timestamp
-                AND c.latitude=legacy_numeric(p.latitude) AND c.longitude=legacy_numeric(p.longitude)) LIMIT 1""", (start,end))).fetchone()
+                AND c.observed_at>=%s AND c.observed_at<%s
+                AND c.latitude=legacy_numeric(p.latitude) AND c.longitude=legacy_numeric(p.longitude)) LIMIT 1""", (start,end,start,end))).fetchone()
     if missing:
         raise ValueError(f'Movement coverage incomplete; no retirement: {missing}')
 
@@ -204,9 +211,9 @@ async def retire(conn):
 
 async def deduplicate(conn):
     """Remove only proven compatibility copies, preserving physical channels."""
-    chunks=await (await conn.execute("""SELECT chunk_schema,chunk_name FROM timescaledb_information.chunks
+    chunks=await (await conn.execute("""SELECT chunk_schema,chunk_name,range_start,range_end FROM timescaledb_information.chunks
         WHERE hypertable_schema=current_schema() AND hypertable_name='readings' ORDER BY range_start""")).fetchall()
-    for schema,table in chunks:
+    for schema,table,start,end in chunks:
         result=await conn.execute(sql.SQL("""DELETE FROM {} r USING measurement_definitions old
             WHERE r.measurement_id=old.id AND old.basis='unknown' AND old.dimensions='{{}}'
               AND old.entity_id LIKE 'sensor:%%' AND old.source_id='legacy-sensor:'||substr(old.entity_id,8)
@@ -214,7 +221,8 @@ async def deduplicate(conn):
                 WHERE a.sensor_id=substr(old.entity_id,8) AND a.metric=old.metric AND a.unit=old.unit
                   AND a.basis<>'unknown' AND (a.source_id=old.source_id
                     OR a.source_id IN('environment-weather','ttnmapper'))
-                  AND native.observed_at=r.observed_at AND native.value=r.value AND native.quality=r.quality)""").format(sql.Identifier(schema,table)))
+                  AND native.observed_at=r.observed_at AND native.observed_at>=%s AND native.observed_at<%s
+                  AND native.value=r.value AND native.quality=r.quality)""").format(sql.Identifier(schema,table)),(start,end))
         print(json.dumps({'chunk':table,'duplicate_compatibility_rows_removed':result.rowcount}),flush=True)
 
 
@@ -254,9 +262,14 @@ async def compact_existing(conn, compress_cold=False):
             # Keep acquisition live on the active chunk; freed pages are reused.
             await conn.execute(sql.SQL('VACUUM(ANALYZE) {}').format(identifier))
         print(json.dumps({'chunk':table,'compacted':changed}),flush=True)
-    await conn.execute("UPDATE latest_readings SET provenance=compact_reading_details(provenance) WHERE provenance IS DISTINCT FROM compact_reading_details(provenance)")
-    for table in ('telemetry_ingest_batches','collection_attempts','collected_payloads','latest_readings'):
-        await conn.execute(sql.SQL('VACUUM(FULL,ANALYZE) {}').format(sql.Identifier(table)))
+    kind=(await (await conn.execute("SELECT relkind FROM pg_class WHERE oid='latest_readings'::regclass")).fetchone())[0]
+    if kind=='r':
+        await conn.execute("UPDATE latest_readings SET provenance=compact_reading_details(provenance) WHERE provenance IS DISTINCT FROM compact_reading_details(provenance)")
+    for table in ('telemetry_ingest_batches','collection_attempts','collected_payloads',
+                  'smartcity_observations','nextbike_observations','measurement_heads'):
+        kind=await (await conn.execute('SELECT relkind FROM pg_class WHERE oid=to_regclass(%s)',(table,))).fetchone()
+        if kind and kind[0]=='r':
+            await conn.execute(sql.SQL('VACUUM(FULL,ANALYZE) {}').format(sql.Identifier(table)))
 
 
 async def compress_history(conn):
@@ -267,6 +280,8 @@ async def compress_history(conn):
         identifier=sql.Identifier(schema,table)
         relation=f'{schema}.{table}'
         size=(await (await conn.execute('SELECT pg_total_relation_size(%s::regclass)',(relation,))).fetchone())[0]
+        if shutil.disk_usage('/').free<size*2+4*1024**3:
+            raise RuntimeError('Compression paused before exceeding the disk reserve')
         if size<16*1024**2:
             await conn.execute(sql.SQL('VACUUM(FULL,ANALYZE) {}').format(identifier))
             continue
@@ -293,6 +308,7 @@ async def main():
     parser.add_argument('--deduplicate',action='store_true')
     parser.add_argument('--publications',action='store_true')
     parser.add_argument('--compress',action='store_true')
+    parser.add_argument('--heads',action='store_true')
     args=parser.parse_args()
     async with await psycopg.AsyncConnection.connect(host=os.environ['DB_HOST'],port=os.getenv('DB_PORT','5432'),
         dbname=os.environ['DB_NAME'],user=os.environ['DB_USER'],password=os.environ['DB_PASSWORD'],autocommit=True,
@@ -303,12 +319,15 @@ async def main():
         if args.install:
             await conn.execute((MIGRATIONS/'20261103_core_storage.sql').read_text())
         await report(conn)
-        if args.transfer:
-            await transfer(conn)
         if args.publications:
             await transfer_publications(conn)
+        if args.transfer:
+            await transfer(conn)
         if args.retire:
             await retire(conn)
+        if args.heads:
+            await conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
+            await conn.execute('ANALYZE measurement_heads')
         if args.deduplicate:
             await deduplicate(conn)
         if args.maintain:

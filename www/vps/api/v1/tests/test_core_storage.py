@@ -125,9 +125,76 @@ class CoreStorageTests(DatabaseCase):
         if not await self.scalar("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname='timescaledb')"):
             self.skipTest('Timescale compression is covered by the dedicated CI database')
         await self.write(1)
+        await self.cutover()
+        await self.conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
         await self.conn.execute("SELECT compress_chunk(chunk) FROM show_chunks('readings') AS c(chunk)")
         self.assertEqual(await self.scalar('SELECT value FROM readings'),1)
         await self.write(2)
         self.assertEqual(await self.scalar('SELECT value FROM readings'),2)
         self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
         self.assertEqual(await self.scalar('SELECT count(*) FROM reading_revisions'),0)
+
+    async def test_response_hashes_do_not_create_duplicate_measurements(self):
+        from unittest.mock import patch
+
+        from normalize_snapshot_identity import normalize
+
+        await self.cutover()
+        for i in (1,2):
+            digest=str(i)*64
+            await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",(digest,))
+            await self.conn.execute("""INSERT INTO collection_attempts(source_id,payload_sha256,status,received_at)
+                VALUES('test',%s,'success',%s)""",(digest,self.now+timedelta(minutes=i)))
+            await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C','test','observed',
+                %s,%s,%s,%s)""",(Jsonb({'snapshot_sha256':digest}),self.now,i,self.now+timedelta(minutes=i)))
+        with patch('normalize_snapshot_identity.MIGRATIONS',MIGRATIONS):
+            await normalize(self.conn)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),2)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM measurement_definitions WHERE dimensions ? 'snapshot_sha256'"),0)
+        self.assertTrue(await self.scalar("SELECT current_snapshot_matches(measurement_id,observed_at,'unused') FROM readings"))
+        await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C','test','observed',
+            %s,%s,3,%s)""",(Jsonb({'snapshot_sha256':'3'*64}),self.now,self.now+timedelta(minutes=3)))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),3)
+        with patch('normalize_snapshot_identity.MIGRATIONS',MIGRATIONS):
+            await normalize(self.conn)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
+
+    async def test_current_snapshot_keys_track_unchanged_values_without_copying_history(self):
+        await self.cutover()
+        await self.conn.execute((MIGRATIONS/'20261103_snapshot_identity.sql').read_text())
+        for batch,times in [(1,[0,1]),(2,[0,2])]:
+            digest=str(batch)*64
+            await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",(digest,))
+            attempt=await self.scalar("""INSERT INTO collection_attempts(source_id,payload_sha256,status,http_status)
+                VALUES('environment-pollen-cams',%s,'success',200) RETURNING id""",(digest,))
+            async with self.conn.transaction():
+                for hour in times:
+                    await self.conn.execute("""SELECT write_environment_measurement('sensor:test','pollen','grains/m3',
+                        'environment-pollen-cams','model',%s,%s,1,%s,%s)""",
+                        (Jsonb({'species':'grass','snapshot_sha256':digest}),self.now+timedelta(hours=hour),attempt,
+                         Jsonb({'license':'CC0','spatial_reference':'EPSG:4326','model':'test-model'})))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM measurement_definitions'),1)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),3)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM readings WHERE current_snapshot_matches(measurement_id,observed_at,'ignored')"),2)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM measurement_definitions WHERE dimensions ? 'snapshot_sha256'"),0)
+
+    async def test_latest_values_are_read_from_core_without_numeric_cache_copy(self):
+        await self.write(1)
+        await self.cutover()
+        await self.conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
+        self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='latest_readings'::regclass"),'v')
+        self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),1)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM measurement_heads'),1)
+        await self.write(2)
+        self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),2)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM measurement_heads'),1)
+        self.assertIsNone(await self.scalar("SELECT to_regclass('retired_latest_readings_cache')"))
+        await self.conn.execute('DELETE FROM readings')
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),0)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM measurement_heads'),0)
+        await self.write(3)
+        self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),3)
+        await self.conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
+        self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),3)

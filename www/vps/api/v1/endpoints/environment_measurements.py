@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from dependencies import get_db_pool
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
+from snapshot_reads import snapshot_predicate
 
 router = APIRouter(prefix="/environment/measurements", tags=["Environment measurements"])
 
@@ -88,18 +89,19 @@ async def pollen_forecasts(pool=Depends(get_db_pool)):
         ready = await (await conn.execute("SELECT to_regclass('measurement_definitions') IS NOT NULL AS ready")).fetchone()
         if not ready or not ready['ready']:
             raise HTTPException(503, 'Canonical measurement storage is not installed')
+        membership = await snapshot_predicate(conn)
         snapshot = await (await conn.execute("""SELECT payload_sha256,received_at FROM collection_attempts
             WHERE source_id='environment-pollen-cams' AND status='success'
             ORDER BY received_at DESC,id DESC LIMIT 1""")).fetchone()
         rows = []
         if snapshot:
-            cursor = await conn.execute("""SELECT d.entity_id,e.metadata,d.metric,d.unit,d.dimensions,
+            cursor = await conn.execute(f"""SELECT d.entity_id,e.metadata,d.metric,d.unit,d.dimensions,
                 r.observed_at AS valid_at,r.value,r.quality,r.collected_at,r.provenance
                 FROM measurement_definitions d JOIN entities e ON e.id=d.entity_id
                 JOIN readings r ON r.measurement_id=d.id
                 WHERE NOT e.is_hidden AND d.source_id='environment-pollen-cams'
                     AND d.dimensions->>'contract'='environment-v1'
-                    AND d.dimensions->>'snapshot_sha256'=%s
+                    AND {membership}
                     AND r.observed_at>=(date_trunc('day',NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
                     AND r.observed_at<(date_trunc('day',NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')+INTERVAL '7 days'
                 ORDER BY d.entity_id,r.observed_at,d.id LIMIT 10001""", (snapshot['payload_sha256'],))
@@ -120,15 +122,16 @@ async def biodiversity_occurrences(
         ready = await (await conn.execute("SELECT to_regclass('measurement_definitions') IS NOT NULL AS ready")).fetchone()
         if not ready or not ready['ready']:
             raise HTTPException(503, 'Canonical measurement storage is not installed')
+        membership = await snapshot_predicate(conn)
         snapshot = await (await conn.execute("SELECT metadata FROM entities WHERE id='environment:gbif:ried' AND NOT is_hidden")).fetchone()
         if not snapshot:
             return {'items': [], 'snapshot': None, 'stored_records': 0, 'stored_species': 0, 'has_more': False}
         sha = snapshot['metadata']['snapshot_sha256']
-        filters = """FROM measurement_definitions d JOIN entities e ON e.id=d.entity_id
+        filters = f"""FROM measurement_definitions d JOIN entities e ON e.id=d.entity_id
             JOIN readings r ON r.measurement_id=d.id
             WHERE NOT e.is_hidden AND d.source_id='environment-gbif'
                 AND d.metric='occurrence_presence' AND d.dimensions->>'contract'='environment-v1'
-                AND d.dimensions->>'snapshot_sha256'=%s"""
+                AND {membership}"""
         counts = await (await conn.execute("SELECT COUNT(*) AS records,COUNT(DISTINCT r.provenance->>'speciesKey') AS species " + filters, (sha,))).fetchone()
         rows = await (await conn.execute("SELECT d.entity_id,r.observed_at AS event_day,r.value,r.provenance " + filters + " ORDER BY r.observed_at DESC,d.entity_id LIMIT %s OFFSET %s", (sha,limit+1,offset))).fetchall()
     return jsonable_encoder({'items': rows[:limit], 'snapshot': snapshot['metadata'],
@@ -143,18 +146,19 @@ async def discharge_forecasts(pool=Depends(get_db_pool)):
         ready = await (await conn.execute("SELECT to_regclass('measurement_definitions') IS NOT NULL AS ready")).fetchone()
         if not ready or not ready['ready']:
             raise HTTPException(503, 'Canonical measurement storage is not installed')
+        membership = await snapshot_predicate(conn)
         snapshot = await (await conn.execute("""SELECT payload_sha256,received_at FROM collection_attempts
             WHERE source_id='environment-discharge-glofas' AND status='success'
             ORDER BY received_at DESC,id DESC LIMIT 1""")).fetchone()
         rows = []
         if snapshot:
-            cursor = await conn.execute("""SELECT d.entity_id,e.metadata,d.metric,d.unit,d.dimensions,
+            cursor = await conn.execute(f"""SELECT d.entity_id,e.metadata,d.metric,d.unit,d.dimensions,
                 r.observed_at AS valid_at,r.value,r.quality,r.period_start,r.period_end,r.collected_at,r.provenance
                 FROM measurement_definitions d JOIN entities e ON e.id=d.entity_id
                 JOIN readings r ON r.measurement_id=d.id
                 WHERE NOT e.is_hidden AND d.source_id='environment-discharge-glofas'
                     AND d.dimensions->>'contract'='environment-v1'
-                    AND d.dimensions->>'snapshot_sha256'=%s
+                    AND {membership}
                     AND r.observed_at>=(date_trunc('day',NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
                     AND r.observed_at<(date_trunc('day',NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')+INTERVAL '14 days'
                 ORDER BY d.entity_id,r.observed_at,d.id LIMIT 10001""", (snapshot['payload_sha256'],))
@@ -177,14 +181,15 @@ async def energy_market_intervals(
         ready = await (await conn.execute("SELECT to_regclass('measurement_definitions') IS NOT NULL AS ready")).fetchone()
         if not ready or not ready['ready']:
             raise HTTPException(503, 'Canonical measurement storage is not installed')
+        membership = await snapshot_predicate(conn)
         snapshot = await (await conn.execute("SELECT payload_sha256,received_at FROM collection_attempts WHERE source_id=%s AND status='success' ORDER BY received_at DESC,id DESC LIMIT 1",(sid,))).fetchone()
         rows = []
         count = 0
         if snapshot:
-            filters = """FROM measurement_definitions d JOIN entities e ON e.id=d.entity_id
+            filters = f"""FROM measurement_definitions d JOIN entities e ON e.id=d.entity_id
                 JOIN readings r ON r.measurement_id=d.id
                 WHERE NOT e.is_hidden AND d.source_id=%s AND d.dimensions->>'contract'='environment-v1'
-                    AND d.dimensions->>'snapshot_sha256'=%s"""
+                    AND {membership}"""
             args = (sid,snapshot['payload_sha256'])
             count = (await (await conn.execute('SELECT COUNT(*) AS count '+filters,args)).fetchone())['count']
             rows = await (await conn.execute("SELECT d.entity_id,e.metadata,d.metric,d.unit,d.dimensions,r.value,r.quality,r.period_start,r.period_end,r.provenance " + filters + " ORDER BY r.observed_at DESC,d.id LIMIT %s OFFSET %s",(*args,limit+1,offset))).fetchall()

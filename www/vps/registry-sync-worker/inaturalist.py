@@ -98,11 +98,13 @@ async def gbif_index(conn):
     if not snapshot or not snapshot[0].get('snapshot_sha256'):
         return {}, {'status': 'unavailable', 'note': 'Kein gespeicherter GBIF-Ausschnitt für den Abgleich.'}
     metadata = snapshot[0]
-    rows = await (await conn.execute("""SELECT DISTINCT e.metadata->>'gbif_id'
+    normalized = await (await conn.execute("SELECT to_regprocedure('current_snapshot_matches(bigint,timestamptz,text)') IS NOT NULL")).fetchone()
+    membership = 'current_snapshot_matches(d.id,r.observed_at,%s)' if normalized[0] else "d.dimensions->>'snapshot_sha256'=%s"
+    rows = await (await conn.execute(f"""SELECT DISTINCT e.metadata->>'gbif_id'
         FROM entities e JOIN measurement_definitions d ON d.entity_id=e.id
         JOIN readings r ON r.measurement_id=d.id
         WHERE NOT e.is_hidden AND d.source_id='environment-gbif'
-        AND d.dimensions->>'snapshot_sha256'=%s""", (metadata['snapshot_sha256'],))).fetchall()
+        AND {membership}""", (metadata['snapshot_sha256'],))).fetchall()
     current = {int(r[0]) for r in rows if r[0] and r[0].isdigit()}
     derived = await (await conn.execute("""SELECT metadata FROM entities
         WHERE id=ANY(%s) AND metadata->>'origin_snapshot_sha256'=%s""",
@@ -227,7 +229,7 @@ async def _import_inaturalist(conn, client, source):
         receipt = (await (await conn.execute("INSERT INTO collection_attempts(source_id,payload_sha256,status,http_status) VALUES (%s,%s,'success',200) RETURNING id", (source['id'], digest))).fetchone())[0]
         # Replace the source's core slice, including revision history: withdrawals
         # must not remain accessible via generic measurement or entity endpoints.
-        for table in ('reading_revisions', 'latest_readings', 'readings'):
+        for table in ('reading_revisions', 'readings'):
             await conn.execute(f'DELETE FROM {table} WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
         await conn.execute('DELETE FROM measurement_definitions WHERE source_id=%s', (source['id'],))
         await conn.execute("DELETE FROM entities WHERE entity_type='inaturalist_observation' AND id LIKE 'inaturalist:%'")
@@ -250,7 +252,7 @@ async def import_inaturalist(conn, client, source):
         # A failed daily revalidation withdraws the previous precise publication.
         await conn.rollback()
         async with conn.transaction():
-            for table in ('reading_revisions', 'latest_readings', 'readings'):
+            for table in ('reading_revisions', 'readings'):
                 await conn.execute(f'DELETE FROM {table} WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
             await conn.execute('DELETE FROM measurement_definitions WHERE source_id=%s', (source['id'],))
             await conn.execute("DELETE FROM entities WHERE entity_type='inaturalist_observation' AND id LIKE 'inaturalist:%'")
