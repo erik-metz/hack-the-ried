@@ -329,7 +329,7 @@ END $$;
 -- A bounded interval is materialized once, then inserted as a set. This avoids
 -- rescanning compressed source partitions for every historical timestamp.
 CREATE OR REPLACE FUNCTION backfill_measurement_window(p_family TEXT,p_start TIMESTAMPTZ,p_end TIMESTAMPTZ)
-RETURNS BIGINT LANGUAGE plpgsql AS $$
+RETURNS BIGINT LANGUAGE plpgsql SET extra_float_digits=3 AS $$
 DECLARE conflict RECORD; total BIGINT;
 BEGIN
     IF p_end<=p_start OR p_end-p_start>INTERVAL '1 hour' THEN RAISE EXCEPTION 'Invalid history window'; END IF;
@@ -370,8 +370,8 @@ BEGIN
             CASE WHEN v.metric='navigation_status' THEN 'state' ELSE 'instantaneous' END,p.timestamp,v.value,
             '{}'::jsonb
         FROM migration_positions p CROSS JOIN LATERAL (VALUES
-            ('latitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.latitude)),
-            ('longitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.longitude)),
+            ('latitude','degrees','{"crs":"EPSG:4326"}'::jsonb,(p.latitude::text::numeric)),
+            ('longitude','degrees','{"crs":"EPSG:4326"}'::jsonb,(p.longitude::text::numeric)),
             ('speed','km/h','{}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'speed_kmh')='number' THEN (p.metadata->>'speed_kmh')::numeric END),
             ('delay','s','{}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'delay_seconds')='number' THEN (p.metadata->>'delay_seconds')::numeric END),
             ('course','degrees','{"reference":"true_north"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'course_deg')='number' THEN (p.metadata->>'course_deg')::numeric END),

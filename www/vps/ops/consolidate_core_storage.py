@@ -16,6 +16,7 @@ import psycopg
 from psycopg import sql
 
 MIGRATIONS = Path(os.getenv('CORE_STORAGE_MIGRATIONS', '/app/v1/migrations'))
+MAX_TRANSFER_VALUES = 90000
 
 
 async def report(conn):
@@ -31,6 +32,7 @@ async def report(conn):
 async def sensor_window(conn, start, end):
     """Copy only observations not already represented by a native channel."""
     async with conn.transaction():
+        await conn.execute("SET LOCAL extra_float_digits=3")
         await conn.execute("SELECT pg_advisory_xact_lock(2026093001)")
         await conn.execute("""CREATE TEMP TABLE core_sensor_native ON COMMIT DROP AS
             SELECT a.sensor_id,a.metric,a.unit,r.observed_at,r.value FROM core_sensor_aliases a
@@ -38,11 +40,11 @@ async def sensor_window(conn, start, end):
                 AND r.quality='valid'""",(start,end))
         await conn.execute('ANALYZE core_sensor_native')
         await conn.execute("""CREATE TEMP TABLE core_sensor_transfer ON COMMIT DROP AS
-            SELECT s.sensor_id,s.metric,s.unit,s.timestamp,min(legacy_numeric(s.value)) AS value,
+            SELECT s.sensor_id,s.metric,s.unit,s.timestamp,min((s.value::text::numeric)) AS value,
                 count(DISTINCT s.value) AS variants FROM sensor_data s
             WHERE s.timestamp>=%s AND s.timestamp<%s AND NOT EXISTS(
                 SELECT 1 FROM core_sensor_native n WHERE n.sensor_id=s.sensor_id AND n.metric=s.metric
-                    AND n.unit=s.unit AND n.observed_at=s.timestamp AND n.value=legacy_numeric(s.value))
+                    AND n.unit=s.unit AND n.observed_at=s.timestamp AND n.value=(s.value::text::numeric))
             GROUP BY s.sensor_id,s.metric,s.unit,s.timestamp""", (start,end))
         await conn.execute('ANALYZE core_sensor_transfer')
         conflicts = await (await conn.execute("SELECT sensor_id,metric,unit,timestamp FROM core_sensor_transfer WHERE variants>1 LIMIT 5")).fetchall()
@@ -94,13 +96,15 @@ async def verify_sensor_window(conn, start, end):
     # Materialize the complete bounded native set before the LIMIT probe.
     # Otherwise PostgreSQL may choose a low-startup nested loop that compares
     # every reading against every alias while proving there is no missing row.
-    row = await (await conn.execute("""WITH native AS MATERIALIZED (
-        SELECT a.sensor_id,a.metric,a.unit,r.observed_at,r.value FROM core_sensor_aliases a
-        JOIN readings r USING(measurement_id) WHERE r.observed_at>=%s AND r.observed_at<%s AND r.quality='valid'
-    ) SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM sensor_data t
-        WHERE t.timestamp>=%s AND t.timestamp<%s AND NOT EXISTS(
-            SELECT 1 FROM native n WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit
-                AND n.observed_at=t.timestamp AND n.value=legacy_numeric(t.value)) LIMIT 1""", (start,end,start,end))).fetchone()
+    async with conn.transaction():
+        await conn.execute("SET LOCAL extra_float_digits=3")
+        row = await (await conn.execute("""WITH native AS MATERIALIZED (
+            SELECT a.sensor_id,a.metric,a.unit,r.observed_at,r.value FROM core_sensor_aliases a
+            JOIN readings r USING(measurement_id) WHERE r.observed_at>=%s AND r.observed_at<%s AND r.quality='valid'
+        ) SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM sensor_data t
+            WHERE t.timestamp>=%s AND t.timestamp<%s AND NOT EXISTS(
+                SELECT 1 FROM native n WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit
+                    AND n.observed_at=t.timestamp AND n.value=(t.value::text::numeric)) LIMIT 1""", (start,end,start,end))).fetchone()
     if row:
         raise ValueError(f'Sensor coverage incomplete; no retirement: {row}')
 
@@ -124,7 +128,18 @@ async def windows(conn, family, after=None):
             if next_row[0] is None:
                 break
             start=next_row[0]
-            end = min(start+timedelta(minutes=60 if family=='sensors' else 15),bounds[1]+timedelta(microseconds=1))
+            end = min(start+timedelta(hours=1),bounds[1]+timedelta(microseconds=1))
+            if family=='movements':
+                terms=sql.SQL(' + ').join(sql.SQL("CASE WHEN jsonb_typeof(metadata->{})='number' THEN 1 ELSE 0 END").format(sql.Literal(key))
+                    for key in ('speed_kmh','delay_seconds','course_deg','heading_deg','navigation_status',
+                                'altitude_baro_m','altitude_geom_m','vertical_rate_mps'))
+                while True:
+                    count=(await (await conn.execute(sql.SQL('SELECT COALESCE(sum(2+({})),0) FROM {} WHERE timestamp>=%s AND timestamp<%s').format(terms,identifier),(start,end))).fetchone())[0]
+                    if count<=MAX_TRANSFER_VALUES:
+                        break
+                    if end-start<=timedelta(microseconds=1):
+                        raise ValueError('Single movement timestamp exceeds the safe batch limit')
+                    end=start+(end-start)/2
             yield start,end
             start = end
 
@@ -160,30 +175,43 @@ async def transfer(conn):
 
 
 async def verify_movement_window(conn,start,end):
-    missing=await (await conn.execute("""WITH expected AS (
-        SELECT p.entity_id,p.source_id,p.basis,p.timestamp,v.* FROM movement_positions p
-        CROSS JOIN LATERAL (VALUES
-            ('latitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.latitude)),
-            ('longitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.longitude)),
-            ('speed','km/h','{}'::jsonb,(p.metadata->>'speed_kmh')::numeric),
-            ('delay','s','{}'::jsonb,(p.metadata->>'delay_seconds')::numeric),
-            ('course','degrees','{"reference":"true_north"}'::jsonb,(p.metadata->>'course_deg')::numeric),
-            ('heading','degrees','{"reference":"true_north"}'::jsonb,(p.metadata->>'heading_deg')::numeric),
-            ('navigation_status','state','{"encoding":"AIS_NavigationalStatus"}'::jsonb,(p.metadata->>'navigation_status')::numeric),
-            ('altitude_baro','m','{"reference":"pressure_1013.25_hPa"}'::jsonb,(p.metadata->>'altitude_baro_m')::numeric),
-            ('altitude_geom','m','{"reference":"WGS84"}'::jsonb,(p.metadata->>'altitude_geom_m')::numeric),
-            ('vertical_rate','m/s','{"reference":"barometric"}'::jsonb,(p.metadata->>'vertical_rate_mps')::numeric)
-        ) v(metric,unit,dimensions,value)
-        WHERE p.timestamp>=%s AND p.timestamp<%s AND v.value IS NOT NULL
-    ) SELECT e.entity_id,e.timestamp,e.metric FROM expected e WHERE NOT EXISTS(
-        SELECT 1 FROM measurement_definitions d JOIN readings r ON r.measurement_id=d.id
-        WHERE d.entity_id='movement:'||e.entity_id AND d.source_id=e.source_id AND d.basis=e.basis
-          AND d.metric=e.metric AND d.unit=e.unit AND d.dimensions=e.dimensions
-          AND r.observed_at=e.timestamp AND r.observed_at>=%s AND r.observed_at<%s
-          AND r.value=e.value AND r.quality='valid') LIMIT 1""",(start,end,start,end))).fetchone()
+    async with conn.transaction():
+        await conn.execute("SET LOCAL extra_float_digits=3")
+        await conn.execute("SET LOCAL enable_mergejoin=off")
+        missing=await (await conn.execute("""WITH expected AS MATERIALIZED (
+            SELECT p.entity_id,p.source_id,p.basis,p.timestamp,v.* FROM movement_positions p
+            CROSS JOIN LATERAL (VALUES
+                ('latitude','degrees','{"crs":"EPSG:4326"}'::jsonb,(p.latitude::text::numeric)),
+                ('longitude','degrees','{"crs":"EPSG:4326"}'::jsonb,(p.longitude::text::numeric)),
+                ('speed','km/h','{}'::jsonb,(p.metadata->>'speed_kmh')::numeric),
+                ('delay','s','{}'::jsonb,(p.metadata->>'delay_seconds')::numeric),
+                ('course','degrees','{"reference":"true_north"}'::jsonb,(p.metadata->>'course_deg')::numeric),
+                ('heading','degrees','{"reference":"true_north"}'::jsonb,(p.metadata->>'heading_deg')::numeric),
+                ('navigation_status','state','{"encoding":"AIS_NavigationalStatus"}'::jsonb,(p.metadata->>'navigation_status')::numeric),
+                ('altitude_baro','m','{"reference":"pressure_1013.25_hPa"}'::jsonb,(p.metadata->>'altitude_baro_m')::numeric),
+                ('altitude_geom','m','{"reference":"WGS84"}'::jsonb,(p.metadata->>'altitude_geom_m')::numeric),
+                ('vertical_rate','m/s','{"reference":"barometric"}'::jsonb,(p.metadata->>'vertical_rate_mps')::numeric)
+            ) v(metric,unit,dimensions,value)
+            WHERE p.timestamp>=%s AND p.timestamp<%s AND v.value IS NOT NULL
+        ), definition_keys AS MATERIALIZED (
+            SELECT DISTINCT entity_id,source_id,basis,metric,unit,dimensions FROM expected
+        ), definitions AS MATERIALIZED (
+            SELECT k.*,d.id FROM definition_keys k LEFT JOIN LATERAL (
+                SELECT id FROM measurement_definitions d WHERE d.entity_id='movement:'||k.entity_id
+                  AND d.source_id=k.source_id AND d.basis=k.basis AND d.metric=k.metric AND d.unit=k.unit
+                  AND d.dimensions=k.dimensions LIMIT 1
+            ) d ON TRUE
+        ), mapped AS MATERIALIZED (
+            SELECT e.*,d.id AS measurement_id FROM expected e
+            JOIN definitions d USING(entity_id,source_id,basis,metric,unit,dimensions)
+        ), native AS MATERIALIZED (
+            SELECT measurement_id,observed_at,value FROM readings
+            WHERE observed_at>=%s AND observed_at<%s AND quality='valid'
+        ) SELECT min(jsonb_build_array(e.entity_id,e.timestamp,e.metric)::text) FROM mapped e WHERE NOT EXISTS(
+            SELECT 1 FROM native n WHERE n.measurement_id=e.measurement_id
+              AND n.observed_at=e.timestamp AND n.value=e.value) HAVING count(*)>0""",(start,end,start,end))).fetchone()
     if missing:
         raise ValueError(f'Movement coverage incomplete; no retirement: {missing}')
-
 
 async def transfer_publications(conn, selected=None):
     """Extract numeric fields before discarding repeated publication snapshots."""
@@ -224,25 +252,18 @@ async def retire(conn):
     if (await (await conn.execute('SELECT core_storage_enabled()')).fetchone())[0]:
         print('Canonical retirement already complete',flush=True)
         return
-    for family in ('sensors','movements'):
-        async for start,end in windows(conn,family):
-            if family == 'sensors':
-                await verify_sensor_window(conn,start,end)
-            else:
-                await verify_movement_window(conn,start,end)
     async with conn.transaction():
         await conn.execute("SELECT pg_advisory_xact_lock(2026093001)")
-        # The lock prevents a writer racing between the final full-range check
-        # and retirement. Operators also stop collectors to avoid stalled requests.
-        await conn.execute('LOCK TABLE sensor_data,movement_positions IN ACCESS EXCLUSIVE MODE')
+        # Block source mutations while bounded checks run, keeping SELECTs live.
+        # Never materialize the entire movement/core history in one giant query.
+        await conn.execute('LOCK TABLE sensor_data,movement_positions IN SHARE ROW EXCLUSIVE MODE')
         for family in ('sensors','movements'):
-            relation = 'sensor_data' if family=='sensors' else 'movement_positions'
-            bounds = await (await conn.execute(sql.SQL('SELECT min(timestamp),max(timestamp) FROM {}').format(sql.Identifier(relation)))).fetchone()
-            if bounds[0] is not None:
+            async for start,end in windows(conn,family):
                 if family=='sensors':
-                    await verify_sensor_window(conn,bounds[0],bounds[1]+timedelta(microseconds=1))
+                    await verify_sensor_window(conn,start,end)
                 else:
-                    await verify_movement_window(conn,bounds[0],bounds[1]+timedelta(microseconds=1))
+                    await verify_movement_window(conn,start,end)
+                print(json.dumps({'verified_family':family,'through':end.isoformat()}),flush=True)
         await conn.execute("SET LOCAL ried.core_retirement_verified='yes'")
         await conn.execute((MIGRATIONS/'20261103_core_retirement.sql').read_text())
     print('Verified physical legacy storage retired',flush=True)
@@ -403,6 +424,7 @@ async def main():
         await conn.execute("SET statement_timeout='10min'")
         await conn.execute("SET lock_timeout='10s'")
         await conn.execute('SET max_parallel_workers_per_gather=0')
+        await conn.execute("SET work_mem='64MB'")
         if args.install:
             await conn.execute((MIGRATIONS/'20261103_core_storage.sql').read_text())
         await report(conn)

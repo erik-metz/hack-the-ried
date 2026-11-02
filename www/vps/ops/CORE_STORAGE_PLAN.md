@@ -186,3 +186,18 @@ It restores that exact file into a temporary table and compares both row multise
 before removing the unresolved rows from the live legacy store. It never guesses
 a value or removes an already accepted native observation. No persistent
 in-database quarantine/history is created for this cleanup.
+
+## Bounded full-history proof
+
+Movement transaction windows adapt to the actual scalar count (90,000 target,
+100,000 hard insertion limit). Every original row/time remains covered. Proofs
+map each definition once and compare all numeric keys/values with a bounded
+hash anti join. The maintenance connection uses exact shortest-decimal float
+conversion with `extra_float_digits=3`; tests cover a caller using the shorter
+client format and confirm the original setting is restored.
+
+Retirement holds a source write lock while validating all occupied bounded
+windows in one transaction. Reads remain available during verification. The
+final DROP upgrades that lock only after all windows pass. No single proof
+materializes the entire multi-gigabyte movement or core history. A failed check
+rolls back the complete retirement and preserves the old physical stores.

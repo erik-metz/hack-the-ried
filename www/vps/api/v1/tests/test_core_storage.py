@@ -14,10 +14,12 @@ from measurement_migration import install
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'ops'))
 from consolidate_core_storage import (
     consolidate_traffic,
+    retire,
     sensor_window,
     transfer_publications,
     verify_movement_window,
     verify_sensor_window,
+    windows,
 )
 
 MIGRATIONS=Path(__file__).resolve().parents[1]/'migrations'
@@ -316,3 +318,49 @@ class CoreStorageTests(DatabaseCase):
         self.assertEqual(await sensor_window(self.conn,self.now,self.now+timedelta(minutes=15)),0)
         await verify_sensor_window(self.conn,self.now,self.now+timedelta(minutes=15))
         self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),2)
+
+    async def test_movement_windows_split_by_scalar_count_without_sampling(self):
+        from unittest.mock import patch
+
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",('a'*64,))
+        for i in (0,1):
+            await self.conn.execute("""INSERT INTO movement_positions(timestamp,entity_id,kind,latitude,longitude,basis,source_id,payload_sha256,metadata)
+                VALUES(%s,%s,'bus',49.5,8.4,'observed','gps',%s,'{"speed_kmh":20}')""",
+                (self.now+timedelta(minutes=30*i),'bus-'+str(i),'a'*64))
+        with patch('consolidate_core_storage.MAX_TRANSFER_VALUES',5):
+            spans=[span async for span in windows(self.conn,'movements')]
+        self.assertEqual(len(spans),2)
+        for i in (0,1):
+            time=self.now+timedelta(minutes=30*i)
+            self.assertEqual(sum(start<=time<end for start,end in spans),1)
+
+    async def test_retirement_checks_coverage_atomically_in_bounded_windows(self):
+        from unittest.mock import patch
+
+        await self.conn.execute("INSERT INTO sensor_data VALUES(%s,'test',2,'C','temperature')",(self.now,))
+        with patch('consolidate_core_storage.MIGRATIONS',MIGRATIONS):
+            with self.assertRaisesRegex(ValueError,'Sensor coverage incomplete'):
+                await retire(self.conn)
+            self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='sensor_data'::regclass"),'r')
+            await sensor_window(self.conn,self.now,self.now+timedelta(minutes=15))
+            await retire(self.conn)
+            await retire(self.conn)
+        self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='sensor_data'::regclass"),'v')
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
+
+    async def test_bulk_float_conversion_remains_exact_with_short_client_format(self):
+        await self.conn.execute('SET extra_float_digits=0')
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",('a'*64,))
+        await self.conn.execute("""INSERT INTO movement_positions(timestamp,entity_id,kind,latitude,longitude,basis,source_id,payload_sha256,metadata)
+            VALUES(%s,'precise','ship',49.123456789012344,8.123456789012346,'observed','gps',%s,'{}')""",(self.now,'a'*64))
+        expected=await self.scalar("SELECT legacy_numeric(latitude) FROM movement_positions WHERE entity_id='precise'")
+        await self.conn.execute("SELECT backfill_measurement_window('movements',%s,%s)",(self.now,self.now+timedelta(hours=1)))
+        await verify_movement_window(self.conn,self.now,self.now+timedelta(hours=1))
+        self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='latitude'"),expected)
+        self.assertEqual(await self.scalar('SHOW extra_float_digits'),'0')
+        await self.conn.execute("INSERT INTO sensor_data VALUES(%s,'test',1.2345678901234567,'C','temperature')",(self.now,))
+        expected=await self.scalar("SELECT legacy_numeric(value) FROM sensor_data")
+        await sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
+        await verify_sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
+        self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='temperature'"),expected)
+        self.assertEqual(await self.scalar('SHOW extra_float_digits'),'0')
