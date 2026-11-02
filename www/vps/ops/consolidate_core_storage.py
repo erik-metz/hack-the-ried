@@ -122,8 +122,7 @@ async def transfer(conn):
                 await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata)
                     SELECT DISTINCT ON(entity_id) 'movement:'||entity_id,entity_id,
                         CASE WHEN basis='schedule_prediction' THEN 'service_trip' ELSE kind END,
-                        (metadata-ARRAY['speed_kmh','delay_seconds','course_deg','altitude_baro_m',
-                            'altitude_geom_m','vertical_rate_mps','payload_sha256','model_version','fetched_at','received_at'])
+                        compact_movement_metadata(metadata)
                         ||jsonb_build_object('legacy_movement_id',entity_id,'kind',kind,'context_observed_at',timestamp)
                     FROM movement_positions WHERE timestamp>=%s AND timestamp<%s ORDER BY entity_id,timestamp DESC
                     ON CONFLICT(id) DO UPDATE SET metadata=EXCLUDED.metadata,updated_at=NOW()
@@ -138,23 +137,40 @@ async def transfer(conn):
 
 
 async def verify_movement_window(conn,start,end):
-    missing = await (await conn.execute("""SELECT p.entity_id,p.timestamp FROM movement_positions p
-        WHERE p.timestamp>=%s AND p.timestamp<%s AND NOT EXISTS(
-            SELECT 1 FROM measurement_positions c WHERE c.entity_id='movement:'||p.entity_id
-                AND c.source_id=p.source_id AND c.basis=p.basis AND c.observed_at=p.timestamp
-                AND c.observed_at>=%s AND c.observed_at<%s
-                AND c.latitude=legacy_numeric(p.latitude) AND c.longitude=legacy_numeric(p.longitude)) LIMIT 1""", (start,end,start,end))).fetchone()
+    missing=await (await conn.execute("""WITH expected AS (
+        SELECT p.entity_id,p.source_id,p.basis,p.timestamp,v.* FROM movement_positions p
+        CROSS JOIN LATERAL (VALUES
+            ('latitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.latitude)),
+            ('longitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.longitude)),
+            ('speed','km/h','{}'::jsonb,(p.metadata->>'speed_kmh')::numeric),
+            ('delay','s','{}'::jsonb,(p.metadata->>'delay_seconds')::numeric),
+            ('course','degrees','{"reference":"true_north"}'::jsonb,(p.metadata->>'course_deg')::numeric),
+            ('heading','degrees','{"reference":"true_north"}'::jsonb,(p.metadata->>'heading_deg')::numeric),
+            ('navigation_status','state','{"encoding":"AIS_NavigationalStatus"}'::jsonb,(p.metadata->>'navigation_status')::numeric),
+            ('altitude_baro','m','{"reference":"pressure_1013.25_hPa"}'::jsonb,(p.metadata->>'altitude_baro_m')::numeric),
+            ('altitude_geom','m','{"reference":"WGS84"}'::jsonb,(p.metadata->>'altitude_geom_m')::numeric),
+            ('vertical_rate','m/s','{"reference":"barometric"}'::jsonb,(p.metadata->>'vertical_rate_mps')::numeric)
+        ) v(metric,unit,dimensions,value)
+        WHERE p.timestamp>=%s AND p.timestamp<%s AND v.value IS NOT NULL
+    ) SELECT e.entity_id,e.timestamp,e.metric FROM expected e WHERE NOT EXISTS(
+        SELECT 1 FROM measurement_definitions d JOIN readings r ON r.measurement_id=d.id
+        WHERE d.entity_id='movement:'||e.entity_id AND d.source_id=e.source_id AND d.basis=e.basis
+          AND d.metric=e.metric AND d.unit=e.unit AND d.dimensions=e.dimensions
+          AND r.observed_at=e.timestamp AND r.observed_at>=%s AND r.observed_at<%s
+          AND r.value=e.value AND r.quality='valid') LIMIT 1""",(start,end,start,end))).fetchone()
     if missing:
         raise ValueError(f'Movement coverage incomplete; no retirement: {missing}')
 
 
-async def transfer_publications(conn):
+async def transfer_publications(conn, selected=None):
     """Extract numeric fields before discarding repeated publication snapshots."""
     datasets=await (await conn.execute("""SELECT dataset FROM collected_datasets
         WHERE dataset LIKE 'statistics/%' OR dataset IN('infrastructure/ev-charging',
             'map/layers/charging','environment/flood/gauges','map/layers/floods')
             OR is_coordinate_publication(dataset) ORDER BY dataset""")).fetchall()
     for (dataset,) in datasets:
+        if selected and dataset not in selected:
+            continue
         function = ('mirror_statistical_publication' if dataset.startswith('statistics/')
             else 'mirror_charger_publication' if dataset in ('infrastructure/ev-charging','map/layers/charging')
             else 'mirror_gauge_publication' if dataset in ('environment/flood/gauges','map/layers/floods')
@@ -207,6 +223,52 @@ async def retire(conn):
         await conn.execute("SET LOCAL ried.core_retirement_verified='yes'")
         await conn.execute((MIGRATIONS/'20261103_core_retirement.sql').read_text())
     print('Verified physical legacy storage retired',flush=True)
+
+
+async def consolidate_traffic(conn):
+    if not (await (await conn.execute('SELECT core_storage_enabled()')).fetchone())[0]:
+        raise RuntimeError('Complete the primary storage cutover first')
+    await conn.execute((MIGRATIONS/'20261104_traffic_core.sql').read_text())
+    kind=(await (await conn.execute("SELECT relkind FROM pg_class WHERE oid='traffic_corridor_snapshots'::regclass")).fetchone())[0]
+    if kind=='v':
+        return
+    async def verify():
+        missing=await (await conn.execute("""SELECT s.corridor_id,s.timestamp FROM traffic_corridor_snapshots s
+            LEFT JOIN core_corridor_snapshots c USING(corridor_id,timestamp)
+            WHERE c.corridor_id IS NULL OR (s.road_name,s.status,s.active_incidents_count,s.max_length_meters)
+                IS DISTINCT FROM (c.road_name,c.status,c.active_incidents_count,c.max_length_meters)
+                OR (s.delay_kind IN('reported','estimated') AND s.active_incidents_count>0
+                    AND s.delay_seconds IS DISTINCT FROM c.delay_seconds) LIMIT 1""")).fetchone()
+        if missing:
+            raise ValueError(f'Traffic coverage incomplete; no retirement: {missing}')
+
+    # Keep source writers available during the full historical copy. A temporary
+    # key set identifies the final delta without relying on client clock order.
+    await conn.execute('CREATE TEMP TABLE IF NOT EXISTS transferred_corridors(corridor_id text,timestamp timestamptz,PRIMARY KEY(corridor_id,timestamp)) ON COMMIT PRESERVE ROWS')
+    conflict=await (await conn.execute("""SELECT corridor_id,timestamp FROM traffic_corridor_snapshots s
+        GROUP BY corridor_id,timestamp HAVING count(DISTINCT to_jsonb(s))>1 LIMIT 1""")).fetchone()
+    if conflict:
+        raise ValueError(f'Conflicting traffic snapshots; no retirement: {conflict}')
+    await conn.execute("""DO $transfer$ DECLARE item RECORD;
+        BEGIN FOR item IN SELECT * FROM traffic_corridor_snapshots ORDER BY timestamp LOOP
+            PERFORM write_corridor_snapshot(to_jsonb(item),true);
+            INSERT INTO transferred_corridors VALUES(item.corridor_id,item.timestamp) ON CONFLICT DO NOTHING;
+        END LOOP; END $transfer$;""")
+    await verify()
+    async with conn.transaction():
+        await conn.execute('LOCK TABLE traffic_corridor_snapshots IN ACCESS EXCLUSIVE MODE')
+        await conn.execute("""DO $transfer$ DECLARE item RECORD;
+            BEGIN FOR item IN SELECT s.* FROM traffic_corridor_snapshots s
+                WHERE NOT EXISTS(SELECT 1 FROM transferred_corridors t
+                    WHERE t.corridor_id=s.corridor_id AND t.timestamp=s.timestamp) LOOP
+                PERFORM write_corridor_snapshot(to_jsonb(item),true);
+            END LOOP; END $transfer$;""")
+        await verify()
+        await conn.execute('DROP TABLE traffic_corridor_snapshots')
+        await conn.execute('CREATE VIEW traffic_corridor_snapshots AS SELECT * FROM core_corridor_snapshots')
+        await conn.execute("""CREATE TRIGGER canonical_corridor_write INSTEAD OF INSERT ON traffic_corridor_snapshots
+            FOR EACH ROW EXECUTE FUNCTION core_corridor_compat_write()""")
+    print('Traffic observations verified and physical duplicate retired',flush=True)
 
 
 async def deduplicate(conn):
@@ -307,8 +369,10 @@ async def main():
     parser.add_argument('--compact',action='store_true')
     parser.add_argument('--deduplicate',action='store_true')
     parser.add_argument('--publications',action='store_true')
+    parser.add_argument('--publication',action='append')
     parser.add_argument('--compress',action='store_true')
     parser.add_argument('--heads',action='store_true')
+    parser.add_argument('--traffic',action='store_true')
     args=parser.parse_args()
     async with await psycopg.AsyncConnection.connect(host=os.environ['DB_HOST'],port=os.getenv('DB_PORT','5432'),
         dbname=os.environ['DB_NAME'],user=os.environ['DB_USER'],password=os.environ['DB_PASSWORD'],autocommit=True,
@@ -319,12 +383,14 @@ async def main():
         if args.install:
             await conn.execute((MIGRATIONS/'20261103_core_storage.sql').read_text())
         await report(conn)
-        if args.publications:
-            await transfer_publications(conn)
+        if args.publications or args.publication:
+            await transfer_publications(conn,selected=args.publication)
         if args.transfer:
             await transfer(conn)
         if args.retire:
             await retire(conn)
+        if args.traffic:
+            await consolidate_traffic(conn)
         if args.heads:
             await conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
             await conn.execute('ANALYZE measurement_heads')

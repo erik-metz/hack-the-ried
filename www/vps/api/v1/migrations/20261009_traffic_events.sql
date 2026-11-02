@@ -8,7 +8,11 @@ ALTER TABLE traffic_incidents ADD COLUMN IF NOT EXISTS closure_kind TEXT NOT NUL
 ALTER TABLE traffic_incidents ADD COLUMN IF NOT EXISTS work_length_meters INTEGER;
 ALTER TABLE traffic_incidents ADD COLUMN IF NOT EXISTS display_type TEXT;
 ALTER TABLE traffic_incidents ADD COLUMN IF NOT EXISTS title TEXT;
-ALTER TABLE traffic_corridor_snapshots ADD COLUMN IF NOT EXISTS delay_kind TEXT NOT NULL DEFAULT 'unknown';
+DO $$ BEGIN
+ IF (SELECT relkind FROM pg_class WHERE oid=to_regclass('traffic_corridor_snapshots'))='r' THEN
+   ALTER TABLE traffic_corridor_snapshots ADD COLUMN IF NOT EXISTS delay_kind TEXT NOT NULL DEFAULT 'unknown';
+ END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS traffic_source_checks (
     road_name TEXT NOT NULL,
     source TEXT NOT NULL,

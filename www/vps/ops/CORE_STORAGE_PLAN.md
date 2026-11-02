@@ -152,3 +152,18 @@ visible immediately from the original row. There is no second numeric/provenance
 copy. The legacy UI cache gets a refresh timestamp and expires after seven days.
 Apply `--heads` after retirement and before snapshot normalization. Withdrawal
 paths delete from `readings`; its trigger maintains the key index atomically.
+
+## Coverage refinements
+
+Movement verification includes all ten scalar quantities, including AIS heading
+and navigational status, before context retirement. Current entity descriptions
+exclude dynamic numeric fields and receipt hashes. Static inventory coordinates
+reuse their original reference observation while unchanged; actual position
+observations keep every original timestamp. Large inventory recursion passes a
+small context record instead of copying the full source JSON at each node.
+
+`--traffic` transfers corridor status, incident counts and reported extent into
+the same core, verifies exact historical coverage and replaces the physical
+corridor snapshot table with a writable compatibility view. Unknown delay
+semantics never manufacture an accepted delay measurement. Online backfill
+precedes the final lock and delta verification.

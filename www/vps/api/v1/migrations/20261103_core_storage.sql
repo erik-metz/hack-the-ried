@@ -17,7 +17,7 @@ LANGUAGE SQL IMMUTABLE AS $$
    'genus','species','basisOfRecord','occurrenceID','gbifID','datasetKey',
    'institutionCode','collectionCode','recordedBy','identifiedBy','eventDate',
    'coordinateUncertaintyInMeters','countryCode','locality','license',
-   'spatial_reference','model','method','model_version','phase_name','max_score','class_id',
+   'spatial_reference','model','method','model_version','phase_name','max_score','class_id','confidence','status',
    'window_seconds','gbif_id','publishingOrgKey','taxonKey','issues','informationWithheld',
    'dataGeneralizations','date_precision','document_id','document_revision','document_created_at'])
 $$;
@@ -167,6 +167,15 @@ END $$;
 CREATE INDEX IF NOT EXISTS telemetry_ingest_batches_time ON telemetry_ingest_batches(committed_at);
 INSERT INTO collector_schema_versions(version) VALUES(20261103) ON CONFLICT DO NOTHING;
 
+-- Numeric motion belongs to readings; technical input receipts are discarded.
+CREATE OR REPLACE FUNCTION compact_movement_metadata(p_metadata JSONB) RETURNS JSONB
+LANGUAGE SQL IMMUTABLE AS $$
+ SELECT COALESCE(jsonb_object_agg(key,value),'{}') FROM jsonb_each(p_metadata)
+ WHERE key<>ALL(ARRAY['speed_kmh','delay_seconds','course_deg','heading_deg','navigation_status',
+   'altitude_baro_m','altitude_geom_m','vertical_rate_mps','payload_sha256','model_version',
+   'fetched_at','received_at','realtime_input_sha256']) AND key NOT LIKE '%_sha256'
+$$;
+
 -- Movement context is current descriptive entity data, never a parallel history.
 CREATE OR REPLACE FUNCTION write_movement_position(p_data JSONB,p_backfill BOOLEAN DEFAULT FALSE)
 RETURNS VOID LANGUAGE plpgsql AS $$
@@ -180,9 +189,7 @@ BEGIN
     VALUES(entity_key,p_data->>'entity_id',CASE WHEN p_data->>'basis'='schedule_prediction'
         THEN 'service_trip' ELSE p_data->>'kind' END,
         jsonb_build_object('legacy_movement_id',p_data->>'entity_id','kind',p_data->>'kind',
-            'context_observed_at',sample_time) || (metadata_value-ARRAY['speed_kmh','delay_seconds',
-            'course_deg','altitude_baro_m','altitude_geom_m','vertical_rate_mps','payload_sha256',
-            'model_version','fetched_at','received_at']))
+            'context_observed_at',sample_time) || compact_movement_metadata(metadata_value))
     ON CONFLICT(id) DO UPDATE SET metadata=EXCLUDED.metadata,updated_at=NOW()
     WHERE COALESCE((entities.metadata->>'context_observed_at')::timestamptz,'-infinity')<=sample_time
         AND (entities.metadata-'context_observed_at') IS DISTINCT FROM (EXCLUDED.metadata-'context_observed_at');
@@ -204,12 +211,14 @@ BEGIN
         ('course_deg','course','degrees','{"reference":"true_north"}'::jsonb),
         ('altitude_baro_m','altitude_baro','m','{"reference":"pressure_1013.25_hPa"}'::jsonb),
         ('altitude_geom_m','altitude_geom','m','{"reference":"WGS84"}'::jsonb),
-        ('vertical_rate_mps','vertical_rate','m/s','{"reference":"barometric"}'::jsonb)
+        ('vertical_rate_mps','vertical_rate','m/s','{"reference":"barometric"}'::jsonb),
+        ('heading_deg','heading','degrees','{"reference":"true_north"}'::jsonb),
+        ('navigation_status','navigation_status','state','{"encoding":"AIS_NavigationalStatus"}'::jsonb)
     ) AS fields(key,metric,unit,dimensions) LOOP
         IF jsonb_typeof(metadata_value->field.key)='number' THEN
             PERFORM write_measurement(entity_key,field.metric,field.unit,p_data->>'source_id',p_data->>'basis',
                 field.dimensions,sample_time,(metadata_value->>field.key)::numeric,NOW(),evidence,
-                'valid',NULL,NULL,'instantaneous',p_backfill);
+                'valid',NULL,NULL,CASE WHEN field.metric='navigation_status' THEN 'state' ELSE 'instantaneous' END,p_backfill);
         END IF;
     END LOOP;
 END $$;
@@ -315,7 +324,7 @@ BEGIN
         FROM migration_positions ORDER BY entity_id,timestamp DESC ON CONFLICT(id) DO NOTHING;
         INSERT INTO migration_window
         SELECT 'movement:'||p.entity_id,v.metric,v.unit,p.source_id,p.basis,v.dimensions,
-            'instantaneous',p.timestamp,v.value,
+            CASE WHEN v.metric='navigation_status' THEN 'state' ELSE 'instantaneous' END,p.timestamp,v.value,
             '{}'::jsonb
         FROM migration_positions p CROSS JOIN LATERAL (VALUES
             ('latitude','degrees','{"crs":"EPSG:4326"}'::jsonb,legacy_numeric(p.latitude)),
@@ -325,7 +334,9 @@ BEGIN
             ('course','degrees','{"reference":"true_north"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'course_deg')='number' THEN (p.metadata->>'course_deg')::numeric END),
             ('altitude_baro','m','{"reference":"pressure_1013.25_hPa"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'altitude_baro_m')='number' THEN (p.metadata->>'altitude_baro_m')::numeric END),
             ('altitude_geom','m','{"reference":"WGS84"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'altitude_geom_m')='number' THEN (p.metadata->>'altitude_geom_m')::numeric END),
-            ('vertical_rate','m/s','{"reference":"barometric"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'vertical_rate_mps')='number' THEN (p.metadata->>'vertical_rate_mps')::numeric END)
+            ('vertical_rate','m/s','{"reference":"barometric"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'vertical_rate_mps')='number' THEN (p.metadata->>'vertical_rate_mps')::numeric END),
+            ('heading','degrees','{"reference":"true_north"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'heading_deg')='number' THEN (p.metadata->>'heading_deg')::numeric END),
+            ('navigation_status','state','{"encoding":"AIS_NavigationalStatus"}'::jsonb,CASE WHEN jsonb_typeof(p.metadata->'navigation_status')='number' THEN (p.metadata->>'navigation_status')::numeric END)
         ) v(metric,unit,dimensions,value) WHERE v.value IS NOT NULL;
     ELSE RAISE EXCEPTION 'Unknown history family'; END IF;
     SELECT count(*) INTO total FROM migration_window;
@@ -364,4 +375,95 @@ DO $$ BEGIN
    ALTER TABLE readings SET(timescaledb.compress,
      timescaledb.compress_segmentby='measurement_id',timescaledb.compress_orderby='observed_at');
  END IF;
+END $$;
+
+-- Avoid copying the full publication into every recursive coordinate call.
+CREATE OR REPLACE FUNCTION mirror_coordinate_publication(p_row collected_datasets)
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE template_value JSONB; source_data JSONB;
+BEGIN
+    IF NOT is_coordinate_publication(p_row.dataset) THEN RETURN; END IF;
+    INSERT INTO measurement_publications VALUES(p_row.dataset,p_row.payload_sha256,p_row.source_updated_at,p_row.data)
+    ON CONFLICT(dataset) DO UPDATE SET payload_sha256=EXCLUDED.payload_sha256,
+        source_updated_at=EXCLUDED.source_updated_at,template=EXCLUDED.template;
+    DELETE FROM measurement_publication_cells WHERE dataset=p_row.dataset;
+    source_data:=p_row.data;
+    p_row.data:=NULL;
+    template_value:=normalize_inventory_coordinates(source_data,p_row,ARRAY[]::TEXT[]);
+    UPDATE measurement_publications SET template=template_value WHERE dataset=p_row.dataset;
+END $$;
+
+-- Repeated retrieval of an unchanged static coordinate is not a new GPS sample.
+CREATE OR REPLACE FUNCTION normalize_inventory_coordinates(
+    p_node JSONB,p_row collected_datasets,p_path TEXT[],p_entity TEXT DEFAULT NULL
+) RETURNS JSONB LANGUAGE plpgsql AS $$
+DECLARE result JSONB:=p_node; part RECORD; entity_key TEXT:=p_entity; lat_key TEXT; lon_key TEXT;
+    pair JSONB; coordinate_path TEXT[]; metric_name TEXT; component INTEGER; definition BIGINT;
+    scalar_value NUMERIC; title TEXT; stored_time TIMESTAMPTZ; current_value RECORD;
+BEGIN
+    IF jsonb_typeof(p_node)='array' THEN
+        SELECT COALESCE(jsonb_agg(normalize_inventory_coordinates(value,p_row,
+            p_path||((ordinality-1)::text),entity_key) ORDER BY ordinality),'[]') INTO result
+        FROM jsonb_array_elements(p_node) WITH ORDINALITY;
+        RETURN result;
+    END IF;
+    IF jsonb_typeof(p_node)<>'object' THEN RETURN result; END IF;
+    -- Geometry vertices define shapes, not independent GPS observations.
+    IF p_node->>'type' IN ('Polygon','MultiPolygon','LineString','MultiLineString') THEN RETURN result; END IF;
+    IF p_node ? 'properties' AND p_node->'properties' ? 'id' THEN
+        entity_key:='inventory:'||p_row.source_id||':'||(p_node#>>'{properties,id}');
+        title:=p_node#>>'{properties,name}';
+    ELSIF p_node ? 'id' THEN
+        entity_key:='inventory:'||p_row.source_id||':'||
+            CASE WHEN p_node->>'type' IN ('node','way','relation')
+                THEN 'osm-'||(p_node->>'type')||'-' ELSE '' END||(p_node->>'id');
+        title:=p_node->>'name';
+    ELSIF p_row.dataset='waste/calendar' AND p_node ? 'street' THEN
+        entity_key:='waste-address:'||md5(jsonb_build_array(p_node->'municipality',
+            p_node->'street',p_node->'house_number')::text);
+        title:=concat_ws(' ',p_node->>'municipality',p_node->>'street',p_node->>'house_number');
+    END IF;
+    IF p_node ? 'latitude' AND p_node ? 'longitude' THEN lat_key:='latitude';lon_key:='longitude';
+    ELSIF p_node ? 'lat' AND p_node ? 'lon' THEN lat_key:='lat';lon_key:='lon'; END IF;
+    IF lat_key IS NOT NULL OR p_node->>'type'='Point' THEN
+        IF entity_key IS NULL THEN RAISE EXCEPTION 'Missing stable inventory identity in % at %',p_row.dataset,p_path; END IF;
+        INSERT INTO entities(id,name,entity_type,metadata)
+        VALUES(entity_key,COALESCE(title,entity_key),'inventory_asset',jsonb_build_object('source_id',p_row.source_id))
+        ON CONFLICT(id) DO NOTHING;
+        pair:=CASE WHEN lat_key IS NOT NULL THEN jsonb_build_array(p_node->lon_key,p_node->lat_key)
+            ELSE p_node->'coordinates' END;
+        IF jsonb_array_length(pair)<>2 THEN RAISE EXCEPTION 'Expected coordinate pair at %',p_path; END IF;
+        FOR component IN 0..1 LOOP
+            IF jsonb_typeof(pair->component) NOT IN ('number','null') THEN RAISE EXCEPTION 'Invalid inventory coordinate'; END IF;
+            scalar_value:=(pair->>component)::numeric;
+            metric_name:=CASE WHEN component=0 THEN 'longitude' ELSE 'latitude' END;
+            SELECT d.id,r.observed_at,r.value,r.quality INTO current_value
+            FROM measurement_definitions d JOIN latest_readings r ON r.measurement_id=d.id
+            WHERE d.entity_id=entity_key AND d.metric=metric_name AND d.unit='degrees'
+                AND d.source_id=p_row.source_id AND d.basis='reported'
+                AND d.dimensions='{"crs":"EPSG:4326"}' AND d.semantics='reference';
+            IF FOUND AND current_value.value IS NOT DISTINCT FROM scalar_value
+                AND current_value.quality=(CASE WHEN scalar_value IS NULL THEN 'missing' ELSE 'valid' END) THEN
+                definition:=current_value.id;
+                stored_time:=current_value.observed_at;
+            ELSE
+                definition:=write_measurement(entity_key,metric_name,'degrees',p_row.source_id,'reported',
+                    '{"crs":"EPSG:4326"}',p_row.source_updated_at,scalar_value,p_row.fetched_at,
+                    jsonb_build_object('payload_sha256',p_row.payload_sha256,'time_basis','inventory_effective_time'),
+                    CASE WHEN scalar_value IS NULL THEN 'missing' ELSE 'valid' END,NULL,NULL,'reference');
+                stored_time:=p_row.source_updated_at;
+            END IF;
+            coordinate_path:=CASE WHEN lat_key IS NOT NULL
+                THEN ARRAY[CASE WHEN component=0 THEN lon_key ELSE lat_key END]
+                ELSE ARRAY['coordinates',component::text] END;
+            INSERT INTO measurement_publication_cells VALUES(p_row.dataset,p_path||coordinate_path,definition,stored_time);
+            result:=jsonb_set(result,coordinate_path,'null',FALSE);
+        END LOOP;
+    END IF;
+    FOR part IN SELECT key,value FROM jsonb_each(result) LOOP
+        IF jsonb_typeof(part.value) IN ('object','array') AND NOT (part.key='coordinates' AND p_node->>'type'='Point') THEN
+            result:=jsonb_set(result,ARRAY[part.key],normalize_inventory_coordinates(part.value,p_row,p_path||part.key,entity_key),FALSE);
+        END IF;
+    END LOOP;
+    RETURN result;
 END $$;

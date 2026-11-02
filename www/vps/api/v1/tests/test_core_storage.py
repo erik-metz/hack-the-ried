@@ -13,8 +13,10 @@ from measurement_migration import install
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'ops'))
 from consolidate_core_storage import (
+    consolidate_traffic,
     sensor_window,
     transfer_publications,
+    verify_movement_window,
     verify_sensor_window,
 )
 
@@ -198,3 +200,58 @@ class CoreStorageTests(DatabaseCase):
         self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),3)
         await self.conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
         self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),3)
+
+    async def test_inventory_coordinates_keep_exact_values_with_lightweight_context(self):
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",('a'*64,))
+        data='[{"id":"one","latitude":49.123456789012345678901,"longitude":8.1,"description":"Original"}]'
+        await self.conn.execute("""INSERT INTO collected_datasets(dataset,source_id,source_url,source_updated_at,fetched_at,expires_at,payload_sha256,data)
+            VALUES('waste/address-inventory','inventory-test','https://example.org',%s,%s,%s,%s,%s::jsonb)""",
+            (self.now,self.now,self.now+timedelta(days=1),'a'*64,data))
+        await self.conn.execute("SELECT mirror_coordinate_publication(d) FROM collected_datasets d WHERE dataset='waste/address-inventory'")
+        self.assertTrue(await self.scalar("SELECT d.data=read_coordinate_publication(d.dataset) FROM collected_datasets d WHERE dataset='waste/address-inventory'"))
+        self.assertEqual(await self.scalar("SELECT value::text FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='latitude'"),'49.123456789012345678901')
+        await self.conn.execute("UPDATE collected_datasets SET source_updated_at=source_updated_at+interval '1 hour'")
+        await self.conn.execute("SELECT mirror_coordinate_publication(d) FROM collected_datasets d WHERE dataset='waste/address-inventory'")
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),2)
+
+    async def test_ship_heading_and_navigation_state_remain_numeric_measurements(self):
+        await self.cutover()
+        data={'entity_id':'ship-one','timestamp':self.now.isoformat(),'kind':'ship','basis':'observed',
+            'source_id':'ais','latitude':49.5,'longitude':8.4,
+            'metadata':{'heading_deg':120,'navigation_status':3,'name':'Ship','realtime_input_sha256':'a'*64}}
+        await self.conn.execute('SELECT write_movement_position(%s)',(Jsonb(data),))
+        self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='heading'"),120)
+        self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='navigation_status'"),3)
+        self.assertEqual(await self.scalar("SELECT semantics FROM measurement_definitions WHERE metric='navigation_status'"),'state')
+        self.assertEqual(await self.scalar("SELECT (metadata->>'heading_deg')::numeric FROM movement_positions"),120)
+        metadata=await self.scalar("SELECT metadata FROM entities WHERE id='movement:ship-one'")
+        self.assertNotIn('heading_deg',metadata)
+        self.assertNotIn('navigation_status',metadata)
+        self.assertNotIn('realtime_input_sha256',metadata)
+
+    async def test_movement_retirement_checks_heading_and_navigation_too(self):
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",('a'*64,))
+        await self.conn.execute("""INSERT INTO movement_positions(timestamp,entity_id,kind,latitude,longitude,basis,source_id,payload_sha256,metadata)
+            VALUES(%s,'ship-one','ship',49.5,8.4,'observed','ais',%s,'{"heading_deg":120,"navigation_status":3}')""",(self.now,'a'*64))
+        await self.conn.execute("SELECT backfill_measurement_window('movements',%s,%s)",(self.now,self.now+timedelta(minutes=15)))
+        await verify_movement_window(self.conn,self.now,self.now+timedelta(minutes=15))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),4)
+        await self.conn.execute("DELETE FROM readings WHERE measurement_id IN(SELECT id FROM measurement_definitions WHERE metric='navigation_status')")
+        with self.assertRaisesRegex(ValueError,'navigation_status'):
+            await verify_movement_window(self.conn,self.now,self.now+timedelta(minutes=15))
+
+    async def test_traffic_quantities_use_core_without_history_copy(self):
+        from unittest.mock import patch
+
+        await self.cutover()
+        await self.conn.execute("""INSERT INTO traffic_corridor_snapshots VALUES
+            (%s,'corridor:A5','A5','congestion',120,2,700,'reported')""",(self.now,))
+        with patch('consolidate_core_storage.MIGRATIONS',MIGRATIONS):
+            await consolidate_traffic(self.conn)
+        self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='traffic_corridor_snapshots'::regclass"),'v')
+        row=await (await self.conn.execute('SELECT status,delay_seconds,active_incidents_count,max_length_meters,delay_kind FROM traffic_corridor_snapshots')).fetchone()
+        self.assertEqual(row,('congestion',120,2,700,'reported'))
+        await self.conn.execute("""INSERT INTO traffic_corridor_snapshots VALUES
+            (%s,'corridor:A5','A5','clear',0,0,0,'unknown')""",(self.now+timedelta(minutes=15),))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM traffic_corridor_snapshots'),2)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='delay'"),1)

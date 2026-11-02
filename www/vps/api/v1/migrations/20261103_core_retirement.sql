@@ -49,10 +49,11 @@ CREATE VIEW movement_positions AS
    (e.metadata-ARRAY['legacy_movement_id','kind','context_observed_at']) || COALESCE((
      SELECT jsonb_object_agg(CASE d.metric WHEN 'speed' THEN 'speed_kmh' WHEN 'delay' THEN 'delay_seconds'
          WHEN 'course' THEN 'course_deg' WHEN 'altitude_baro' THEN 'altitude_baro_m'
-         WHEN 'altitude_geom' THEN 'altitude_geom_m' WHEN 'vertical_rate' THEN 'vertical_rate_mps' END,r.value)
+         WHEN 'altitude_geom' THEN 'altitude_geom_m' WHEN 'vertical_rate' THEN 'vertical_rate_mps' WHEN 'heading' THEN 'heading_deg'
+         WHEN 'navigation_status' THEN 'navigation_status' END,r.value)
      FROM measurement_definitions d JOIN readings r ON r.measurement_id=d.id
      WHERE d.entity_id=c.entity_id AND d.source_id=c.source_id AND d.basis=c.basis
-       AND d.metric IN('speed','delay','course','altitude_baro','altitude_geom','vertical_rate')
+       AND d.metric IN('speed','delay','course','altitude_baro','altitude_geom','vertical_rate','heading','navigation_status')
        AND r.observed_at=c.observed_at AND r.quality='valid'), '{}') AS metadata
  FROM measurement_positions c JOIN entities e ON e.id=c.entity_id
  WHERE c.entity_id LIKE 'movement:%' AND c.dimensions='{"crs":"EPSG:4326"}';
