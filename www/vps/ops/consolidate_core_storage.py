@@ -40,15 +40,18 @@ async def sensor_window(conn, start, end):
         conflicts = await (await conn.execute("SELECT sensor_id,metric,unit,timestamp FROM core_sensor_transfer WHERE variants>1 LIMIT 5")).fetchall()
         if conflicts:
             raise ValueError(f'Unresolved sensor values; no deletion: {conflicts}')
-        await conn.execute("""DELETE FROM core_sensor_transfer t WHERE EXISTS(
-            SELECT 1 FROM core_sensor_aliases a JOIN readings r USING(measurement_id)
-            WHERE a.sensor_id=t.sensor_id AND a.metric=t.metric AND a.unit=t.unit
-                AND r.observed_at=t.timestamp AND r.observed_at>=%s AND r.observed_at<%s
-                AND r.value=t.value AND r.quality='valid')""",(start,end))
+        await conn.execute("""CREATE TEMP TABLE core_sensor_native ON COMMIT DROP AS
+            SELECT a.sensor_id,a.metric,a.unit,r.observed_at,r.value FROM core_sensor_aliases a
+            JOIN readings r USING(measurement_id) WHERE r.observed_at>=%s AND r.observed_at<%s
+                AND r.quality='valid'""",(start,end))
+        await conn.execute('ANALYZE core_sensor_native')
+        await conn.execute("""DELETE FROM core_sensor_transfer t USING core_sensor_native n
+            WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit
+                AND n.observed_at=t.timestamp AND n.value=t.value""")
         conflicts = await (await conn.execute("""SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM core_sensor_transfer t
-            WHERE EXISTS(SELECT 1 FROM core_sensor_aliases a JOIN readings r USING(measurement_id)
-                WHERE a.sensor_id=t.sensor_id AND a.metric=t.metric AND a.unit=t.unit
-                    AND r.observed_at=t.timestamp AND r.observed_at>=%s AND r.observed_at<%s) LIMIT 5""",(start,end))).fetchall()
+            WHERE EXISTS(SELECT 1 FROM core_sensor_native n
+                WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit
+                    AND n.observed_at=t.timestamp) LIMIT 5""")).fetchall()
         if conflicts:
             raise ValueError(f'Native/legacy disagreement; accepted value needs review: {conflicts}')
         await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata,is_hidden)
@@ -88,12 +91,16 @@ async def sensor_window(conn, start, end):
 
 
 async def verify_sensor_window(conn, start, end):
-    row = await (await conn.execute("""SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM sensor_data t
+    # Materialize the complete bounded native set before the LIMIT probe.
+    # Otherwise PostgreSQL may choose a low-startup nested loop that compares
+    # every reading against every alias while proving there is no missing row.
+    row = await (await conn.execute("""WITH native AS MATERIALIZED (
+        SELECT a.sensor_id,a.metric,a.unit,r.observed_at,r.value FROM core_sensor_aliases a
+        JOIN readings r USING(measurement_id) WHERE r.observed_at>=%s AND r.observed_at<%s AND r.quality='valid'
+    ) SELECT t.sensor_id,t.metric,t.unit,t.timestamp FROM sensor_data t
         WHERE t.timestamp>=%s AND t.timestamp<%s AND NOT EXISTS(
-            SELECT 1 FROM core_sensor_aliases a JOIN readings r USING(measurement_id)
-            WHERE a.sensor_id=t.sensor_id AND a.metric=t.metric AND a.unit=t.unit
-                AND r.observed_at=t.timestamp AND r.observed_at>=%s AND r.observed_at<%s
-                AND r.value=legacy_numeric(t.value) AND r.quality='valid') LIMIT 1""", (start,end,start,end))).fetchone()
+            SELECT 1 FROM native n WHERE n.sensor_id=t.sensor_id AND n.metric=t.metric AND n.unit=t.unit
+                AND n.observed_at=t.timestamp AND n.value=legacy_numeric(t.value)) LIMIT 1""", (start,end,start,end))).fetchone()
     if row:
         raise ValueError(f'Sensor coverage incomplete; no retirement: {row}')
 
