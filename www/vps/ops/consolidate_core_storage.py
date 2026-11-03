@@ -411,7 +411,11 @@ async def maintain(conn):
         print(json.dumps(result),flush=True)
         if result.get('pending_cutover'):
             raise RuntimeError('Retention requires completed canonical cutover')
-        if not sum(result.values()):
+        # Acquisition keeps moving the seven-day cutoff. A partial batch in
+        # every category means the backlog is drained; do not chase new expiry
+        # forever while collectors remain active. Hourly maintenance continues.
+        if all(value<(10000 if key=='expired_batch_receipts' else 5000)
+               for key,value in result.items()):
             break
     else:
         raise RuntimeError('Retention batch limit reached; run again')

@@ -1,8 +1,11 @@
 """Compact storage: one accepted value, no revision or compatibility history."""
 
 import sys
+import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from psycopg.errors import CheckViolation, RaiseException
 from psycopg.types.json import Jsonb
@@ -15,6 +18,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'ops'))
 from consolidate_core_storage import (
     consolidate_traffic,
     deduplicate,
+    maintain,
     retire,
     sensor_window,
     transfer,
@@ -541,3 +545,29 @@ class CoreStorageTests(DatabaseCase):
         self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),6)
         self.assertEqual(await self.scalar("SELECT count(*) FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.entity_id='movement:late-ship'"),4)
         self.assertEqual(await self.scalar("SELECT relkind FROM pg_class WHERE oid='sensor_data'::regclass"),'v')
+
+
+class RetentionRunnerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_live_expiry_does_not_keep_bulk_runner_alive(self):
+        cursor=SimpleNamespace(fetchone=AsyncMock(return_value=({'expired_batch_receipts':7,'expired_attempts':2},)))
+        conn=SimpleNamespace(execute=AsyncMock(return_value=cursor))
+        with patch('builtins.print'):
+            await maintain(conn)
+        self.assertEqual(conn.execute.await_count,1)
+
+    async def test_full_batches_continue_until_all_categories_are_partial(self):
+        for key in ('expired_batch_receipts','expired_attempts','unused_receipts',
+                    'expired_ttn_receipts','expired_window_caches','expired_smartcity_cache','expired_nextbike_cache'):
+            with self.subTest(category=key):
+                limit=10000 if key=='expired_batch_receipts' else 5000
+                cursor=SimpleNamespace(fetchone=AsyncMock(side_effect=[({key:limit},),({key:limit-1},)]))
+                conn=SimpleNamespace(execute=AsyncMock(return_value=cursor))
+                with patch('builtins.print'):
+                    await maintain(conn)
+                self.assertEqual(conn.execute.await_count,2)
+
+    async def test_pending_cutover_is_not_treated_as_a_partial_batch(self):
+        cursor=SimpleNamespace(fetchone=AsyncMock(return_value=({'pending_cutover':True},)))
+        conn=SimpleNamespace(execute=AsyncMock(return_value=cursor))
+        with patch('builtins.print'),self.assertRaises(RuntimeError):
+            await maintain(conn)

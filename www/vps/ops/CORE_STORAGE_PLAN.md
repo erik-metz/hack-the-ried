@@ -277,3 +277,8 @@ then locks at most 5,000 rows. This also advances through sparse old history
 without thousands of almost-empty hourly passes. The exact native-value proof
 uses the same bounded time interval; unmatched values remain untouched. A live
 rollback-only profile verified 5,000 old SmartCity matches in 1.85 seconds.
+
+The one-time retention runner stops once every category returns a partial batch.
+Active acquisition continuously moves the seven-day expiry boundary, so requiring
+all counters to be exactly zero can loop indefinitely after the backlog is gone.
+The hourly worker continues collecting the small newly expired tail.
