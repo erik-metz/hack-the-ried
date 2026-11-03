@@ -381,6 +381,10 @@ async def compact_existing(conn, compress_cold=False):
     for schema,table,range_end in chunks:
         identifier=sql.Identifier(schema,table)
         async with conn.transaction():
+            # Invalid placeholders contain no measurement value. Normal delete
+            # triggers repair any current key before the metadata-only rewrite.
+            result=await conn.execute(sql.SQL("DELETE FROM {} WHERE quality='invalid'").format(identifier))
+            invalid=result.rowcount
             await conn.execute("SET LOCAL session_replication_role='replica'")
             result=await conn.execute(sql.SQL("UPDATE {} SET provenance=compact_reading_details(provenance),revision=0 WHERE provenance IS DISTINCT FROM compact_reading_details(provenance) OR revision<>0").format(identifier))
             changed=result.rowcount
@@ -390,7 +394,7 @@ async def compact_existing(conn, compress_cold=False):
         elif not cold:
             # Keep acquisition live on the active chunk; freed pages are reused.
             await conn.execute(sql.SQL('VACUUM(ANALYZE) {}').format(identifier))
-        print(json.dumps({'chunk':table,'compacted':changed}),flush=True)
+        print(json.dumps({'chunk':table,'compacted':changed,'discarded_invalid_placeholders':invalid}),flush=True)
     kind=(await (await conn.execute("SELECT relkind FROM pg_class WHERE oid='latest_readings'::regclass")).fetchone())[0]
     if kind=='r':
         await conn.execute("UPDATE latest_readings SET provenance=compact_reading_details(provenance) WHERE provenance IS DISTINCT FROM compact_reading_details(provenance)")

@@ -187,6 +187,11 @@ before removing the unresolved rows from the live legacy store. It never guesses
 a value or removes an already accepted native observation. No persistent
 in-database quarantine/history is created for this cleanup.
 
+Invalid inputs are discarded by the canonical row trigger, including direct SQL
+writes. They cannot create invalid placeholders or replace an existing valid
+observation with NULL. Missing/suppressed source indicators remain distinct from
+invalid inputs; the migration does not invent numerical values for them.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,

@@ -55,6 +55,18 @@ class CoreStorageTests(DatabaseCase):
             await self.conn.execute(
                 "SELECT write_measurement('sensor:test','latitude','degrees','test','observed','{}',%s,100,%s)",(self.now,self.now))
 
+    async def test_invalid_inputs_neither_persist_nor_replace_accepted_values(self):
+        query="""SELECT write_measurement('sensor:test','temperature','C','test','observed',
+            '{"sensor_id":"one"}',%s,%s,%s,'{}',%s)"""
+        await self.conn.execute(query,(self.now,None,self.now,'invalid'))
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),0)
+        await self.write(7)
+        await self.conn.execute(query,(self.now,None,self.now+timedelta(seconds=1),'invalid'))
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),7)
+        await self.conn.execute("UPDATE readings SET quality='invalid',value=NULL")
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),7)
+        self.assertEqual(await self.scalar('SELECT quality FROM readings'),'valid')
+
     async def test_missing_legacy_history_copied_once_without_native_channel_duplicates(self):
         await self.write(7,channel='one')
         await self.write(8,channel='two')

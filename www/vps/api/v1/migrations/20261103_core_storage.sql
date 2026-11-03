@@ -25,6 +25,8 @@ $$;
 CREATE OR REPLACE FUNCTION validate_core_reading() RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE definition measurement_definitions%ROWTYPE;
 BEGIN
+ -- An invalid input is discarded; it must never withdraw an accepted value.
+ IF NEW.quality='invalid' THEN RETURN NULL; END IF;
  SELECT * INTO STRICT definition FROM measurement_definitions WHERE id=NEW.measurement_id;
  IF NEW.value IS NOT NULL AND (
    (definition.minimum IS NOT NULL AND NEW.value<definition.minimum) OR
