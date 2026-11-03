@@ -430,13 +430,23 @@ async def compact_reading_chunk(conn, schema, table):
     while first is not None and first<=last:
         end=min(first+timedelta(hours=1),last+timedelta(microseconds=1))
         async with conn.transaction():
+            await conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
             result=await conn.execute(sql.SQL("DELETE FROM {} WHERE observed_at>=%s AND observed_at<%s AND quality='invalid'").format(identifier),(first,end))
             removed=result.rowcount
+            # Derive forbidden keys once from the authoritative filter. Native
+            # JSONB subtraction then keeps all allowed values exactly, avoiding
+            # a separate aggregate-function invocation for every reading.
+            discarded=(await (await conn.execute(sql.SQL("""WITH keys AS MATERIALIZED (
+                SELECT DISTINCT jsonb_object_keys(provenance) AS key FROM {}
+                WHERE observed_at>=%s AND observed_at<%s
+            ), allowed AS MATERIALIZED (
+                SELECT compact_reading_details(COALESCE(jsonb_object_agg(key,0),'{{}}')) AS details FROM keys
+            ) SELECT COALESCE(array_agg(key) FILTER(WHERE NOT details?key),'{{}}'::text[])
+              FROM keys CROSS JOIN allowed""").format(identifier),(first,end))).fetchone())[0]
             await conn.execute("SET LOCAL session_replication_role='replica'")
-            result=await conn.execute(sql.SQL("""UPDATE {} SET
-                provenance=CASE WHEN provenance='{{}}' THEN provenance ELSE compact_reading_details(provenance) END,
-                revision=0 WHERE observed_at>=%s AND observed_at<%s AND
-                ((provenance<>'{{}}' AND provenance IS DISTINCT FROM compact_reading_details(provenance)) OR revision<>0)""").format(identifier),(first,end))
+            result=await conn.execute(sql.SQL("""UPDATE {} SET provenance=provenance-%s::text[],revision=0
+                WHERE observed_at>=%s AND observed_at<%s
+                  AND (provenance ?| %s::text[] OR revision<>0)""").format(identifier),(discarded,first,end,discarded))
             updated=result.rowcount
         changed+=updated
         invalid+=removed

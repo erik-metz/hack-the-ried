@@ -288,3 +288,11 @@ block can exceed the maintenance statement timeout; bounded commits preserve
 progress and avoid a large rollback. Already empty metadata bypass the JSON
 filter. Integration coverage preserves original high-precision scalars/times,
 retains domain details, removes invalid placeholders and skips unchanged rows.
+
+Each compaction batch derives disallowed keys once through the existing canonical
+filter, then removes exactly those keys with native JSONB operators. The field
+list is not duplicated in Python. Repeatable-read transactions keep the key set
+and rewrite consistent. A rollback-only live sample matched both filters exactly
+(1,103 affected documents); native filtering plus key discovery took about 18 ms
+versus 104 ms for per-row aggregation. Tests also preserve arrays, JSON nulls
+and original high-precision values while removing arbitrary unknown keys.
