@@ -227,6 +227,11 @@ confirmations and already covered backfills return directly, preventing needless
 physical writes to cold data; changed values/domain context still use the guarded
 upsert and validation triggers. Tests enforce this with a rejecting INSERT trigger.
 
+Compatibility deduplication maps eligible native definitions once, seeks occupied
+candidate ranges by primary key, and proves exact matches in bounded hour windows.
+Each deletion uses a materialized native set for that window. Unmatched values
+and separate native channels remain untouched; completed windows are resumable.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,

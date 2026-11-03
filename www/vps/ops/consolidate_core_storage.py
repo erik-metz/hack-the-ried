@@ -340,19 +340,64 @@ async def consolidate_traffic(conn):
 
 async def deduplicate(conn):
     """Remove only proven compatibility copies, preserving physical channels."""
-    chunks=await (await conn.execute("""SELECT chunk_schema,chunk_name,range_start,range_end FROM timescaledb_information.chunks
-        WHERE hypertable_schema=current_schema() AND hypertable_name='readings' ORDER BY range_start""")).fetchall()
-    for schema,table,start,end in chunks:
-        result=await conn.execute(sql.SQL("""DELETE FROM {} r USING measurement_definitions old
-            WHERE r.measurement_id=old.id AND old.basis='unknown' AND old.dimensions='{{}}'
-              AND old.entity_id LIKE 'sensor:%%' AND old.source_id='legacy-sensor:'||substr(old.entity_id,8)
-              AND EXISTS(SELECT 1 FROM core_sensor_aliases a JOIN readings native USING(measurement_id)
-                WHERE a.sensor_id=substr(old.entity_id,8) AND a.metric=old.metric AND a.unit=old.unit
-                  AND a.basis<>'unknown' AND (a.source_id=old.source_id
-                    OR a.source_id IN('environment-weather','ttnmapper','maengelmelder-ried'))
-                  AND native.observed_at=r.observed_at AND native.observed_at>=%s AND native.observed_at<%s
-                  AND native.value=r.value AND native.quality=r.quality)""").format(sql.Identifier(schema,table)),(start,end))
-        print(json.dumps({'chunk':table,'duplicate_compatibility_rows_removed':result.rowcount}),flush=True)
+    if not (await (await conn.execute('SELECT core_storage_enabled()')).fetchone())[0]:
+        raise RuntimeError('Complete canonical cutover before deduplication')
+    await conn.execute('CREATE TEMP TABLE IF NOT EXISTS core_dedup_pairs(old_mid bigint,native_mid bigint,PRIMARY KEY(old_mid,native_mid)) ON COMMIT PRESERVE ROWS')
+    await conn.execute('CREATE TEMP TABLE IF NOT EXISTS core_dedup_keys(old_mid bigint PRIMARY KEY,first_at timestamptz,last_at timestamptz) ON COMMIT PRESERVE ROWS')
+    await conn.execute('TRUNCATE pg_temp.core_dedup_pairs,pg_temp.core_dedup_keys')
+    await conn.execute("""INSERT INTO core_dedup_pairs
+        SELECT DISTINCT old.id,a.measurement_id FROM measurement_definitions old
+        JOIN core_sensor_aliases a ON a.sensor_id=substr(old.entity_id,8) AND a.metric=old.metric AND a.unit=old.unit
+        WHERE old.basis='unknown' AND old.dimensions='{}' AND old.entity_id LIKE 'sensor:%'
+          AND old.source_id='legacy-sensor:'||substr(old.entity_id,8) AND a.basis<>'unknown'
+          AND (a.source_id=old.source_id OR a.source_id IN('environment-weather','ttnmapper','maengelmelder-ried'))""")
+    await conn.execute('ANALYZE pg_temp.core_dedup_pairs')
+    has_timescale=(await (await conn.execute("SELECT to_regclass('timescaledb_information.chunks') IS NOT NULL")).fetchone())[0]
+    chunks=await (await conn.execute("""SELECT chunk_schema,chunk_name FROM timescaledb_information.chunks
+        WHERE hypertable_schema=current_schema() AND hypertable_name='readings' ORDER BY range_start""")).fetchall() if has_timescale else []
+    if not chunks:
+        chunks=[((await (await conn.execute('SELECT current_schema()')).fetchone())[0],'readings')]
+    for schema,table in chunks:
+        identifier=sql.Identifier(schema,table)
+        await conn.execute('TRUNCATE pg_temp.core_dedup_keys')
+        # Seek first/last by primary key, rather than rescanning all remaining
+        # candidates to find the next occupied hour after every deletion.
+        await conn.execute(sql.SQL("""INSERT INTO core_dedup_keys
+            SELECT p.old_mid,f.observed_at,l.observed_at FROM (SELECT DISTINCT old_mid FROM core_dedup_pairs) p
+            CROSS JOIN LATERAL (SELECT observed_at FROM {table} r WHERE r.measurement_id=p.old_mid ORDER BY observed_at LIMIT 1) f
+            CROSS JOIN LATERAL (SELECT observed_at FROM {table} r WHERE r.measurement_id=p.old_mid ORDER BY observed_at DESC LIMIT 1) l""").format(table=identifier))
+        await conn.execute('ANALYZE pg_temp.core_dedup_keys')
+        start,last=await (await conn.execute('SELECT min(first_at),max(last_at) FROM core_dedup_keys')).fetchone()
+        if start is None:
+            print(json.dumps({'chunk':table,'duplicate_compatibility_rows_removed':0}),flush=True)
+            continue
+        while start<=last:
+            start=(await (await conn.execute(sql.SQL("""SELECT min(n.observed_at) FROM core_dedup_keys k
+                CROSS JOIN LATERAL (SELECT observed_at FROM {table} r WHERE r.measurement_id=k.old_mid
+                    AND r.observed_at>=%s ORDER BY observed_at LIMIT 1) n WHERE k.last_at>=%s""").format(table=identifier),(start,start))).fetchone())[0]
+            if start is None:
+                break
+            end=min(start+timedelta(hours=1),last+timedelta(microseconds=1))
+            while True:
+                count=(await (await conn.execute(sql.SQL("""SELECT count(*) FROM {table} r
+                    JOIN core_dedup_keys k ON k.old_mid=r.measurement_id
+                    WHERE r.observed_at>=%s AND r.observed_at<%s""").format(table=identifier),(start,end))).fetchone())[0]
+                if count<=MAX_TRANSFER_VALUES:
+                    break
+                if end-start<=timedelta(microseconds=1):
+                    raise ValueError('Single deduplication timestamp exceeds the safe batch limit')
+                end=start+(end-start)/2
+            result=await conn.execute(sql.SQL("""WITH native AS MATERIALIZED (
+                SELECT p.old_mid,r.observed_at,r.value,r.quality FROM core_dedup_pairs p
+                JOIN core_dedup_keys k USING(old_mid) JOIN readings r ON r.measurement_id=p.native_mid
+                WHERE r.observed_at>=%s AND r.observed_at<%s
+            ) DELETE FROM {table} r USING core_dedup_keys k
+            WHERE r.measurement_id=k.old_mid AND r.observed_at>=%s AND r.observed_at<%s
+              AND EXISTS(SELECT 1 FROM native n WHERE n.old_mid=r.measurement_id AND n.observed_at=r.observed_at
+                AND n.value=r.value AND n.quality=r.quality)""").format(table=identifier),(start,end,start,end))
+            print(json.dumps({'chunk':table,'deduplication_through':end.isoformat(),'duplicate_compatibility_rows_removed':result.rowcount}),flush=True)
+            start=end
+    await conn.execute('DROP TABLE pg_temp.core_dedup_keys,pg_temp.core_dedup_pairs')
 
 
 async def maintain(conn):

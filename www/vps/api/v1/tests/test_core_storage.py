@@ -14,6 +14,7 @@ from measurement_migration import install
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'ops'))
 from consolidate_core_storage import (
     consolidate_traffic,
+    deduplicate,
     retire,
     sensor_window,
     transfer,
@@ -71,6 +72,25 @@ class CoreStorageTests(DatabaseCase):
                 await self.write(2)
             with self.assertRaisesRegex(RaiseException,'Physical insert attempted'):
                 await self.write(1,{'sample_count':4})
+
+    async def test_deduplication_uses_bounded_exact_native_proof_and_preserves_other_channels(self):
+        await self.cutover()
+        for source,basis,dimensions,stamp,value in [
+            ('environment-weather','model',{'model':'one'},self.now-timedelta(days=1),11),
+            ('environment-weather','model',{'model':'one'},self.now,7),
+            ('environment-weather','model',{'model':'two'},self.now,8),
+            ('environment-weather','model',{'model':'one'},self.now+timedelta(hours=1),10),
+            ('legacy-sensor:test','unknown',{},self.now-timedelta(days=1),11),
+            ('legacy-sensor:test','unknown',{},self.now,7),
+            ('legacy-sensor:test','unknown',{},self.now+timedelta(hours=1),9),
+        ]:
+            await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C',%s,%s,%s,%s,%s,%s)""",
+                (source,basis,Jsonb(dimensions),stamp,value,self.now))
+        for _ in range(2):
+            await deduplicate(self.conn)
+            self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),5)
+            self.assertEqual(await self.scalar("SELECT count(*) FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.basis='model'"),4)
+            self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.basis='unknown'"),9)
 
     async def test_invalid_inputs_neither_persist_nor_replace_accepted_values(self):
         query="""SELECT write_measurement('sensor:test','temperature','C','test','observed',
