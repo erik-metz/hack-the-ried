@@ -28,6 +28,8 @@ jobs:
           cache-dependency-path: www/hack-the-ried/package-lock.json
       - run: npm ci
         working-directory: www/hack-the-ried
+      - run: node --test tests/gatewayData.test.mjs
+        working-directory: www/hack-the-ried
       - run: npm run test:security
         working-directory: www/hack-the-ried
       - run: npm run test:map

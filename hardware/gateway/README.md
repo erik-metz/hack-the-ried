@@ -236,3 +236,8 @@ die Zustandsdatei sichern und darin ausschließlich `paused`, `reason`,
 `rollback_at` und `candidate` entfernen; `good` erhalten. Danach den Guardian
 und erst anschließend Watchtower starten. Alte Images nicht
 bereinigen, solange sie als Rücksprungstand benötigt werden.
+
+## Betriebstelemetrie
+
+Host-Collector, private VPS-Aufnahme, Stundenaggregation und Adminansicht sind in
+[der Telemetrie-Anleitung](../../docs/gateway/telemetrie.md) beschrieben.

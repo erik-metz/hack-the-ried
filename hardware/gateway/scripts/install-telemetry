@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+test -f /etc/kamue-gateway-telemetry.json
+install -d -m 755 /usr/local/lib/kamue-gateway
+install -m 644 telemetry/collector.py /usr/local/lib/kamue-gateway/collector.py
+install -m 644 telemetry/kamue-gateway-telemetry.service /etc/systemd/system/
+chmod 600 /etc/kamue-gateway-telemetry.json
+systemctl daemon-reload
+systemctl enable --now kamue-gateway-telemetry

@@ -14,6 +14,7 @@ from websockets.legacy.client import connect
 from websockets.legacy.server import serve
 
 from spool import Spool
+from radio_stats import RadioStats
 
 
 def valid_target(uri, discovery_host):
@@ -50,6 +51,8 @@ class Bridge:
         self.child = None
         self.radio_ready = False
         self.last_rx = None
+        self.radio_stats = RadioStats()
+        self.radio_stats.since = time.time()
         self.sent_config = None
         self.tasks = set()
 
@@ -80,6 +83,9 @@ class Bridge:
             async for raw in ws:
                 message = json.loads(raw)
                 kind = message.get('msgtype')
+                if kind in ('updf','propdf','jreq'):
+                    self.radio_stats.add(message,time.time())
+                    self.last_rx=time.time()
                 if kind in ('updf','propdf'):
                     self.spool.append(message, self.boot)
                     now = time.time()
@@ -180,7 +186,8 @@ class Bridge:
             self.spool.prune()
             data = dict(at=time.time(), boot=self.boot, station_pid=self.child.pid if self.child else None,
                         radio_ready=self.radio_ready, station_connected=self.local is not None,
-                        lns_connected=self.ready, last_rx=self.last_rx, spool=self.spool.status())
+                        lns_connected=self.ready, last_rx=self.last_rx, spool=self.spool.status(),
+                        radio_stats=self.radio_stats.status(time.time()))
             temp = self.directory/'health.json.tmp'
             temp.write_text(json.dumps(data))
             os.replace(temp,self.directory/'health.json')

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily gateway telemetry maintenance
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+Unit=kamue-gateway-maintenance.service
+
+[Install]
+WantedBy=timers.target

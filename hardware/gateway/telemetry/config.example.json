@@ -1,0 +1,8 @@
+{
+  "gateway_id": "kamue-lora-pi",
+  "api_url": "https://hack-the-ried.duckdns.org/api/v1",
+  "token": "REPLACE_WITH_DEDICATED_GATEWAY_TOKEN",
+  "health_file": "/home/alpha/hack-the-ried/gateway/state/health.json",
+  "state_directory": "/var/lib/kamue-gateway-telemetry",
+  "sht41_device": null
+}

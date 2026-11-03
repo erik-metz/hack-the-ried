@@ -263,6 +263,7 @@ export default function AdminClientGate({
         </div>
       </header>
 
+      <div className="mx-auto max-w-7xl px-4 pt-6"><Link href="/admin/gateways" className="text-emerald-400 underline">LoRa-Gateway: Betriebszustand und Verläufe →</Link></div>
       <NewsletterAdminPanel />
       <AdminClient initialSensors={initialSensors} initialError="" />
       <SiteFooter />
