@@ -17,6 +17,7 @@ MIGRATIONS=Path(os.getenv('CORE_STORAGE_MIGRATIONS','/app/v1/migrations'))
 
 async def normalize(conn):
     await conn.execute((MIGRATIONS/'20261103_snapshot_identity.sql').read_text())
+    key_heads=(await (await conn.execute("SELECT to_regclass('measurement_heads') IS NOT NULL")).fetchone())[0]
     groups=await (await conn.execute("""SELECT entity_id,metric,unit,source_id,basis,
         (dimensions-'snapshot_sha256')::text,array_agg(id ORDER BY id)
         FROM measurement_definitions WHERE dimensions ? 'snapshot_sha256'
@@ -70,6 +71,11 @@ async def normalize(conn):
             actual=(await (await conn.execute('SELECT count(*) FROM readings WHERE measurement_id=%s',(target,))).fetchone())[0]
             if actual<expected:
                 raise ValueError('Merged observation coverage incomplete')
+            if key_heads:
+                # All accepted values are already copied and verified. Retire
+                # old keys first so delete triggers do not rescan every chunk
+                # for a replacement head of an intentionally retired identity.
+                await conn.execute('DELETE FROM measurement_heads WHERE measurement_id=ANY(%s)',(old_ids,))
             await conn.execute('DELETE FROM readings WHERE measurement_id=ANY(%s)',(old_ids,))
             await conn.execute('DELETE FROM measurement_definitions WHERE id=ANY(%s)',(old_ids,))
         print(json.dumps({'source':source,'entity':entity,'metric':metric,'retired_hash_definitions':len(old_ids),'accepted_rows':result.rowcount}),flush=True)

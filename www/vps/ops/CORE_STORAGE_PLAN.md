@@ -199,6 +199,11 @@ the latest cache row per key even when that station stopped updating. Uncovered
 cache values are retained for review. Batch counters keep explicit maintenance
 running until all eligible verified caches have been processed.
 
+Snapshot identity normalization retires old latest-key entries only after its
+accepted-value copy passes verification, in the same transaction. This avoids
+repeated full-history head searches for identities being deliberately retired.
+The target key and all accepted observations remain present throughout commit.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,

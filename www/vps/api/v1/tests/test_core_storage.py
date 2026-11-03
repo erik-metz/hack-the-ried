@@ -179,6 +179,7 @@ class CoreStorageTests(DatabaseCase):
         from normalize_snapshot_identity import normalize
 
         await self.cutover()
+        await self.conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
         for i in (1,2):
             digest=str(i)*64
             await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",(digest,))
@@ -190,6 +191,8 @@ class CoreStorageTests(DatabaseCase):
             await normalize(self.conn)
         self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
         self.assertEqual(await self.scalar('SELECT value FROM readings'),2)
+        self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),2)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM measurement_heads'),1)
         self.assertEqual(await self.scalar("SELECT count(*) FROM measurement_definitions WHERE dimensions ? 'snapshot_sha256'"),0)
         self.assertTrue(await self.scalar("SELECT current_snapshot_matches(measurement_id,observed_at,'unused') FROM readings"))
         await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C','test','observed',
