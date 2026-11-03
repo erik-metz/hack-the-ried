@@ -4,7 +4,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from psycopg.errors import CheckViolation
+from psycopg.errors import CheckViolation, RaiseException
 from psycopg.types.json import Jsonb
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'tests'))
@@ -54,6 +54,23 @@ class CoreStorageTests(DatabaseCase):
         with self.assertRaises(CheckViolation):
             await self.conn.execute(
                 "SELECT write_measurement('sensor:test','latitude','degrees','test','observed','{}',%s,100,%s)",(self.now,self.now))
+
+    async def test_unchanged_confirmation_never_attempts_physical_insert(self):
+        await self.write(1)
+        await self.conn.execute("""CREATE FUNCTION pg_temp.reject_redundant_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'Physical insert attempted'; END $$;
+            CREATE TRIGGER reject_redundant_insert BEFORE INSERT ON readings
+            FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_redundant_insert()""")
+        for normalized in (False,True):
+            if normalized:
+                await self.cutover()
+                await self.conn.execute((MIGRATIONS/'20261103_snapshot_identity.sql').read_text())
+            await self.write(1,{'payload_sha256':'b'*64})
+            self.assertEqual(await self.scalar('SELECT value FROM readings'),1)
+            with self.assertRaisesRegex(RaiseException,'Physical insert attempted'):
+                await self.write(2)
+            with self.assertRaisesRegex(RaiseException,'Physical insert attempted'):
+                await self.write(1,{'sample_count':4})
 
     async def test_invalid_inputs_neither_persist_nor_replace_accepted_values(self):
         query="""SELECT write_measurement('sensor:test','temperature','C','test','observed',

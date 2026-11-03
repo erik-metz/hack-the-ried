@@ -216,6 +216,17 @@ lookup index. Bounded receipt deletion otherwise repeats full child-table scans
 inside PostgreSQL's own FK checks, even after the explicit unreferenced proof.
 Build these indexes concurrently on the live installation before bulk expiry.
 
+iNaturalist revalidation retains unchanged accepted observations and definition
+IDs. Only withdrawn records or corrected original observation dates are removed
+before the current public projection is upserted. Privacy/licence withdrawals
+and failed revalidation still remove the affected precise data; legacy revisions
+are cleared after upserts as well. This avoids rewriting historical chunks and
+recreating every definition on each successful daily check or worker restart.
+Canonical writes check accepted keys/values before attempting INSERT. Unchanged
+confirmations and already covered backfills return directly, preventing needless
+physical writes to cold data; changed values/domain context still use the guarded
+upsert and validation triggers. Tests enforce this with a rejecting INSERT trigger.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,

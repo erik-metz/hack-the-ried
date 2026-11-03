@@ -122,7 +122,9 @@ class InaturalistPersistenceTests(DatabaseCase):
 
     async def test_reimport_revision_revocation_and_minimal_archives(self):
         assert await self.ingest([record()]) == 'success'
+        definition=await self.scalar('SELECT id FROM measurement_definitions')
         assert await self.ingest([record()]) == 'success'
+        assert await self.scalar('SELECT id FROM measurement_definitions') == definition
         assert await self.scalar('SELECT count(*) FROM readings') == 1
         await self.ingest([record(quality_grade='needs_id', location='49.61,8.46')])
         assert (await self.data())['observations'][0]['latitude'] == 49.61
@@ -145,6 +147,24 @@ class InaturalistPersistenceTests(DatabaseCase):
         await self.ingest([])  # deleted or moved outside the allowed query
         assert (await self.data())['count'] == 0
 
+    async def test_withdrawal_preserves_other_public_observation_identity(self):
+        await self.ingest([record(id=123),record(id=124)])
+        retained=await self.scalar("SELECT id FROM measurement_definitions WHERE entity_id='inaturalist:124'")
+        await self.ingest([record(id=123,obscured=True),record(id=124)])
+        assert await self.scalar("SELECT count(*) FROM entities WHERE id='inaturalist:123'") == 0
+        assert await self.scalar('SELECT count(*) FROM readings') == 1
+        assert await self.scalar("SELECT id FROM measurement_definitions WHERE entity_id='inaturalist:124'") == retained
+        assert await self.scalar('SELECT count(*) FROM reading_revisions') == 0
+
+    async def test_corrected_observation_date_replaces_old_time_without_recreating_definition(self):
+        await self.ingest([record()])
+        definition=await self.scalar('SELECT id FROM measurement_definitions')
+        await self.ingest([record(observed_on='2026-09-30')])
+        assert await self.scalar('SELECT id FROM measurement_definitions') == definition
+        assert await self.scalar('SELECT count(*) FROM readings') == 1
+        assert str((await self.scalar('SELECT observed_at FROM readings')).date()) == '2026-09-30'
+        assert await self.scalar('SELECT count(*) FROM reading_revisions') == 0
+
     async def test_failure_withdraws_and_expired_api_hides(self):
         await self.ingest([record()])
         await self.conn.execute("UPDATE collected_datasets SET expires_at=NOW()-INTERVAL '1 hour'")
@@ -157,6 +177,29 @@ class InaturalistPersistenceTests(DatabaseCase):
         assert (await self.data())['status'] == 'failed'
         assert await self.scalar('SELECT count(*) FROM collected_dataset_versions WHERE dataset=%s', (DATASET,)) == 0
         assert await self.scalar('SELECT count(*) FROM readings') == 0
+
+    async def test_incremental_revalidation_with_core_views_and_key_only_heads(self):
+        migrations=Path(__file__).resolve().parents[2]/'api/v1/migrations'
+        await self.conn.execute((migrations/'20261103_core_storage.sql').read_text())
+        async with self.conn.transaction():
+            await self.conn.execute("SET LOCAL ried.core_retirement_verified='yes'")
+            await self.conn.execute((migrations/'20261103_core_retirement.sql').read_text())
+        await self.conn.execute((migrations/'20261103_measurement_heads.sql').read_text())
+        await self.conn.execute((migrations/'20261103_snapshot_identity.sql').read_text())
+        await self.ingest([record(id=123),record(id=124)])
+        retained=await self.scalar("SELECT id FROM measurement_definitions WHERE entity_id='inaturalist:124'")
+        await self.ingest([record(id=123,geoprivacy='private'),record(id=124,observed_on='2026-09-30')])
+        assert await self.scalar('SELECT count(*) FROM readings') == 1
+        assert await self.scalar('SELECT count(*) FROM measurement_heads') == 1
+        assert await self.scalar("SELECT id FROM measurement_definitions WHERE entity_id='inaturalist:124'") == retained
+        assert str((await self.scalar('SELECT observed_at FROM latest_readings')).date()) == '2026-09-30'
+        assert await self.scalar('SELECT count(*) FROM reading_revisions') == 0
+        with pytest.raises(ValueError):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500))) as client:
+                with patch('inaturalist.asyncio.sleep',new_callable=AsyncMock):
+                    await import_inaturalist(self.conn,client,SOURCE)
+        assert await self.scalar('SELECT count(*) FROM readings') == 0
+        assert await self.scalar('SELECT count(*) FROM measurement_heads') == 0
 
     async def test_bounded_pagination_exact_overlap_and_export(self):
         # Normalized GBIF lacks origin links: use current archived public records.

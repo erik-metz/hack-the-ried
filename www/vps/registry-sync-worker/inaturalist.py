@@ -224,22 +224,37 @@ async def _import_inaturalist(conn, client, source):
                         'matched': total, 'scanned': scanned, 'accepted': len(observations),
                         'rejected': rejected, 'projection_sha256': hashlib.sha256(json.dumps(publication, sort_keys=True).encode()).hexdigest()}, sort_keys=True).encode()
     digest = hashlib.sha256(audit).hexdigest()
+    current = {f"inaturalist:{item['id']}": datetime.fromisoformat(item['observed_on']).replace(tzinfo=UTC).isoformat()
+               for item in observations}
+    current_entities = list(current)
     async with conn.transaction():
         await conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (digest, len(audit)))
-        receipt = (await (await conn.execute("INSERT INTO collection_attempts(source_id,payload_sha256,status,http_status) VALUES (%s,%s,'success',200) RETURNING id", (source['id'], digest))).fetchone())[0]
-        # Replace the source's core slice, including revision history: withdrawals
-        # must not remain accessible via generic measurement or entity endpoints.
-        for table in ('reading_revisions', 'readings'):
-            await conn.execute(f'DELETE FROM {table} WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
-        await conn.execute('DELETE FROM measurement_definitions WHERE source_id=%s', (source['id'],))
-        await conn.execute("DELETE FROM entities WHERE entity_type='inaturalist_observation' AND id LIKE 'inaturalist:%'")
+        # Retain unchanged accepted observations and stable identities. Withdraw
+        # removed/private records and corrected original dates atomically.
+        await conn.execute('DELETE FROM reading_revisions WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
+        await conn.execute("""WITH current AS MATERIALIZED (
+            SELECT key AS entity_id,value::timestamptz AS observed_at FROM jsonb_each_text(%s)
+        ) DELETE FROM readings r USING measurement_definitions d
+        WHERE r.measurement_id=d.id AND d.source_id=%s AND NOT EXISTS(
+            SELECT 1 FROM current c WHERE c.entity_id=d.entity_id AND c.observed_at=r.observed_at)""",
+            (Jsonb(current),source['id']))
+        await conn.execute('DELETE FROM measurement_definitions WHERE source_id=%s AND entity_id<>ALL(%s::text[])', (source['id'],current_entities))
+        await conn.execute("DELETE FROM entities WHERE entity_type='inaturalist_observation' AND id LIKE 'inaturalist:%%' AND id<>ALL(%s::text[])", (current_entities,))
         await conn.execute('DELETE FROM collected_dataset_versions WHERE dataset=%s', (DATASET,))
+        receipt = (await (await conn.execute("INSERT INTO collection_attempts(source_id,payload_sha256,status,http_status) VALUES (%s,%s,'success',200) RETURNING id", (source['id'], digest))).fetchone())[0]
         for item in observations:
             entity = f"inaturalist:{item['id']}"
-            await conn.execute("INSERT INTO entities(id,name,entity_type,metadata) VALUES (%s,%s,'inaturalist_observation',%s)", (entity, item['scientific_name'], Jsonb(item)))
+            await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata) VALUES (%s,%s,'inaturalist_observation',%s)
+                ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,entity_type=EXCLUDED.entity_type,
+                    metadata=EXCLUDED.metadata,is_hidden=FALSE,updated_at=NOW()
+                WHERE (entities.name,entities.entity_type,entities.metadata,entities.is_hidden)
+                    IS DISTINCT FROM (EXCLUDED.name,EXCLUDED.entity_type,EXCLUDED.metadata,FALSE)""",
+                (entity, item['scientific_name'], Jsonb(item)))
             stamp = datetime.fromisoformat(item['observed_on']).replace(tzinfo=UTC)
             await conn.execute("SELECT write_environment_measurement(%s,'occurrence_presence','count',%s,'observation',%s,%s,1,%s,%s,'valid',NULL,NULL,'reference')",
                                (entity, source['id'], Jsonb({}), stamp, receipt, Jsonb(item)))
+        # Older schema installations may still produce revisions on upsert.
+        await conn.execute('DELETE FROM reading_revisions WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
         await publish(conn, source, DATASET, publication, digest, now)
     await conn.commit()
     return 'success'

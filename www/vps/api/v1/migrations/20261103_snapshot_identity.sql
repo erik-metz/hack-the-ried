@@ -66,6 +66,12 @@ BEGIN
    RAISE EXCEPTION 'Measurement semantics changed for %',definition_id USING ERRCODE='23514';
  END IF;
  details:=compact_reading_details(p_provenance);
+ IF EXISTS(SELECT 1 FROM readings r WHERE r.measurement_id=definition_id AND r.observed_at=p_time
+     AND (p_backfill OR r.collected_at>p_collected OR
+       (r.value,r.quality,r.period_start,r.period_end,r.provenance)
+         IS NOT DISTINCT FROM (p_value,p_quality,p_start,p_end,details))) THEN
+   RETURN definition_id;
+ END IF;
  IF p_backfill THEN
    INSERT INTO readings(measurement_id,observed_at,value,quality,collected_at,period_start,period_end,provenance)
    VALUES(definition_id,p_time,p_value,p_quality,p_collected,p_start,p_end,details) ON CONFLICT DO NOTHING;
