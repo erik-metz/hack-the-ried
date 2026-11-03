@@ -16,6 +16,7 @@ from measurement_migration import install
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'ops'))
 from consolidate_core_storage import (
+    compact_reading_chunk,
     consolidate_traffic,
     deduplicate,
     maintain,
@@ -133,6 +134,25 @@ class CoreStorageTests(DatabaseCase):
             await sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
         self.assertEqual(await self.scalar('SELECT value FROM readings'),1)
         self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_data'),1)
+
+    async def test_metadata_compaction_is_bounded_preserves_values_and_skips_empty_rows(self):
+        await self.cutover()
+        await self.write(7)
+        mid=await self.scalar('SELECT id FROM measurement_definitions LIMIT 1')
+        old=self.now-timedelta(hours=4)
+        async with self.conn.transaction():
+            await self.conn.execute("SET LOCAL session_replication_role='replica'")
+            await self.conn.execute("""INSERT INTO readings(measurement_id,observed_at,value,provenance,revision)
+                VALUES(%s,%s,3.1234567890123456789,'{"payload_sha256":"old","model":"retained"}',3)""",(mid,old))
+            await self.conn.execute("""INSERT INTO readings(measurement_id,observed_at,value,quality)
+                VALUES(%s,%s,NULL,'invalid')""",(mid,old+timedelta(hours=2)))
+        before=await (await self.conn.execute("SELECT measurement_id,observed_at,value FROM readings WHERE quality='valid' ORDER BY observed_at")).fetchall()
+        schema=await self.scalar('SELECT current_schema()')
+        self.assertEqual(await compact_reading_chunk(self.conn,schema,'readings'),(1,1))
+        self.assertEqual(await (await self.conn.execute("SELECT measurement_id,observed_at,value FROM readings WHERE quality='valid' ORDER BY observed_at")).fetchall(),before)
+        self.assertEqual(await self.scalar('SELECT provenance FROM readings WHERE observed_at=%s',(old,)),{'model':'retained'})
+        self.assertEqual(await self.scalar('SELECT sum(revision) FROM readings'),0)
+        self.assertEqual(await self.scalar("SELECT count(*) FROM readings WHERE quality='invalid'"),0)
 
     async def test_expiring_receipts_and_retry_do_not_duplicate_data(self):
         await self.cutover()

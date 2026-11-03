@@ -282,3 +282,9 @@ The one-time retention runner stops once every category returns a partial batch.
 Active acquisition continuously moves the seven-day expiry boundary, so requiring
 all counters to be exactly zero can loop indefinitely after the backlog is gone.
 The hourly worker continues collecting the small newly expired tail.
+
+Metadata compaction commits occupied hourly windows separately. A full weekly
+block can exceed the maintenance statement timeout; bounded commits preserve
+progress and avoid a large rollback. Already empty metadata bypass the JSON
+filter. Integration coverage preserves original high-precision scalars/times,
+retains domain details, removes invalid placeholders and skips unchanged rows.

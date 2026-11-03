@@ -421,6 +421,33 @@ async def maintain(conn):
         raise RuntimeError('Retention batch limit reached; run again')
 
 
+async def compact_reading_chunk(conn, schema, table):
+    """Commit metadata-only rewrites hourly, preserving every valid scalar/time."""
+    identifier=sql.Identifier(schema,table)
+    first,last=await (await conn.execute(sql.SQL(
+        'SELECT min(observed_at),max(observed_at) FROM {}').format(identifier))).fetchone()
+    changed=invalid=0
+    while first is not None and first<=last:
+        end=min(first+timedelta(hours=1),last+timedelta(microseconds=1))
+        async with conn.transaction():
+            result=await conn.execute(sql.SQL("DELETE FROM {} WHERE observed_at>=%s AND observed_at<%s AND quality='invalid'").format(identifier),(first,end))
+            removed=result.rowcount
+            await conn.execute("SET LOCAL session_replication_role='replica'")
+            result=await conn.execute(sql.SQL("""UPDATE {} SET
+                provenance=CASE WHEN provenance='{{}}' THEN provenance ELSE compact_reading_details(provenance) END,
+                revision=0 WHERE observed_at>=%s AND observed_at<%s AND
+                ((provenance<>'{{}}' AND provenance IS DISTINCT FROM compact_reading_details(provenance)) OR revision<>0)""").format(identifier),(first,end))
+            updated=result.rowcount
+        changed+=updated
+        invalid+=removed
+        print(json.dumps({'chunk':table,'metadata_compacted_through':end.isoformat(),
+                          'compacted':updated,'discarded_invalid_placeholders':removed}),flush=True)
+        first=(await (await conn.execute(sql.SQL(
+            'SELECT min(observed_at) FROM {} WHERE observed_at>=%s AND observed_at<=%s'
+        ).format(identifier),(end,last))).fetchone())[0]
+    return changed,invalid
+
+
 async def compact_existing(conn, compress_cold=False):
     """Remove discarded receipt metadata in bounded physical chunks.
 
@@ -434,14 +461,7 @@ async def compact_existing(conn, compress_cold=False):
         WHERE hypertable_schema=current_schema() AND hypertable_name='readings' ORDER BY range_start""")).fetchall()
     for schema,table,range_end in chunks:
         identifier=sql.Identifier(schema,table)
-        async with conn.transaction():
-            # Invalid placeholders contain no measurement value. Normal delete
-            # triggers repair any current key before the metadata-only rewrite.
-            result=await conn.execute(sql.SQL("DELETE FROM {} WHERE quality='invalid'").format(identifier))
-            invalid=result.rowcount
-            await conn.execute("SET LOCAL session_replication_role='replica'")
-            result=await conn.execute(sql.SQL("UPDATE {} SET provenance=compact_reading_details(provenance),revision=0 WHERE provenance IS DISTINCT FROM compact_reading_details(provenance) OR revision<>0").format(identifier))
-            changed=result.rowcount
+        changed,invalid=await compact_reading_chunk(conn,schema,table)
         cold=range_end<datetime.now(UTC)-timedelta(days=7)
         if cold and not compress_cold:
             await conn.execute(sql.SQL('VACUUM(FULL,ANALYZE) {}').format(identifier))
