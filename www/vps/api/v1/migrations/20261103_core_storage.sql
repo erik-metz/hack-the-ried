@@ -105,7 +105,12 @@ CREATE OR REPLACE VIEW core_sensor_aliases AS
  FROM measurement_definitions d WHERE d.entity_id LIKE 'sensor:%' AND d.metric='PM25'
  UNION ALL
  SELECT d.id,'ttn-gw-'||substr(d.entity_id,14),d.metric,d.unit,d.basis,d.source_id,d.dimensions
- FROM measurement_definitions d WHERE d.entity_id LIKE 'lora:gateway:%' AND d.metric='online_status';
+ FROM measurement_definitions d WHERE d.entity_id LIKE 'lora:gateway:%' AND d.metric='online_status'
+ UNION ALL
+ SELECT d.id,'civic-maengelmelder-ried',d.metric,d.unit,d.basis,d.source_id,d.dimensions
+ FROM measurement_definitions d WHERE d.entity_id='civic:maengelmelder:region'
+   AND d.source_id='maengelmelder-ried' AND d.metric='reported_items' AND d.unit='reports'
+   AND d.basis='reported' AND d.dimensions='{"coverage":"worms-darmstadt"}';
 
 CREATE OR REPLACE FUNCTION store_sensor_sample(
  p_time TIMESTAMPTZ,p_sensor TEXT,p_value DOUBLE PRECISION,p_unit TEXT,p_metric TEXT

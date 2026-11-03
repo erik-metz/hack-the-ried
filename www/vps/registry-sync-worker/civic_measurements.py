@@ -35,7 +35,8 @@ async def write_dashboard_snapshot(conn, *, sensor_id, name, description, readin
     )
     for metric, value, unit in readings:
         await conn.execute(
-            """DELETE FROM sensor_data WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s""",
+            """DELETE FROM sensor_data WHERE sensor_id=%s AND metric=%s AND unit=%s AND timestamp=%s
+            AND (SELECT relkind='r' FROM pg_class WHERE oid='sensor_data'::regclass)""",
             (sensor_id, metric, unit, timestamp),
         )
         await conn.execute(

@@ -128,6 +128,25 @@ class CoreStorageTests(DatabaseCase):
         self.assertIn('expired_smartcity_cache',result)
         self.assertIn('expired_nextbike_cache',result)
 
+    async def test_civic_dashboard_reuses_native_counter_without_deleting_it(self):
+        from importlib.util import module_from_spec, spec_from_file_location
+
+        spec=spec_from_file_location('core_test_civic_measurements',Path(__file__).resolve().parents[3]/'registry-sync-worker/civic_measurements.py')
+        civic=module_from_spec(spec)
+        spec.loader.exec_module(civic)
+        await self.conn.execute("INSERT INTO entities(id,name,entity_type) VALUES('civic:maengelmelder:region','Region','civic_area')")
+        await self.conn.execute("""SELECT write_measurement('civic:maengelmelder:region','reported_items','reports',
+            'maengelmelder-ried','reported','{"coverage":"worms-darmstadt"}',%s,3,%s,'{}',
+            'valid',NULL,NULL,'state')""",(self.now,self.now))
+        await self.cutover()
+        for _ in range(2):
+            await civic.write_dashboard_snapshot(self.conn,sensor_id='civic-maengelmelder-ried',
+                name='Reports',description='Reports in region',readings=[('reported_items',3,'reports')],timestamp=self.now)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM readings'),1)
+        self.assertEqual(await self.scalar("SELECT entity_id FROM measurement_definitions"),'civic:maengelmelder:region')
+        self.assertEqual(await self.scalar("SELECT value FROM sensor_data WHERE sensor_id='civic-maengelmelder-ried'"),3)
+        self.assertEqual(await self.scalar("SELECT value FROM sensor_latest WHERE sensor_id='civic-maengelmelder-ried'"),3)
+
     async def test_movement_writes_only_core_and_current_entity_context(self):
         await self.cutover()
         data={'entity_id':'bus-one','timestamp':self.now.isoformat(),'kind':'bus',

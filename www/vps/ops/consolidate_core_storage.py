@@ -349,7 +349,7 @@ async def deduplicate(conn):
               AND EXISTS(SELECT 1 FROM core_sensor_aliases a JOIN readings native USING(measurement_id)
                 WHERE a.sensor_id=substr(old.entity_id,8) AND a.metric=old.metric AND a.unit=old.unit
                   AND a.basis<>'unknown' AND (a.source_id=old.source_id
-                    OR a.source_id IN('environment-weather','ttnmapper'))
+                    OR a.source_id IN('environment-weather','ttnmapper','maengelmelder-ried'))
                   AND native.observed_at=r.observed_at AND native.observed_at>=%s AND native.observed_at<%s
                   AND native.value=r.value AND native.quality=r.quality)""").format(sql.Identifier(schema,table)),(start,end))
         print(json.dumps({'chunk':table,'duplicate_compatibility_rows_removed':result.rowcount}),flush=True)

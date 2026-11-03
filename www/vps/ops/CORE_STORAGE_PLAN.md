@@ -206,6 +206,11 @@ The target key and all accepted observations remain present throughout commit.
 The publication-cell foreign key has a measurement-key index so retiring old
 definitions does not repeatedly scan the complete current publication layout.
 
+The civic report counter has an explicit dashboard alias to its native regional
+quantity. Dashboard replacement deletes only from a physical legacy table; with
+the canonical view it reuses/upserts the existing observation. Deploy that writer
+before adding the alias, then remove only exact native/legacy counter duplicates.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,
