@@ -86,6 +86,8 @@ docker exec backend_api python /app/gateway_maintenance.py --delete-expired
 ```
 
 Pro Lauf werden höchstens 48 Stunden aggregiert und 48 Stunden bereinigt.
+Jede Stunde wird in einer eigenen Transaktion abgeschlossen, damit die
+Dekompressionsarbeit alter Timescale-Chunks pro Transaktion begrenzt bleibt.
 Advisory-Lock verhindert parallele Wartung. Uploads markieren Stunden erneut als
 dirty. Min/Max/Summe/Anzahl liegen als Intervallstatistiken im Kern, Summen und
 Paketanzahlen ermöglichen gewichtete weitere Verdichtung. Stundenaggregate werden

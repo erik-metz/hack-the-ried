@@ -72,8 +72,18 @@ async def main():
                         token_hash,
                     ),
                 )
-        async with conn.transaction():
-            print(json.dumps(await maintain(conn, delete=args.delete_expired)))
+        totals = {"processed": 0, "deleted": 0, "transactions": 0}
+        # Commit each hour independently: a shared compressed chunk must not
+        # accumulate multiple days of decompression in one maintenance transaction.
+        for _ in range(48):
+            async with conn.transaction():
+                result = await maintain(conn, limit=1, delete=args.delete_expired)
+            totals["transactions"] += 1
+            for key in ("processed", "deleted"):
+                totals[key] += result[key]
+            if result.get("busy") or not (result["processed"] or result["deleted"]):
+                break
+        print(json.dumps(totals))
 
 
 if __name__ == "__main__":
