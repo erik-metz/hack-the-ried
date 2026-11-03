@@ -174,6 +174,14 @@ END $$;
 -- Retry receipts are a bounded operational cache. The canonical primary key
 -- also prevents duplicate observations after a receipt has expired.
 CREATE INDEX IF NOT EXISTS telemetry_ingest_batches_time ON telemetry_ingest_batches(committed_at);
+-- Parent receipt deletion also runs FK checks for every referenced table.
+-- Index those keys so a bounded batch never repeats full receipt-cache scans.
+CREATE INDEX IF NOT EXISTS collection_attempts_payload_lookup ON collection_attempts(payload_sha256);
+CREATE INDEX IF NOT EXISTS collected_datasets_payload_lookup ON collected_datasets(payload_sha256);
+CREATE INDEX IF NOT EXISTS movement_schedules_payload_lookup ON movement_schedules(payload_sha256);
+CREATE INDEX IF NOT EXISTS collected_map_tiles_payload_lookup ON collected_map_tiles(payload_sha256);
+CREATE INDEX IF NOT EXISTS movement_trip_updates_payload_lookup ON movement_trip_updates(payload_sha256);
+CREATE INDEX IF NOT EXISTS collection_checkpoints_payload_lookup ON collection_checkpoints(payload_sha256);
 INSERT INTO collector_schema_versions(version) VALUES(20261103) ON CONFLICT DO NOTHING;
 
 -- Numeric motion belongs to readings; technical input receipts are discarded.

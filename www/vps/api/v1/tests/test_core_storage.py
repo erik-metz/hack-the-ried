@@ -106,6 +106,15 @@ class CoreStorageTests(DatabaseCase):
         await self.conn.execute("INSERT INTO collected_dataset_versions VALUES('test','hash',%s,'{}') ON CONFLICT DO NOTHING",(self.now,))
         self.assertEqual(await self.scalar('SELECT count(*) FROM collected_dataset_versions'),0)
 
+    async def test_retained_receipt_foreign_keys_have_lookup_indexes(self):
+        await self.cutover()
+        missing=await (await self.conn.execute("""SELECT c.conrelid::regclass::text,a.attname
+            FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=c.conkey[1]
+            WHERE c.contype='f' AND c.confrelid='collected_payloads'::regclass
+              AND NOT EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=c.conrelid
+                AND i.indisvalid AND i.indkey[0]=c.conkey[1])""")).fetchall()
+        self.assertEqual(missing,[])
+
     async def test_cache_expiry_is_bounded_preserves_head_and_requires_exact_coverage(self):
         await self.cutover()
         await self.write(7)

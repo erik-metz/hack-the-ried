@@ -211,6 +211,11 @@ quantity. Dashboard replacement deletes only from a physical legacy table; with
 the canonical view it reuses/upserts the existing observation. Deploy that writer
 before adding the alias, then remove only exact native/legacy counter duplicates.
 
+Every retained foreign key to the temporary receipt catalogue has a leading-key
+lookup index. Bounded receipt deletion otherwise repeats full child-table scans
+inside PostgreSQL's own FK checks, even after the explicit unreferenced proof.
+Build these indexes concurrently on the live installation before bulk expiry.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,
