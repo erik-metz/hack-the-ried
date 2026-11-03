@@ -208,3 +208,10 @@ checkpoint; already accepted conflicting values still stop retirement. Temporary
 transfer tables are dropped after each batch, including inside the final outer
 transaction. Re-running transfer after cutover is a no-op. Tests simulate late
 sensor and movement rows in multiple windows and confirm full recovery.
+
+An old movement cache may retain a value already corrected in the accepted core.
+The migration proof permits that difference only when the existing revision for
+the exact definition/time contains the exact valid old value and predates the
+current accepted collection time. It never overwrites the current observation.
+Unexplained differences still abort retirement. This uses the old revision table
+only during migration; retirement removes that table and creates no new history.

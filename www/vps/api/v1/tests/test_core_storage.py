@@ -243,6 +243,23 @@ class CoreStorageTests(DatabaseCase):
         with self.assertRaisesRegex(ValueError,'navigation_status'):
             await verify_movement_window(self.conn,self.now,self.now+timedelta(minutes=15))
 
+    async def test_movement_proof_accepts_only_documented_superseded_values(self):
+        await self.conn.execute("INSERT INTO collected_payloads(sha256,content_type) VALUES(%s,'application/json')",('a'*64,))
+        await self.conn.execute("""INSERT INTO movement_positions(timestamp,entity_id,kind,latitude,longitude,basis,source_id,payload_sha256,metadata)
+            VALUES(%s,'bus-one','bus',49.5,8.4,'schedule_prediction','vrn',%s,'{"delay_seconds":174}')""",(self.now,'a'*64))
+        await self.conn.execute("SELECT backfill_measurement_window('movements',%s,%s)",(self.now,self.now+timedelta(minutes=15)))
+        await self.conn.execute("UPDATE readings SET value=0 WHERE measurement_id IN(SELECT id FROM measurement_definitions WHERE metric='delay')")
+        with self.assertRaisesRegex(ValueError,'delay'):
+            await verify_movement_window(self.conn,self.now,self.now+timedelta(minutes=15))
+        await self.conn.execute("""INSERT INTO reading_revisions(measurement_id,observed_at,revision,previous_record,replaced_at)
+            SELECT measurement_id,observed_at,1,'{"value":174,"quality":"valid"}',collected_at
+            FROM readings WHERE measurement_id IN(SELECT id FROM measurement_definitions WHERE metric='delay')""")
+        await verify_movement_window(self.conn,self.now,self.now+timedelta(minutes=15))
+        self.assertEqual(await self.scalar("SELECT value FROM readings r JOIN measurement_definitions d ON d.id=r.measurement_id WHERE d.metric='delay'"),0)
+        await self.conn.execute("UPDATE reading_revisions SET previous_record=%s",(Jsonb({'value':173,'quality':'valid'}),))
+        with self.assertRaisesRegex(ValueError,'delay'):
+            await verify_movement_window(self.conn,self.now,self.now+timedelta(minutes=15))
+
     async def test_traffic_quantities_use_core_without_history_copy(self):
         from unittest.mock import patch
 

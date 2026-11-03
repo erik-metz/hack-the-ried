@@ -213,11 +213,17 @@ async def verify_movement_window(conn,start,end):
             SELECT e.*,d.id AS measurement_id FROM expected e
             JOIN definitions d USING(entity_id,source_id,basis,metric,unit,dimensions)
         ), native AS MATERIALIZED (
-            SELECT measurement_id,observed_at,value FROM readings
+            SELECT measurement_id,observed_at,value,collected_at FROM readings
             WHERE observed_at>=%s AND observed_at<%s AND quality='valid'
         ) SELECT min(jsonb_build_array(e.entity_id,e.timestamp,e.metric)::text) FROM mapped e WHERE NOT EXISTS(
             SELECT 1 FROM native n WHERE n.measurement_id=e.measurement_id
-              AND n.observed_at=e.timestamp AND n.value=e.value) HAVING count(*)>0""",(start,end,start,end))).fetchone()
+              AND n.observed_at=e.timestamp AND (n.value=e.value OR EXISTS(
+                SELECT 1 FROM reading_revisions v
+                WHERE v.measurement_id=n.measurement_id AND v.observed_at=n.observed_at
+                  AND v.replaced_at<=n.collected_at
+                  AND v.previous_record->>'quality'='valid'
+                  AND (v.previous_record->>'value')::numeric=e.value
+              ))) HAVING count(*)>0""",(start,end,start,end))).fetchone()
     if missing:
         raise ValueError(f'Movement coverage incomplete; no retirement: {missing}')
 
