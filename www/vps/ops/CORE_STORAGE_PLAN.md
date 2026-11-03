@@ -192,6 +192,13 @@ writes. They cannot create invalid placeholders or replace an existing valid
 observation with NULL. Missing/suppressed source indicators remain distinct from
 invalid inputs; the migration does not invent numerical values for them.
 
+Cache expiry proves coverage for at most 5,000 candidates in one occupied hour.
+It materializes only the matching native quantities and bounded reading interval,
+rather than sorting the entire historical reading set. Nextbike retains at most
+the latest cache row per key even when that station stopped updating. Uncovered
+cache values are retained for review. Batch counters keep explicit maintenance
+running until all eligible verified caches have been processed.
+
 ## Bounded full-history proof
 
 Movement transaction windows adapt to the actual scalar count (90,000 target,

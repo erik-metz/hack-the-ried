@@ -106,6 +106,28 @@ class CoreStorageTests(DatabaseCase):
         await self.conn.execute("INSERT INTO collected_dataset_versions VALUES('test','hash',%s,'{}') ON CONFLICT DO NOTHING",(self.now,))
         self.assertEqual(await self.scalar('SELECT count(*) FROM collected_dataset_versions'),0)
 
+    async def test_cache_expiry_is_bounded_preserves_head_and_requires_exact_coverage(self):
+        await self.cutover()
+        await self.write(7)
+        old=self.now-timedelta(days=30)
+        await self.conn.execute("""INSERT INTO readings(measurement_id,observed_at,value)
+            SELECT d.id,%s+i*interval '1 millisecond',7 FROM measurement_definitions d
+            CROSS JOIN generate_series(0,5001) i WHERE d.metric='temperature'""",(old,))
+        await self.conn.execute("""INSERT INTO nextbike_observations(sensor_id,metric,observed_at,value,first_fetched_at)
+            SELECT 'test','temperature',%s+i*interval '1 millisecond',7,%s
+            FROM generate_series(0,5001) i""",(old,self.now))
+        self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),5000)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM nextbike_observations'),2)
+        self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),1)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM nextbike_observations'),1)
+        await self.conn.execute("""INSERT INTO nextbike_observations(sensor_id,metric,observed_at,value,first_fetched_at)
+            VALUES('test','temperature',%s,9,%s)""",(old-timedelta(seconds=1),self.now))
+        self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),0)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM nextbike_observations'),2)
+        result=await self.scalar('SELECT maintain_core_storage()')
+        self.assertIn('expired_smartcity_cache',result)
+        self.assertIn('expired_nextbike_cache',result)
+
     async def test_movement_writes_only_core_and_current_entity_context(self):
         await self.cutover()
         data={'entity_id':'bus-one','timestamp':self.now.isoformat(),'kind':'bus',
