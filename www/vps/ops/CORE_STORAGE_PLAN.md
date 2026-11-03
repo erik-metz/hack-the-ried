@@ -94,10 +94,11 @@ remain available; subsequent exports use the authoritative core only.
 - Verify new collection cycles update the core without reintroducing histories,
   retain API/download availability, and report before/after sizes and free disk.
 
-## Progress
+## Initial rollout evidence
 
-- Initial repository status clean. Live schema has no sensor/movement shadow
-  triggers: full core coverage must be proved before dropping either history.
+- The initial repository status was clean. At inventory, the live schema had no
+  sensor/movement shadow triggers; exact core coverage was required before
+  dropping either physical history.
 - Live publication versions are dominated by events (~1.35 GiB JSON), waste
   calendar (~1.13 GiB) and coverage (~286 MiB), not numeric measurements alone.
 - The first release passed all 18 CI jobs including TimescaleDB compression checks
@@ -192,12 +193,14 @@ writes. They cannot create invalid placeholders or replace an existing valid
 observation with NULL. Missing/suppressed source indicators remain distinct from
 invalid inputs; the migration does not invent numerical values for them.
 
-Cache expiry proves coverage for at most 5,000 candidates in one occupied hour.
+Cache expiry proves coverage for at most 5,000 oldest eligible candidates in a
+bounded interval derived from their original observation timestamps.
 It materializes only the matching native quantities and bounded reading interval,
-rather than sorting the entire historical reading set. Nextbike retains at most
-the latest cache row per key even when that station stopped updating. Uncovered
-cache values are retained for review. Batch counters keep explicit maintenance
-running until all eligible verified caches have been processed.
+rather than sorting the entire historical reading set. SmartCity and Nextbike
+retain the current cache head per key in addition to the seven-day window, even
+when a station stopped updating. Uncovered cache values remain for review.
+Bulk maintenance continues while any category fills its batch; hourly
+maintenance collects the small tail newly expiring during active acquisition.
 
 Snapshot identity normalization retires old latest-key entries only after its
 accepted-value copy passes verification, in the same transaction. This avoids
