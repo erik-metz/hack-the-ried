@@ -90,6 +90,8 @@ END $$;
 
 -- Old names are API projections only. A physical senseBox channel is never
 -- discarded: DISTINCT ON applies to the old UI projection, not stored readings.
+CREATE INDEX IF NOT EXISTS measurement_publication_cells_definition
+ ON measurement_publication_cells(measurement_id);
 CREATE INDEX IF NOT EXISTS core_sensor_alias_lookup
  ON measurement_definitions((substr(entity_id,8)),metric,unit)
  WHERE entity_id LIKE 'sensor:%';

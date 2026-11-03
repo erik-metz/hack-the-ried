@@ -203,6 +203,8 @@ Snapshot identity normalization retires old latest-key entries only after its
 accepted-value copy passes verification, in the same transaction. This avoids
 repeated full-history head searches for identities being deliberately retired.
 The target key and all accepted observations remain present throughout commit.
+The publication-cell foreign key has a measurement-key index so retiring old
+definitions does not repeatedly scan the complete current publication layout.
 
 ## Bounded full-history proof
 
