@@ -21,6 +21,7 @@ from consolidate_core_storage import (
     consolidate_traffic,
     deduplicate,
     maintain,
+    reclaim_operational_tables,
     retire,
     sensor_window,
     transfer,
@@ -135,6 +136,23 @@ class CoreStorageTests(DatabaseCase):
             await sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
         self.assertEqual(await self.scalar('SELECT value FROM readings'),1)
         self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_data'),1)
+
+    async def test_current_key_vacuum_keeps_concurrent_ingestion_locks_online(self):
+        import psycopg
+
+        await self.write(7)
+        await self.cutover()
+        await self.conn.execute((MIGRATIONS/'20261103_measurement_heads.sql').read_text())
+        await configure_maintenance(self.conn)
+        await self.conn.execute("SET lock_timeout='250ms'")
+        async with (
+            await psycopg.AsyncConnection.connect(**self.db,autocommit=True) as locked,
+            locked.transaction(),
+        ):
+            await locked.execute('SELECT 1 FROM measurement_heads FOR UPDATE')
+            await reclaim_operational_tables(self.conn)
+        self.assertEqual(await self.scalar('SELECT value FROM latest_readings'),7)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM measurement_heads'),1)
 
     async def test_container_maintenance_has_explicit_memory_and_parallelism_limits(self):
         await self.conn.execute("SET maintenance_work_mem='1GB'")

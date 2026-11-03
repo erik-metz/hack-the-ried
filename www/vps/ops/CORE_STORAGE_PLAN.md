@@ -306,3 +306,11 @@ parallel query/index workers for this connection. The host tuning allowed about
 memory despite ample filesystem space. These session limits avoid resizing or
 restarting the database container. Regression coverage starts with a 1 GB budget
 and parallel maintenance enabled, then checks all four configured limits.
+
+Physical receipt/cache reclamation is exposed separately as
+`reclaim_operational_tables()` so a completed metadata pass need not be repeated
+after a physical-maintenance interruption. The continuously written
+`measurement_heads` key index uses regular VACUUM/ANALYZE; the five expired receipt
+and observation caches use VACUUM FULL. Integration coverage holds an ingestion
+row lock on the current-key table while reclamation runs with a 250 ms lock
+timeout. Table/mode start and completion markers identify any interrupted step.

@@ -482,11 +482,19 @@ async def compact_existing(conn, compress_cold=False):
     kind=(await (await conn.execute("SELECT relkind FROM pg_class WHERE oid='latest_readings'::regclass")).fetchone())[0]
     if kind=='r':
         await conn.execute("UPDATE latest_readings SET provenance=compact_reading_details(provenance) WHERE provenance IS DISTINCT FROM compact_reading_details(provenance)")
+    await reclaim_operational_tables(conn)
+
+
+async def reclaim_operational_tables(conn):
+    """Repack bounded receipts; keep active latest-key writes online."""
     for table in ('telemetry_ingest_batches','collection_attempts','collected_payloads',
                   'smartcity_observations','nextbike_observations','measurement_heads'):
         kind=await (await conn.execute('SELECT relkind FROM pg_class WHERE oid=to_regclass(%s)',(table,))).fetchone()
         if kind and kind[0]=='r':
-            await conn.execute(sql.SQL('VACUUM(FULL,ANALYZE) {}').format(sql.Identifier(table)))
+            mode='ANALYZE' if table=='measurement_heads' else 'FULL,ANALYZE'
+            print(json.dumps({'reclaiming_operational_table':table,'vacuum_mode':mode}),flush=True)
+            await conn.execute(sql.SQL('VACUUM('+mode+') {}').format(sql.Identifier(table)))
+            print(json.dumps({'reclaimed_operational_table':table}),flush=True)
 
 
 async def compress_history(conn):
