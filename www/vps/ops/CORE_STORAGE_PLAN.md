@@ -314,3 +314,12 @@ after a physical-maintenance interruption. The continuously written
 and observation caches use VACUUM FULL. Integration coverage holds an ingestion
 row lock on the current-key table while reclamation runs with a 250 ms lock
 timeout. Table/mode start and completion markers identify any interrupted step.
+
+The canonical point writer scopes `plan_cache_mode=force_custom_plan` to its
+function call. A live prepared-plan comparison showed the generic point lookup
+waiting on an unrelated historical chunk, while the custom lookup locked only
+one target chunk. Generic SPI plans inside long acquisition transactions had
+therefore prevented physical historical maintenance. The scoped setting keeps
+new collection away from unrelated chunk locks and restores the caller setting
+on return. Regression coverage repeats writes beyond the generic-plan threshold
+and checks accepted values, absent revision history and caller GUC restoration.

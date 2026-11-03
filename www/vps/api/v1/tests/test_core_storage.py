@@ -52,6 +52,16 @@ class CoreStorageTests(DatabaseCase):
             await self.conn.execute("SET LOCAL ried.core_retirement_verified='yes'")
             await self.conn.execute((MIGRATIONS/'20261103_core_retirement.sql').read_text())
 
+    async def test_point_write_uses_targeted_plans_and_restores_caller_setting(self):
+        await self.conn.execute("SET plan_cache_mode='force_generic_plan'")
+        config=await self.scalar("SELECT proconfig FROM pg_proc WHERE proname='write_measurement' AND pronamespace=current_schema()::regnamespace")
+        self.assertIn('plan_cache_mode=force_custom_plan',config)
+        for value in range(8):
+            await self.write(value)
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),7)
+        self.assertEqual(await self.scalar('SELECT count(*) FROM reading_revisions'),0)
+        self.assertEqual(await self.scalar('SHOW plan_cache_mode'),'force_generic_plan')
+
     async def test_corrections_replace_value_without_receipts_or_revisions(self):
         await self.write(1,{'payload_sha256':'a'*64,'collection_attempt_id':123,'sample_count':4})
         await self.write(2,{'payload_sha256':'b'*64,'collection_attempt_id':456,'sample_count':4})

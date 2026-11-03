@@ -51,7 +51,7 @@ CREATE OR REPLACE FUNCTION write_measurement(
  p_provenance JSONB DEFAULT '{}',p_quality TEXT DEFAULT 'valid',
  p_start TIMESTAMPTZ DEFAULT NULL,p_end TIMESTAMPTZ DEFAULT NULL,
  p_semantics TEXT DEFAULT 'instantaneous',p_backfill BOOLEAN DEFAULT FALSE
-) RETURNS BIGINT LANGUAGE plpgsql AS $$
+) RETURNS BIGINT LANGUAGE plpgsql SET plan_cache_mode='force_custom_plan' AS $$
 DECLARE definition_id BIGINT; existing_semantics TEXT; details JSONB;
 BEGIN
  IF to_regclass('measurement_current_members') IS NOT NULL THEN
