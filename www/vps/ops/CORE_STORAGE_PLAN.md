@@ -299,3 +299,10 @@ and rewrite consistent. A rollback-only live sample matched both filters exactly
 (1,103 affected documents); native filtering plus key discovery took about 18 ms
 versus 104 ms for per-row aggregation. Tests also preserve arrays, JSON nulls
 and original high-precision values while removing arbitrary unknown keys.
+
+Container maintenance explicitly uses 64 MB work/maintenance memory and disables
+parallel query/index workers for this connection. The host tuning allowed about
+1 GB maintenance memory, which caused parallel VACUUM to exceed container shared
+memory despite ample filesystem space. These session limits avoid resizing or
+restarting the database container. Regression coverage starts with a 1 GB budget
+and parallel maintenance enabled, then checks all four configured limits.

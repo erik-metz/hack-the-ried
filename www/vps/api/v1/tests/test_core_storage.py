@@ -17,6 +17,7 @@ from measurement_migration import install
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'ops'))
 from consolidate_core_storage import (
     compact_reading_chunk,
+    configure_maintenance,
     consolidate_traffic,
     deduplicate,
     maintain,
@@ -134,6 +135,15 @@ class CoreStorageTests(DatabaseCase):
             await sensor_window(self.conn,self.now,self.now+timedelta(hours=1))
         self.assertEqual(await self.scalar('SELECT value FROM readings'),1)
         self.assertEqual(await self.scalar('SELECT count(*) FROM sensor_data'),1)
+
+    async def test_container_maintenance_has_explicit_memory_and_parallelism_limits(self):
+        await self.conn.execute("SET maintenance_work_mem='1GB'")
+        await self.conn.execute('SET max_parallel_maintenance_workers=2')
+        await configure_maintenance(self.conn)
+        self.assertEqual(await self.scalar('SHOW maintenance_work_mem'),'64MB')
+        self.assertEqual(await self.scalar('SHOW work_mem'),'64MB')
+        self.assertEqual(await self.scalar('SHOW max_parallel_maintenance_workers'),'0')
+        self.assertEqual(await self.scalar('SHOW max_parallel_workers_per_gather'),'0')
 
     async def test_metadata_compaction_is_bounded_preserves_values_and_skips_empty_rows(self):
         await self.cutover()

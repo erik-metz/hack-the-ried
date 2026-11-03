@@ -515,6 +515,16 @@ async def compress_history(conn):
     await conn.execute("SELECT add_compression_policy('readings',INTERVAL '7 days',if_not_exists=>true)")
 
 
+async def configure_maintenance(conn):
+    """Keep queries and index maintenance inside the container memory budget."""
+    await conn.execute("SET statement_timeout='10min'")
+    await conn.execute("SET lock_timeout='10s'")
+    await conn.execute('SET max_parallel_workers_per_gather=0')
+    await conn.execute('SET max_parallel_maintenance_workers=0')
+    await conn.execute("SET work_mem='64MB'")
+    await conn.execute("SET maintenance_work_mem='64MB'")
+
+
 async def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--install',action='store_true')
@@ -532,10 +542,7 @@ async def main():
     async with await psycopg.AsyncConnection.connect(host=os.environ['DB_HOST'],port=os.getenv('DB_PORT','5432'),
         dbname=os.environ['DB_NAME'],user=os.environ['DB_USER'],password=os.environ['DB_PASSWORD'],autocommit=True,
         application_name='core_storage_consolidation') as conn:
-        await conn.execute("SET statement_timeout='10min'")
-        await conn.execute("SET lock_timeout='10s'")
-        await conn.execute('SET max_parallel_workers_per_gather=0')
-        await conn.execute("SET work_mem='64MB'")
+        await configure_maintenance(conn)
         if args.install:
             await conn.execute((MIGRATIONS/'20261103_core_storage.sql').read_text())
         await report(conn)
