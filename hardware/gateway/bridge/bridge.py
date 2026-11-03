@@ -50,7 +50,9 @@ class Bridge:
         self.wake = asyncio.Event()
         self.child = None
         self.radio_ready = False
-        self.last_rx = None
+        self.last_rx = self.spool.get('last_rx')
+        if self.last_rx is None:
+            self.last_rx = self.spool.db.execute('SELECT max(received) FROM uplinks').fetchone()[0]
         self.radio_stats = RadioStats()
         self.radio_stats.since = time.time()
         self.sent_config = None
@@ -86,6 +88,7 @@ class Bridge:
                 if kind in ('updf','propdf','jreq'):
                     self.radio_stats.add(message,time.time())
                     self.last_rx=time.time()
+                    self.spool.set('last_rx', self.last_rx)
                 if kind in ('updf','propdf'):
                     self.spool.append(message, self.boot)
                     now = time.time()

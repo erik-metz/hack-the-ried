@@ -28,6 +28,20 @@ class SpoolTests(unittest.TestCase):
             self.assertEqual(json.loads(s.candidate(first)[3])['FCnt'],11)
             s.close()
 
+    def test_last_receive_time_survives_forwarder_restart(self):
+        with tempfile.TemporaryDirectory() as d:
+            b=Bridge(d,'wss://example.test','0102030405060708','synthetic')
+            b.spool.append({'msgtype':'updf'},'previous-boot')
+            stamp=b.spool.db.execute('SELECT max(received) FROM uplinks').fetchone()[0]
+            b.spool.close()
+            b=Bridge(d,'wss://example.test','0102030405060708','synthetic')
+            self.assertEqual(b.last_rx,stamp)
+            b.spool.set('last_rx',stamp+10)
+            b.spool.close()
+            b=Bridge(d,'wss://example.test','0102030405060708','synthetic')
+            self.assertEqual(b.last_rx,stamp+10)
+            b.spool.close()
+
     def test_limits_and_profile_isolation_are_explicit(self):
         with tempfile.TemporaryDirectory() as d:
             now=[100.0]
