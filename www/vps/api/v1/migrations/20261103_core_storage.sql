@@ -168,7 +168,8 @@ BEGIN
  IF TG_OP='UPDATE' THEN
    UPDATE readings r SET value=legacy_numeric(NEW.value),collected_at=NOW()
    FROM core_sensor_aliases a WHERE r.measurement_id=a.measurement_id
-     AND a.sensor_id=OLD.sensor_id AND a.metric=OLD.metric AND a.unit=OLD.unit AND r.observed_at=OLD.timestamp;
+     AND a.sensor_id=OLD.sensor_id AND a.metric=OLD.metric AND a.unit=OLD.unit AND r.observed_at=OLD.timestamp
+     AND r.value IS DISTINCT FROM legacy_numeric(NEW.value);
  ELSE PERFORM store_sensor_sample(NEW.timestamp,NEW.sensor_id,NEW.value,NEW.unit,NEW.metric);
  END IF;
  INSERT INTO sensor_latest(sensor_id,metric,unit,timestamp,value)
@@ -259,7 +260,7 @@ BEGIN
    RAISE EXCEPTION 'Unsupported observation cache';
  END IF;
  IF p_keep_head THEN
-   head_filter:=format(' AND EXISTS(SELECT 1 FROM %s newer WHERE newer.sensor_id=o.sensor_id AND newer.metric=o.metric AND newer.observed_at>o.observed_at)',p_table);
+   head_filter:=format(' AND o.observed_at<(SELECT newer.observed_at FROM %s newer WHERE newer.sensor_id=o.sensor_id AND newer.metric=o.metric ORDER BY newer.observed_at DESC LIMIT 1)',p_table);
  END IF;
  EXECUTE format('SELECT min(o.observed_at) FROM %s o WHERE o.observed_at<NOW()-INTERVAL ''7 days''%s',p_table,head_filter) INTO first_time;
  IF first_time IS NULL THEN RETURN 0; END IF;
@@ -267,11 +268,12 @@ BEGIN
    WITH candidates AS MATERIALIZED (
      SELECT o.sensor_id,o.metric,o.observed_at,o.value FROM %1$s o
      WHERE o.observed_at>=$1 AND o.observed_at<$2%2$s
-     ORDER BY o.observed_at LIMIT 5000
+     ORDER BY o.observed_at LIMIT 5000 FOR UPDATE OF o SKIP LOCKED
    ), keys AS MATERIALIZED (SELECT DISTINCT sensor_id,metric FROM candidates),
+   aliases AS MATERIALIZED (SELECT measurement_id,sensor_id,metric FROM core_sensor_aliases),
    native AS MATERIALIZED (
      SELECT a.sensor_id,a.metric,r.observed_at,r.value FROM keys k
-     JOIN core_sensor_aliases a USING(sensor_id,metric)
+     JOIN aliases a USING(sensor_id,metric)
      JOIN readings r USING(measurement_id)
      WHERE r.observed_at>=$1 AND r.observed_at<$2 AND r.quality='valid'
    ) DELETE FROM %1$s o USING candidates c
@@ -287,6 +289,7 @@ CREATE OR REPLACE FUNCTION maintain_core_storage() RETURNS JSONB LANGUAGE plpgsq
 DECLARE batches BIGINT; attempts BIGINT; payloads BIGINT; uplinks BIGINT; windows BIGINT; cities BIGINT; bikes BIGINT; refs TEXT; fk RECORD;
 BEGIN
  IF NOT core_storage_enabled() THEN RETURN '{"pending_cutover":true}'; END IF;
+ PERFORM pg_advisory_xact_lock(2026110302);
  DELETE FROM telemetry_ingest_batches WHERE batch_id IN(
    SELECT batch_id FROM telemetry_ingest_batches WHERE committed_at<NOW()-INTERVAL '7 days'
    ORDER BY committed_at LIMIT 10000);
@@ -303,7 +306,7 @@ BEGIN
  GET DIAGNOSTICS attempts=ROW_COUNT;
  -- Current snapshots and a short ingest window are caches, never a second
  -- unlimited measurement history. Preserve untransferred numeric records.
- cities:=expire_observation_cache('smartcity_observations');
+ cities:=expire_observation_cache('smartcity_observations',true);
  bikes:=expire_observation_cache('nextbike_observations',true);
  IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema()
      AND table_name='sensor_latest' AND column_name='cached_at') THEN

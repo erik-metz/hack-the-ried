@@ -231,6 +231,17 @@ Compatibility deduplication maps eligible native definitions once, seeks occupie
 candidate ranges by primary key, and proves exact matches in bounded hour windows.
 Each deletion uses a materialized native set for that window. Unmatched values
 and separate native channels remain untouched; completed windows are resumable.
+Both definition/alias inputs are materialized once before matching, avoiding a
+repeated complete definition scan for each gateway alias in the planner's join.
+
+Smart City and Nextbike keep one current cache row per metric, including inactive
+stations. Historical expiry uses primary-key head seeks and skips rows currently
+locked by collectors, avoiding cache recreation and acquisition lock contention.
+Compatibility updates skip unchanged numeric values while retaining the legacy
+writer's successful row count. Tests use concurrent row locks and rejecting
+physical-update triggers to cover these paths.
+Hourly and bulk retention calls share a transaction advisory lock so their
+receipt deletions cannot compete for the same batch in different row orders.
 
 ## Bounded full-history proof
 

@@ -153,6 +153,8 @@ class CoreStorageTests(DatabaseCase):
         self.assertEqual(missing,[])
 
     async def test_cache_expiry_is_bounded_preserves_head_and_requires_exact_coverage(self):
+        import psycopg
+
         await self.cutover()
         await self.write(7)
         old=self.now-timedelta(days=30)
@@ -162,8 +164,16 @@ class CoreStorageTests(DatabaseCase):
         await self.conn.execute("""INSERT INTO nextbike_observations(sensor_id,metric,observed_at,value,first_fetched_at)
             SELECT 'test','temperature',%s+i*interval '1 millisecond',7,%s
             FROM generate_series(0,5001) i""",(old,self.now))
-        self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),5000)
-        self.assertEqual(await self.scalar('SELECT count(*) FROM nextbike_observations'),2)
+        await self.conn.execute("SET lock_timeout='250ms'")
+        async with (
+            await psycopg.AsyncConnection.connect(**self.db,autocommit=True) as locked,
+            locked.transaction(),
+        ):
+            await locked.execute("SELECT 1 FROM nextbike_observations WHERE observed_at=%s FOR UPDATE",(old,))
+            self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),5000)
+            self.assertEqual(await self.scalar('SELECT count(*) FROM nextbike_observations'),2)
+            self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),0)
+        await self.conn.execute('SET lock_timeout=DEFAULT')
         self.assertEqual(await self.scalar("SELECT expire_observation_cache('nextbike_observations',true)"),1)
         self.assertEqual(await self.scalar('SELECT count(*) FROM nextbike_observations'),1)
         await self.conn.execute("""INSERT INTO nextbike_observations(sensor_id,metric,observed_at,value,first_fetched_at)
@@ -173,6 +183,35 @@ class CoreStorageTests(DatabaseCase):
         result=await self.scalar('SELECT maintain_core_storage()')
         self.assertIn('expired_smartcity_cache',result)
         self.assertIn('expired_nextbike_cache',result)
+
+    async def test_smartcity_expiry_keeps_one_current_cache_row_per_metric(self):
+        await self.cutover()
+        old=self.now-timedelta(days=30)
+        await self.conn.execute("""INSERT INTO smartcity_sources(sensor_id,tenant,entity_id,entity_type,source_url,source_name,last_fetched_at)
+            VALUES('test','fixture','fixture','Sensor','https://example.org','Fixture',%s)""",(self.now,))
+        await self.conn.execute("INSERT INTO smartcity_metrics VALUES('test','temperature','temperature','C')")
+        for stamp,value in [(old,7),(old+timedelta(hours=1),8)]:
+            await self.conn.execute("""SELECT write_measurement('sensor:test','temperature','C','test','observed',
+                '{}',%s,%s,%s)""",(stamp,value,self.now))
+            await self.conn.execute("""INSERT INTO smartcity_observations(sensor_id,metric,observed_at,value,payload_hash,first_fetched_at,last_fetched_at,query_ids)
+                VALUES('test','temperature',%s,%s,'fixture',%s,%s,ARRAY['fixture'])""",(stamp,value,self.now,self.now))
+        result=await self.scalar('SELECT maintain_core_storage()')
+        self.assertEqual(result['expired_smartcity_cache'],1)
+        self.assertEqual(await self.scalar('SELECT value FROM smartcity_observations'),8)
+        self.assertEqual((await self.scalar('SELECT maintain_core_storage()'))['expired_smartcity_cache'],0)
+
+    async def test_unchanged_compatibility_update_keeps_native_row_untouched(self):
+        await self.write(1)
+        await self.cutover()
+        await self.conn.execute("""CREATE FUNCTION pg_temp.reject_redundant_update() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'Physical update attempted'; END $$;
+            CREATE TRIGGER reject_redundant_update BEFORE UPDATE ON readings
+            FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_redundant_update()""")
+        result=await self.conn.execute("UPDATE sensor_data SET value=1 WHERE sensor_id='test' AND timestamp=%s",(self.now,))
+        self.assertEqual(result.rowcount,1)
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),1)
+        with self.assertRaisesRegex(RaiseException,'Physical update attempted'):
+            await self.conn.execute("UPDATE sensor_data SET value=2 WHERE sensor_id='test' AND timestamp=%s",(self.now,))
 
     async def test_civic_dashboard_reuses_native_counter_without_deleting_it(self):
         from importlib.util import module_from_spec, spec_from_file_location

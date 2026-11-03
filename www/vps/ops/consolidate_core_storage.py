@@ -345,12 +345,17 @@ async def deduplicate(conn):
     await conn.execute('CREATE TEMP TABLE IF NOT EXISTS core_dedup_pairs(old_mid bigint,native_mid bigint,PRIMARY KEY(old_mid,native_mid)) ON COMMIT PRESERVE ROWS')
     await conn.execute('CREATE TEMP TABLE IF NOT EXISTS core_dedup_keys(old_mid bigint PRIMARY KEY,first_at timestamptz,last_at timestamptz) ON COMMIT PRESERVE ROWS')
     await conn.execute('TRUNCATE pg_temp.core_dedup_pairs,pg_temp.core_dedup_keys')
-    await conn.execute("""INSERT INTO core_dedup_pairs
-        SELECT DISTINCT old.id,a.measurement_id FROM measurement_definitions old
-        JOIN core_sensor_aliases a ON a.sensor_id=substr(old.entity_id,8) AND a.metric=old.metric AND a.unit=old.unit
-        WHERE old.basis='unknown' AND old.dimensions='{}' AND old.entity_id LIKE 'sensor:%'
-          AND old.source_id='legacy-sensor:'||substr(old.entity_id,8) AND a.basis<>'unknown'
-          AND (a.source_id=old.source_id OR a.source_id IN('environment-weather','ttnmapper','maengelmelder-ried'))""")
+    async with conn.transaction():
+        await conn.execute('SET LOCAL enable_nestloop=off')
+        await conn.execute("""WITH eligible AS MATERIALIZED (
+            SELECT id,substr(entity_id,8) AS sensor_id,metric,unit,source_id FROM measurement_definitions
+            WHERE basis='unknown' AND dimensions='{}' AND entity_id LIKE 'sensor:%'
+              AND source_id='legacy-sensor:'||substr(entity_id,8)
+        ), aliases AS MATERIALIZED (
+            SELECT measurement_id,sensor_id,metric,unit,source_id FROM core_sensor_aliases WHERE basis<>'unknown'
+        ) INSERT INTO core_dedup_pairs SELECT DISTINCT old.id,a.measurement_id
+        FROM eligible old JOIN aliases a USING(sensor_id,metric,unit)
+        WHERE a.source_id=old.source_id OR a.source_id IN('environment-weather','ttnmapper','maengelmelder-ried')""")
     await conn.execute('ANALYZE pg_temp.core_dedup_pairs')
     has_timescale=(await (await conn.execute("SELECT to_regclass('timescaledb_information.chunks') IS NOT NULL")).fetchone())[0]
     chunks=await (await conn.execute("""SELECT chunk_schema,chunk_name FROM timescaledb_information.chunks
