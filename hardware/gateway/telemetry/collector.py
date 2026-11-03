@@ -127,7 +127,7 @@ class Collector:
         self.sequence = self.checkpoint.get("sequence", 0)
         self.previous_states = self.checkpoint.get("states", {})
         self.events = []
-        if self.checkpoint.get("boot") != self.boot:
+        if self.checkpoint.get("boot") and self.checkpoint["boot"] != self.boot:
             self.event("boot", {"boot_id": self.boot})
         self.duration = {s: [0.0, 0.0] for s in STATES}
         self.last_tick = None

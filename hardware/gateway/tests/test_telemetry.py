@@ -64,6 +64,17 @@ class TelemetryTests(unittest.TestCase):
                 obj = collector.Collector({"health_file": str(path)}, box)
             self.assertEqual(obj.health(100), ({}, 90))
 
+    def test_first_install_is_not_a_pi_reboot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            box = collector.Outbox(Path(directory) / "q.db")
+            with patch.object(collector, "read", return_value="new-boot"):
+                first = collector.Collector({}, box)
+                self.assertEqual(first.events, [])
+                with box.db:
+                    box.set("checkpoint", {"boot": "old-boot"})
+                reboot = collector.Collector({}, box)
+                self.assertEqual([e["kind"] for e in reboot.events], ["boot"])
+
     def test_bounded_queue_reports_loss(self):
         with tempfile.TemporaryDirectory() as directory:
             box = collector.Outbox(Path(directory) / "q.db")
