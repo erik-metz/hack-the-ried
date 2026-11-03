@@ -14,6 +14,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python -c "import rasterio; import numpy; from PIL import Image"
 
-COPY . .
+COPY v1/ ./
+
+# CI uses www/vps/api as context; keep the ASGI module and migrations in /app.
+RUN python -c "import main; import gateway_maintenance; import endpoints.gateways"
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
