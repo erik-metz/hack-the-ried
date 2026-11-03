@@ -271,3 +271,9 @@ the exact definition/time contains the exact valid old value and predates the
 current accepted collection time. It never overwrites the current observation.
 Unexplained differences still abort retirement. This uses the old revision table
 only during migration; retirement removes that table and creates no new history.
+
+Cache expiry chooses its time bounds from at most 5,001 oldest eligible keys,
+then locks at most 5,000 rows. This also advances through sparse old history
+without thousands of almost-empty hourly passes. The exact native-value proof
+uses the same bounded time interval; unmatched values remain untouched. A live
+rollback-only profile verified 5,000 old SmartCity matches in 1.85 seconds.

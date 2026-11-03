@@ -157,12 +157,12 @@ class CoreStorageTests(DatabaseCase):
 
         await self.cutover()
         await self.write(7)
-        old=self.now-timedelta(days=30)
+        old=self.now-timedelta(days=400)
         await self.conn.execute("""INSERT INTO readings(measurement_id,observed_at,value)
-            SELECT d.id,%s+i*interval '1 millisecond',7 FROM measurement_definitions d
+            SELECT d.id,%s+i*interval '1 hour',7 FROM measurement_definitions d
             CROSS JOIN generate_series(0,5001) i WHERE d.metric='temperature'""",(old,))
         await self.conn.execute("""INSERT INTO nextbike_observations(sensor_id,metric,observed_at,value,first_fetched_at)
-            SELECT 'test','temperature',%s+i*interval '1 millisecond',7,%s
+            SELECT 'test','temperature',%s+i*interval '1 hour',7,%s
             FROM generate_series(0,5001) i""",(old,self.now))
         await self.conn.execute("SET lock_timeout='250ms'")
         async with (

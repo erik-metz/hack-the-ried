@@ -254,7 +254,7 @@ CREATE INDEX IF NOT EXISTS smartcity_cache_time ON smartcity_observations(observ
 CREATE INDEX IF NOT EXISTS nextbike_cache_time ON nextbike_observations(observed_at);
 CREATE OR REPLACE FUNCTION expire_observation_cache(p_table REGCLASS,p_keep_head BOOLEAN DEFAULT FALSE)
 RETURNS BIGINT LANGUAGE plpgsql SET extra_float_digits=3 AS $$
-DECLARE first_time TIMESTAMPTZ; removed BIGINT; head_filter TEXT:='';
+DECLARE first_time TIMESTAMPTZ; last_time TIMESTAMPTZ; removed BIGINT; head_filter TEXT:='';
 BEGIN
  IF p_table NOT IN('smartcity_observations'::regclass,'nextbike_observations'::regclass) THEN
    RAISE EXCEPTION 'Unsupported observation cache';
@@ -262,7 +262,7 @@ BEGIN
  IF p_keep_head THEN
    head_filter:=format(' AND o.observed_at<(SELECT newer.observed_at FROM %s newer WHERE newer.sensor_id=o.sensor_id AND newer.metric=o.metric ORDER BY newer.observed_at DESC LIMIT 1)',p_table);
  END IF;
- EXECUTE format('SELECT min(o.observed_at) FROM %s o WHERE o.observed_at<NOW()-INTERVAL ''7 days''%s',p_table,head_filter) INTO first_time;
+ EXECUTE format('SELECT min(observed_at),max(observed_at) FROM (SELECT o.observed_at FROM %s o WHERE o.observed_at<NOW()-INTERVAL ''7 days''%s ORDER BY o.observed_at LIMIT 5001) bounded',p_table,head_filter) INTO first_time,last_time;
  IF first_time IS NULL THEN RETURN 0; END IF;
  EXECUTE format($query$
    WITH candidates AS MATERIALIZED (
@@ -280,7 +280,7 @@ BEGIN
    WHERE o.sensor_id=c.sensor_id AND o.metric=c.metric AND o.observed_at=c.observed_at
      AND EXISTS(SELECT 1 FROM native n WHERE n.sensor_id=c.sensor_id AND n.metric=c.metric
        AND n.observed_at=c.observed_at AND n.value=legacy_numeric(c.value))
- $query$,p_table,head_filter) USING first_time,LEAST(first_time+INTERVAL '1 hour',NOW()-INTERVAL '7 days');
+ $query$,p_table,head_filter) USING first_time,LEAST(last_time+INTERVAL '1 microsecond',NOW()-INTERVAL '7 days');
  GET DIAGNOSTICS removed=ROW_COUNT;
  RETURN removed;
 END $$;
