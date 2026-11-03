@@ -521,6 +521,8 @@ async def compress_history(conn):
                 raise ValueError('Compression changed an observation; transaction rolled back')
         print(json.dumps({'compressed_chunk':table,'verified_rows':before[0]}),flush=True)
     await conn.execute("SELECT add_compression_policy('readings',INTERVAL '7 days',if_not_exists=>true)")
+    job=(await (await conn.execute('SELECT ensure_core_storage_retention_job()')).fetchone())[0]
+    print(json.dumps({'scheduled_core_retention_job':job}),flush=True)
 
 
 async def configure_maintenance(conn):

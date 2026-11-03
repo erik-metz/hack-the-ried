@@ -361,6 +361,31 @@ BEGIN
  RETURN jsonb_build_object('expired_batch_receipts',batches,'expired_attempts',attempts,'unused_receipts',payloads,'expired_ttn_receipts',uplinks,'expired_window_caches',windows,'expired_smartcity_cache',cities,'expired_nextbike_cache',bikes);
 END $$;
 
+-- Retention must not wait for network/file archive maintenance in a collector.
+CREATE OR REPLACE FUNCTION core_storage_retention_job(job_id INTEGER,config JSONB)
+RETURNS VOID LANGUAGE plpgsql SET search_path FROM CURRENT
+SET max_parallel_workers_per_gather=0 SET work_mem='64MB' SET lock_timeout='5s' AS $$
+BEGIN
+ PERFORM maintain_core_storage();
+END $$;
+
+CREATE OR REPLACE FUNCTION ensure_core_storage_retention_job() RETURNS INTEGER
+LANGUAGE plpgsql SET search_path FROM CURRENT AS $$
+DECLARE scheduled_job INTEGER;
+BEGIN
+ IF to_regclass('timescaledb_information.jobs') IS NULL THEN RETURN NULL; END IF;
+ PERFORM pg_advisory_xact_lock(2026110303);
+ SELECT job_id INTO scheduled_job FROM timescaledb_information.jobs
+ WHERE proc_schema=current_schema() AND proc_name='core_storage_retention_job';
+ IF scheduled_job IS NULL THEN
+   SELECT add_job('core_storage_retention_job'::regproc,INTERVAL '5 minutes',config=>'{}'::jsonb)
+     INTO scheduled_job;
+ END IF;
+ PERFORM alter_job(scheduled_job,schedule_interval=>INTERVAL '5 minutes',
+   max_runtime=>INTERVAL '2 minutes',retry_period=>INTERVAL '1 minute',scheduled=>true);
+ RETURN scheduled_job;
+END $$;
+
 -- Explicit migration-only batch refresh. pg_temp.core_inserted contains just
 -- rows inserted in this transaction, never a retained second history.
 CREATE OR REPLACE FUNCTION refresh_core_transfer_heads() RETURNS VOID LANGUAGE plpgsql AS $$

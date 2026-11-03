@@ -243,7 +243,7 @@ locked by collectors, avoiding cache recreation and acquisition lock contention.
 Compatibility updates skip unchanged numeric values while retaining the legacy
 writer's successful row count. Tests use concurrent row locks and rejecting
 physical-update triggers to cover these paths.
-Hourly and bulk retention calls share a transaction advisory lock so their
+Scheduled and bulk retention calls share a transaction advisory lock so their
 receipt deletions cannot compete for the same batch in different row orders.
 
 ## Bounded full-history proof
@@ -284,7 +284,7 @@ rollback-only profile verified 5,000 old SmartCity matches in 1.85 seconds.
 The one-time retention runner stops once every category returns a partial batch.
 Active acquisition continuously moves the seven-day expiry boundary, so requiring
 all counters to be exactly zero can loop indefinitely after the backlog is gone.
-The hourly worker continues collecting the small newly expired tail.
+Scheduled maintenance continues collecting the small newly expired tail.
 
 Metadata compaction commits occupied hourly windows separately. A full weekly
 block can exceed the maintenance statement timeout; bounded commits preserve
@@ -323,3 +323,17 @@ therefore prevented physical historical maintenance. The scoped setting keeps
 new collection away from unrelated chunk locks and restores the caller setting
 on return. Regression coverage repeats writes beyond the generic-plan threshold
 and checks accepted values, absent revision history and caller GUC restoration.
+
+Core retention has its own Timescale job every five minutes, with a two-minute
+runtime cap, one-minute retry after failures and a five-second lock budget. It
+uses the same verified deletion function and advisory serialization as manual
+cleanup. This avoids coupling expiry to webcam network/file maintenance. The
+hourly registry call remains a harmless fallback. Job installation is idempotent
+and runs after successful historical compression; plain Postgres installations
+return no job ID. Integration coverage invokes the real job entrypoint and
+checks expired receipts are removed while accepted readings remain unchanged.
+
+The production database also defaults new connections to 64 MB maintenance
+memory and zero parallel maintenance workers. These database-specific settings
+keep future automatic compression/index maintenance inside container shared
+memory without restarting acquisition. Normal query parallelism remains enabled.

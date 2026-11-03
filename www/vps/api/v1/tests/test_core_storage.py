@@ -196,6 +196,19 @@ class CoreStorageTests(DatabaseCase):
         self.assertEqual(await self.scalar('SELECT sum(revision) FROM readings'),0)
         self.assertEqual(await self.scalar("SELECT count(*) FROM readings WHERE quality='invalid'"),0)
 
+    async def test_scheduled_retention_expires_receipts_without_archive_network_work(self):
+        await self.write(7)
+        await self.cutover()
+        await self.conn.execute("INSERT INTO telemetry_ingest_batches(batch_id,payload_hash,committed_at) VALUES('scheduled-old','hash',NOW()-interval '30 days')")
+        await self.conn.execute("SELECT core_storage_retention_job(0,'{}')")
+        self.assertEqual(await self.scalar('SELECT count(*) FROM telemetry_ingest_batches'),0)
+        self.assertEqual(await self.scalar('SELECT value FROM readings'),7)
+        config=await self.scalar("SELECT proconfig FROM pg_proc WHERE proname='core_storage_retention_job' AND pronamespace=current_schema()::regnamespace")
+        self.assertIn('max_parallel_workers_per_gather=0',config)
+        self.assertIn('work_mem=64MB',config)
+        if not await self.scalar("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname='timescaledb')"):
+            self.assertIsNone(await self.scalar('SELECT ensure_core_storage_retention_job()'))
+
     async def test_expiring_receipts_and_retry_do_not_duplicate_data(self):
         await self.cutover()
         old=self.now-timedelta(days=30)
