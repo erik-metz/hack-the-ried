@@ -250,9 +250,9 @@ export default function SiteHeader({
                       aria-expanded={desktopDropdownOpen}
                       aria-controls="desktop-regionalatlas-links"
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
+                        "flex cursor-pointer items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap aria-expanded:bg-emerald-500/15 aria-expanded:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
                         isRegionalatlasActive
-                          ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm shadow-emerald-500/10"
+                          ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm shadow-emerald-500/10 hover:bg-emerald-500/25"
                           : "text-slate-300 hover:text-emerald-300 hover:bg-slate-800/60"
                       )}
                     >
@@ -467,7 +467,7 @@ export default function SiteHeader({
                   aria-expanded={mobileAtlasOpen}
                   aria-controls="mobile-regionalatlas-links"
                   className={cn(
-                    "flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
+                    "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors hover:bg-slate-800/60 aria-expanded:bg-emerald-500/15 aria-expanded:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
                     isRegionalatlasActive
                       ? "text-emerald-300"
                       : "text-slate-200 hover:text-emerald-400"
