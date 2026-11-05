@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Informationen zur Verarbeitung personenbezogener Daten auf HackTheRied.",
 };
 
-const updatedAt = "30. Oktober 2026";
+const updatedAt = "5. November 2026";
 
 export default function DatenschutzPage() {
   return (
@@ -23,7 +23,7 @@ export default function DatenschutzPage() {
 
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">Verantwortliche Stelle und Kontakt</h2>
-            <p className="text-slate-300 leading-relaxed">HackTheRied ist eine ehrenamtliche Bürgerinitiative im Kulturzentrum KAMÜ. Verantwortlich und Ansprechpartner für Datenschutzanfragen ist die KamÜ GbR, Industriestraße 11, 68642 Bürstadt.</p>
+            <p className="text-slate-300 leading-relaxed">HackTheRied ist eine ehrenamtliche Bürgerinitiative ohne kommerzielle Absicht. Verantwortlich und Ansprechpartner für Datenschutzanfragen ist Erik Metz, c/o KAMÜ – Kultur am Übergang, Industriestraße 11, 68642 Bürstadt.</p>
             <p><a className="text-emerald-300 underline underline-offset-2 hover:text-emerald-200" href="mailto:info@kamue.me">info@kamue.me</a></p>
           </section>
 

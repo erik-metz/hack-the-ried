@@ -9,6 +9,7 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
           <p className="flex items-center gap-2"><Image src="/icon.png" alt="" width={28} height={28} className="rounded-lg" />HackTheRied · Ehrenamtlich. Offen. Für die Region.</p>
           <nav aria-label="Weiterführende Links" className="flex flex-wrap gap-x-5 gap-y-3">
             <a href="mailto:info@kamue.me" className="hover:text-emerald-300">Kontakt</a>
+            <Link href="/impressum" className="hover:text-emerald-300">Impressum</Link>
             <Link href="/datenschutz" className="hover:text-emerald-300">Datenschutz</Link>
             <Link href="/quellen" className="hover:text-emerald-300">Quellen</Link>
             <Link href="/branding" className="hover:text-emerald-300">Markenportal</Link>
@@ -34,6 +35,10 @@ export default function SiteFooter({ compact = false }: { compact?: boolean }) {
             <a href="mailto:info@kamue.me" className="hover:text-slate-200 transition-colors">
               Kontakt
             </a>
+            <span>•</span>
+            <Link href="/impressum" className="hover:text-slate-200 transition-colors">
+              Impressum
+            </Link>
             <span>•</span>
             <Link href="/datenschutz" className="hover:text-slate-200 transition-colors">
               Datenschutz
