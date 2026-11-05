@@ -16,7 +16,6 @@ import {
   LayoutGrid,
   Menu,
   Radio,
-  ShieldCheck,
   Users,
   Wrench,
   X,
@@ -123,12 +122,6 @@ const SECONDARY_NAV_ITEMS: NavItem[] = [
     label: "Quellen",
     shortLabel: "Quellen",
     icon: FileText,
-  },
-  {
-    href: "/admin",
-    label: "Admin-Bereich",
-    shortLabel: "Admin",
-    icon: ShieldCheck,
   },
 ];
 
