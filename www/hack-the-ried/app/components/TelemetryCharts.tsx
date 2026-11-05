@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { hasCoordinates, parkingSummary, bikeSummary, type StationNode } from "@/lib/mapData";
-import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartScale, formatMeasurement, isCountMetric, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel, measurementGroupDescription } from "@/lib/telemetryData";
+import { seriesKey, metricLabel, metricDescription, unitLabel, mergeReadings, crossingStateLabel, chartAxis, validChartValue, formatMeasurement, measurementRange, measurementGroup, measurementCardGroups, measurementGroupLabel, measurementGroupDescription } from "@/lib/telemetryData";
 import { pollVisible } from "@/lib/visiblePolling";
 import { Activity } from "lucide-react";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
@@ -76,17 +76,15 @@ export default function TelemetryCharts({
   const parking = parkingSummary(readings);
   const bikes = bikeSummary(readings);
   const active = readings.find(reading => seriesKey(reading) === selectedSeries) ?? (mobilityEntity ? readings.find(r => r.metric === "crossing_state" || r.metric === "speed") : undefined) ?? readings[0] ?? (mobilityEntity && data?.history.length ? { metric: data.history[0].metric, unit: data.history[0].unit, value: 0, timestamp: data.history[0].bucket } : undefined);
-  const historyFor = (reading: Reading) => (data?.history ?? []).filter(bucket => seriesKey(bucket) === seriesKey(reading) && bucket.avg_value !== null).sort((a, b) => Date.parse(a.bucket) - Date.parse(b.bucket));
+  const historyFor = (reading: Reading) => (data?.history ?? []).filter(bucket => seriesKey(bucket) === seriesKey(reading)).sort((a, b) => Date.parse(a.bucket) - Date.parse(b.bucket));
   const group = active ? measurementGroup(active) : undefined;
   const groupedReadings = group ? readings.filter(reading => measurementGroup(reading) === group) : [];
   const chartReadings = groupedReadings.length > 1 && new Set(groupedReadings.map(reading => reading.unit)).size <= 2 ? groupedReadings : active ? [active] : [];
   const chartSeries = chartReadings.map(reading => ({ reading, history: historyFor(reading) })).filter(series => series.history.length > 0);
   const units = [...new Set(chartSeries.map(series => series.reading.unit))];
-  const scales = units.map(unit => {
-    const unitSeries = chartSeries.filter(series => series.reading.unit === unit);
-    const scaleReading = unitSeries.find(series => isCountMetric(series.reading))?.reading ?? unitSeries[0]?.reading ?? active!;
-    return chartScale(scaleReading, unitSeries.flatMap(series => series.history.map(bucket => bucket.avg_value!)), fuelEntity || unit === "€/l");
-  });
+  const axes = units.map(unit => chartAxis(chartSeries.filter(series => series.reading.unit === unit)
+    .map(series => ({ reading: series.reading, values: series.history.map(bucket => bucket.avg_value).filter((value): value is number => validChartValue(series.reading, value)) }))));
+  const invalidSamples = chartSeries.reduce((count, series) => count + series.history.filter(bucket => bucket.avg_value !== null && !validChartValue(series.reading, bucket.avg_value)).length, 0);
   const start = data ? Date.parse(data.start) : 0;
   const end = data ? Date.parse(data.end) : 1;
   const chartDefinitions = chartSeries.map((series, index) => ({
@@ -99,7 +97,7 @@ export default function TelemetryCharts({
     for (const bucket of series.history) {
       const timestamp = Date.parse(bucket.bucket);
       const row = rows.get(timestamp) ?? { timestamp };
-      row[`series${index}`] = bucket.avg_value;
+      row[`series${index}`] = validChartValue(series.reading, bucket.avg_value) ? bucket.avg_value : null;
       rows.set(timestamp, row);
     }
     return rows;
@@ -236,6 +234,7 @@ export default function TelemetryCharts({
           {active.metric.startsWith("traffic_") && <p className="mt-2 text-xs text-amber-200">Stunden-/Tagessummen der Quelle, keine einzelnen Verkehrserfassungen. Aufeinanderfolgende Meldungen werden nicht addiert. Exakte Intervallgrenzen meldet die Quelle nicht.</p>}
           {data?.historyUnavailable && <p role="status" className="mt-2 text-sm text-amber-200">Der Zeitverlauf konnte nicht geladen werden. Aktuelle Werte bleiben sichtbar.</p>}
           {data?.historyTruncated && <p className="mt-2 text-sm text-amber-200">Der Verlauf ist auf die neuesten verfügbaren Meldungen dieses Zeitraums begrenzt.</p>}
+          {invalidSamples > 0 && <p role="status" className="mt-2 text-sm text-amber-200">{invalidSamples} ungültige Messwerte werden als Datenlücken dargestellt.</p>}
           {chartData.length === 0 ? <p className="py-10 text-center text-slate-400">Keine Messwerte in den letzten {data?.historyDays === 30 ? "30 Tagen" : "24 Stunden"}.</p> : <>
             <ChartContainer className="mt-5 h-[320px] sm:h-[360px]">
               <AreaChart data={chartData} margin={{ top: 8, right: units.length > 1 ? 8 : 18, bottom: 4, left: 0 }}>
@@ -260,7 +259,6 @@ export default function TelemetryCharts({
                   minTickGap={28}
                 />
                 {units.map((unit, index) => {
-                  const reading = chartSeries.find(series => series.reading.unit === unit)?.reading ?? active;
                   return <YAxis
                     key={unit}
                     yAxisId={`unit-${index}`}
@@ -270,9 +268,10 @@ export default function TelemetryCharts({
                     tickLine={false}
                     tickMargin={8}
                     tick={{ fill: seriesColors[index % seriesColors.length], fontSize: 11 }}
-                    domain={active.metric === "crossing_state" ? [0, 2] : scales[index]}
-                    ticks={active.metric === "crossing_state" ? [0, 1, 2] : undefined}
-                    tickFormatter={value => active.metric === "crossing_state" ? crossingStateLabel(Number(value)) : number(Number(value), reading)}
+                    domain={axes[index].domain}
+                    allowDecimals={!axes[index].integer}
+                    ticks={axes[index].ticks}
+                    tickFormatter={value => active.metric === "crossing_state" ? crossingStateLabel(Number(value)) : Number(value).toLocaleString("de-DE", { maximumFractionDigits: axes[index].digits })}
                     label={{ value: unitLabel(unit), angle: index === 0 ? -90 : 90, position: index === 0 ? "insideLeft" : "insideRight", fill: seriesColors[index % seriesColors.length], fontSize: 11 }}
                   />;
                 })}

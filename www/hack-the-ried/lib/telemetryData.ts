@@ -179,7 +179,7 @@ export function metricPrecision(reading: { metric: string; unit: string }): numb
   if (reading.metric === "bme688_temperature" || reading.metric === "bme688_humidity") return 2;
   if (reading.metric === "bme688_gas_resistance") return 0;
   if (reading.metric === "sound_level") return 1;
-  if (COUNT_METRICS.has(reading.metric) || reading.metric.startsWith("traffic_")) return 0;
+  if (isCountMetric(reading)) return 0;
   if (reading.metric === "crossing_state") return 0;
   if (reading.unit === "€/l") return 3;
   if (["°C", "celsius", "CEL", "%", "km/h", "m/s", "m", "mm", "hPa", "dBm"].includes(reading.unit)) return 1;
@@ -187,15 +187,48 @@ export function metricPrecision(reading: { metric: string; unit: string }): numb
 }
 
 export function isCountMetric(reading: { metric: string; unit: string }): boolean {
+  if (["waveform", "pgv", "rms"].includes(reading.metric.toLowerCase())) return false;
   return COUNT_METRICS.has(reading.metric) || reading.metric.startsWith("traffic_") ||
     ["count", "counts", "reports"].includes(reading.unit);
 }
 
+type Measurement = { metric: string; unit: string };
+const normalizeMetric = (reading: Measurement) => reading.metric.toLowerCase().replace(/[.-]/g, "_");
+
+/** Semantic limits only. nFK can exceed 100%; EVI/SAVI are not ND ratios. */
+export function metricBounds(reading: Measurement): [number, number] {
+  const metric = normalizeMetric(reading);
+  if (metric === "crossing_state") return [0, 2];
+  if (metric === "emergency_duty") return [0, 1];
+  if (metric === "latitude") return [-90, 90];
+  if (metric === "longitude") return [-180, 180];
+  if (metric === "course") return [0, 360];
+  if (["ndvi_mean", "ndmi_mean", "ndwi_mean"].includes(metric)) return [-1, 1];
+  if (reading.unit === "dBFS") return [-Infinity, 0];
+  if (metric === "soil_moisture_nfk" || metric === "edu_utilization" || reading.unit === "% nFK") return [0, Infinity];
+  if (["%", "P1"].includes(reading.unit)) return [0, 100];
+  // Signed quantities must take precedence over shared units such as m or m/s.
+  if (/temperature|dew_point|altitude|vertical_rate/.test(metric) ||
+    ["water_level", "water_level_delta", "river_gauge_m", "groundwater_depth_m", "day_ahead_price", "current", "power", "shunt_voltage", "waveform", "evi_mean", "savi_mean"].includes(metric)) return [-Infinity, Infinity];
+  if (isCountMetric(reading) || /^(particle_|pm\d|fuel_|soil_tension)/.test(metric) ||
+    ["groundwater_nitrate_mg_l", "pgv", "rms", "humidity", "relative_humidity", "precipitation", "precipitation_probability", "pressure", "co2", "no2", "o3", "so2", "air_quality_index", "ambient_light", "illuminance", "uv_index", "uv_intensity", "ltr390_uv_raw", "ltr390_als_raw", "sgp41_voc_index", "sgp41_nox_index", "bme688_co2_equivalent", "bme688_bvoc_equivalent", "bme688_gas_resistance", "soil_moisture", "soil_moisture_30cm", "soil_moisture_60cm", "water_surface_distance", "speed", "free_flow_speed", "wind_speed", "delay", "closure_duration", "total_load", "generation_power", "bus_voltage"].includes(metric) ||
+    ["ppm", "ppb", "µg/m³", "ug/m3", "µm", "#/cm³", "lux", "lx", "hPa", "Pa", "mm", "€/l"].includes(reading.unit)) return [0, Infinity];
+  return [-Infinity, Infinity];
+}
+
+export function validChartValue(reading: Measurement, value: number | null): value is number {
+  const [lower, upper] = metricBounds(reading);
+  return value !== null && Number.isFinite(value) && value >= lower && value <= upper;
+}
+
 export function chartScale(reading: { metric: string; unit: string }, values: number[], fuel = false): [number, number] {
   if (reading.metric === "crossing_state") return [0, 2];
-  if (!values.length) return [0, 1];
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  values = values.filter(value => validChartValue(reading, value));
+  const [boundMin, boundMax] = metricBounds(reading);
+  if (!values.length) return [Math.max(boundMin, Math.min(0, boundMax - 1)), Math.min(boundMax, Math.max(1, boundMin + 1))];
+  let min = Infinity;
+  let max = -Infinity;
+  for (const value of values) { min = Math.min(min, value); max = Math.max(max, value); }
 
   const integer = isCountMetric(reading);
   const span = max - min;
@@ -210,7 +243,7 @@ export function chartScale(reading: { metric: string; unit: string }, values: nu
   let lower = min - padding;
   let upper = max + padding;
   if (integer) {
-    lower = Math.floor(lower);
+    lower = 0;
     upper = Math.ceil(upper);
     if (upper - lower < 2) upper = lower + 2;
   } else {
@@ -220,7 +253,37 @@ export function chartScale(reading: { metric: string; unit: string }, values: nu
       upper = center + minimumSpan / 2;
     }
   }
-  return [lower, upper];
+  if (lower < boundMin) { upper += boundMin - lower; lower = boundMin; }
+  if (upper > boundMax) { lower -= upper - boundMax; upper = boundMax; }
+  return [Math.max(boundMin, lower), Math.min(boundMax, upper)];
+}
+
+/** Each series contributes its semantic bounds; axis precision follows tick spacing. */
+export function chartAxis(series: { reading: Measurement; values: number[] }[]) {
+  if (!series.length) return { domain: [0, 1] as [number, number], ticks: [0, 1], digits: 0, integer: false };
+  if (series.every(({ reading }) => normalizeMetric(reading) === "emergency_duty")) {
+    return { domain: [0, 1] as [number, number], ticks: [0, 1], digits: 0, integer: true };
+  }
+  if (series.every(({ reading }) => normalizeMetric(reading) === "crossing_state")) {
+    return { domain: [0, 2] as [number, number], ticks: [0, 1, 2], digits: 0, integer: true };
+  }
+  const ranges = series.map(({ reading, values }) => chartScale(reading, values));
+  const lower = Math.min(...ranges.map(range => range[0]));
+  const upper = Math.max(...ranges.map(range => range[1]));
+  const integer = series.every(({ reading }) => isCountMetric(reading));
+  const rawStep = (upper - lower) / 5;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const step = Math.max(integer ? 1 : 0, ([1, 2, 5, 10].find(value => value * magnitude >= rawStep) ?? 10) * magnitude);
+  const digits = Math.max(0, -Math.floor(Math.log10(step)));
+  const clean = (value: number) => Number(value.toPrecision(12));
+  const bounds = series.map(({ reading }) => metricBounds(reading));
+  const domain: [number, number] = [
+    clean(Math.max(Math.min(...bounds.map(bound => bound[0])), Math.floor(lower / step) * step)),
+    clean(Math.min(Math.max(...bounds.map(bound => bound[1])), Math.ceil(upper / step) * step)),
+  ];
+  const ticks: number[] = [];
+  for (let index = Math.ceil(domain[0] / step); index <= Math.floor(domain[1] / step); index++) ticks.push(clean(index * step));
+  return { domain, ticks, digits, integer };
 }
 
 export function measurementRange(

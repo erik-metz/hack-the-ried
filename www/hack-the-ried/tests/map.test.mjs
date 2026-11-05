@@ -628,3 +628,70 @@ test("BORIS polygon popups expose original price units and historical reference 
   assert.match(text(card), /Original-Nutzungscode: LW/);
   assert.match(text(card), /kein aktueller Immobilienverkaufspreis/);
 });
+
+test("telemetry axes respect counts, semantic limits and signed measurements", () => {
+  const axis = (metric, unit, values) => telemetry.chartAxis([{ reading: { metric, unit }, values }]);
+  for (const metric of ["bike_available", "bike_racks_free", "bike_capacity", "bike_ebikes", "parking_free", "parking_occupied", "parking_capacity", "crossing_closures", "traffic_total_hourly", "edu_capacity", "reported_items", "reports_d7"]) {
+    const result = axis(metric, "count", [0, 1, 4]);
+    assert.equal(result.domain[0], 0, metric);
+    assert.ok(result.domain[1] >= 4, metric);
+    assert.ok(result.ticks.every(Number.isInteger), metric);
+    assert.equal(result.digits, 0);
+  }
+  for (const [metric, unit] of [["relative_humidity", "%"], ["parking_occupancy_pct", "%"], ["soil_moisture_30cm", "%"], ["precipitation_probability", "%"]]) {
+    const result = axis(metric, unit, [0, 100]);
+    assert.equal(result.domain[0], 0);
+    assert.equal(result.domain[1], 100);
+    assert.equal(telemetry.validChartValue({ metric, unit }, 101), false);
+  }
+  for (const [metric, unit] of [["temperature", "°C"], ["dew_point", "°C"], ["soil_temperature", "°C"], ["water_level", "m"], ["water_level_delta", "m"], ["vertical_rate", "m/s"], ["altitude_geom", "m"], ["day_ahead_price", "EUR/MWh"], ["current", "mA"], ["power", "mW"], ["shunt_voltage", "mV"], ["waveform", "counts"], ["unknown", "custom"]]) {
+    assert.equal(telemetry.validChartValue({ metric, unit }, -2), true, metric);
+    const result = axis(metric, unit, [-2, 3]);
+    assert.ok(result.domain[0] <= -2 && result.domain[1] >= 3, metric);
+  }
+  for (const [metric, unit] of [["precipitation", "mm"], ["PM2.5", "µg/m³"], ["particle_number_pm1_0", "#/cm³"], ["uv_index", "index"], ["co2", "ppm"], ["soil_tension", "kPa"], ["speed", "km/h"], ["water_surface_distance", "cm"], ["fuel_e5", "€/l"], ["rms", "counts"]]) {
+    assert.equal(telemetry.validChartValue({ metric, unit }, -1), false, metric);
+    assert.ok(axis(metric, unit, [0]).domain[0] >= 0, metric);
+  }
+});
+
+test("telemetry axes cover bounded states, nFK, signed indices and grouped series", () => {
+  const axis = (metric, unit, values) => telemetry.chartAxis([{ reading: { metric, unit }, values }]);
+  assert.deepEqual([...axis("crossing_state", "state", [0, 2]).ticks], [0, 1, 2]);
+  assert.deepEqual([...axis("emergency_duty", "state", [0, 1]).ticks], [0, 1]);
+  assert.equal(telemetry.validChartValue({ metric: "edu_utilization", unit: "%" }, 110), true);
+  assert.equal(telemetry.validChartValue({ metric: "groundwater_nitrate_mg_l", unit: "mg/l" }, -1), false);
+  assert.equal(telemetry.validChartValue({ metric: "groundwater_depth_m", unit: "m" }, -1), true);
+  for (const metric of ["ndvi_mean", "ndmi_mean", "ndwi_mean"]) {
+    assert.deepEqual([...axis(metric, "index", [-1, 1]).domain], [-1, 1]);
+  }
+  for (const metric of ["evi_mean", "savi_mean"]) assert.equal(telemetry.validChartValue({ metric, unit: "index" }, 1.5), true);
+  assert.equal(telemetry.validChartValue({ metric: "soil_moisture_nfk", unit: "% nFK" }, 150), true);
+  assert.ok(axis("sound_level", "dBFS", [-2, 0]).domain[1] <= 0);
+  assert.ok(axis("latitude", "°", [90]).domain[1] <= 90);
+  assert.ok(axis("longitude", "°", [-180]).domain[0] >= -180);
+  assert.ok(axis("course", "°", [359]).domain[1] <= 360);
+  const grouped = telemetry.chartAxis([
+    { reading: { metric: "water_surface_distance", unit: "m" }, values: [2, 3] },
+    { reading: { metric: "water_level_delta", unit: "m" }, values: [-5, 1] },
+  ]);
+  assert.ok(grouped.domain[0] <= -5 && grouped.domain[1] >= 3);
+});
+
+test("telemetry axes handle missing, invalid, flat and precise series without duplicate ticks", () => {
+  for (const [metric, unit, values] of [
+    ["bike_available", "count", []], ["bike_available", "count", [0]],
+    ["bike_available", "count", [7, 7]], ["temperature", "°C", [20]],
+    ["relative_humidity", "%", [100]], ["fuel_e5", "€/l", [1.799, 1.809]],
+    ["unknown", "custom", [NaN, Infinity, -Infinity]],
+  ]) {
+    const result = telemetry.chartAxis([{ reading: { metric, unit }, values }]);
+    assert.ok(result.domain.every(Number.isFinite));
+    assert.ok(result.domain[1] > result.domain[0]);
+    const labels = result.ticks.map(value => value.toLocaleString("de-DE", { maximumFractionDigits: result.digits }));
+    assert.equal(new Set(labels).size, labels.length);
+    for (const value of values.filter(Number.isFinite)) assert.ok(value >= result.domain[0] && value <= result.domain[1]);
+  }
+  assert.equal(telemetry.validChartValue({ metric: "bike_available", unit: "count" }, -2), false);
+  assert.equal(telemetry.validChartValue({ metric: "temperature", unit: "°C" }, null), false);
+});
