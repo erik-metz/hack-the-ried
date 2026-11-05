@@ -141,17 +141,19 @@ export default function SiteHeader({
   const [mobileAtlasOpen, setMobileAtlasOpen] = useState(false);
   const [desktopDropdownOpen, setDesktopDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const [navigationPath, setNavigationPath] = useState(pathname);
 
   if (navigationPath !== pathname) {
     setNavigationPath(pathname);
     setMobileOpen(false);
+    setMobileAtlasOpen(false);
     setDesktopDropdownOpen(false);
   }
 
   const isRegionalatlasActive =
-    pathname === "/regionalatlas" ||
+    pathname?.startsWith("/regionalatlas") ||
     pathname?.startsWith("/termine") ||
     pathname?.startsWith("/bauen-wohnen") ||
     pathname?.startsWith("/demografie") ||
@@ -159,9 +161,11 @@ export default function SiteHeader({
     pathname?.startsWith("/wirtschaft") ||
     pathname?.startsWith("/statistik");
 
-  // Handle click outside desktop dropdown
+  // Dismiss the desktop disclosure for mouse, touch and keyboard users.
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    if (!desktopDropdownOpen) return;
+
+    const handleClickOutside = (e: PointerEvent) => {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(e.target as Node)
@@ -169,9 +173,20 @@ export default function SiteHeader({
         setDesktopDropdownOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDesktopDropdownOpen(false);
+        dropdownTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [desktopDropdownOpen]);
 
   // Handle Escape key and disable background scrolling when drawer is open
   useEffect(() => {
@@ -229,46 +244,38 @@ export default function SiteHeader({
                     key={item.href}
                     ref={dropdownRef}
                     className="relative"
-                    onMouseEnter={() => setDesktopDropdownOpen(true)}
-                    onMouseLeave={() => setDesktopDropdownOpen(false)}
+                    onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget)) {
+                        setDesktopDropdownOpen(false);
+                      }
+                    }}
                   >
-                    <div className="flex items-center">
-                      <Link
-                        href="/regionalatlas"
+                    <button
+                      ref={dropdownTriggerRef}
+                      type="button"
+                      onClick={() => setDesktopDropdownOpen((prev) => !prev)}
+                      aria-expanded={desktopDropdownOpen}
+                      aria-controls="desktop-regionalatlas-links"
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
+                        isRegionalatlasActive
+                          ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm shadow-emerald-500/10"
+                          : "text-slate-300 hover:text-emerald-300 hover:bg-slate-800/60"
+                      )}
+                    >
+                      <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{item.label}</span>
+                      <ChevronDown
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg transition-all duration-150 whitespace-nowrap",
-                          isRegionalatlasActive
-                            ? "bg-emerald-500/15 text-emerald-300 font-semibold border-y border-l border-emerald-500/30 shadow-sm shadow-emerald-500/10"
-                            : "text-slate-300 hover:text-emerald-300 hover:bg-slate-800/60"
+                          "w-3.5 h-3.5 transition-transform duration-200",
+                          desktopDropdownOpen && "rotate-180 text-emerald-400"
                         )}
-                      >
-                        <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>{item.label}</span>
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => setDesktopDropdownOpen((prev) => !prev)}
-                        aria-expanded={desktopDropdownOpen}
-                        aria-label="Regionalatlas Untermenü öffnen"
-                        className={cn(
-                          "px-1.5 py-1.5 rounded-r-lg transition-all duration-150 border-l border-slate-800/60",
-                          isRegionalatlasActive
-                            ? "bg-emerald-500/15 text-emerald-300 border-y border-r border-emerald-500/30"
-                            : "text-slate-400 hover:text-emerald-300 hover:bg-slate-800/60"
-                        )}
-                      >
-                        <ChevronDown
-                          className={cn(
-                            "w-3.5 h-3.5 transition-transform duration-200",
-                            desktopDropdownOpen && "rotate-180 text-emerald-400"
-                          )}
-                        />
-                      </button>
-                    </div>
+                      />
+                    </button>
 
                     {/* Flyout Dropdown Menu */}
                     {desktopDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-1 w-64 rounded-2xl bg-slate-900/95 border border-slate-800 p-2 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+                      <div id="desktop-regionalatlas-links" className="absolute top-full left-0 mt-1 w-64 rounded-2xl bg-slate-900/95 border border-slate-800 p-2 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in-0 zoom-in-95 duration-150">
                         <div className="px-2.5 py-1.5 border-b border-slate-800/80 mb-1">
                           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                             Themen im Regionalatlas
@@ -461,38 +468,30 @@ export default function SiteHeader({
 
               {/* Regionalatlas with expandable sub-links */}
               <div className="rounded-xl border border-slate-800/80 bg-slate-950/40 p-1 space-y-1">
-                <div className="flex items-center justify-between px-2.5 py-1.5">
-                  <Link
-                    href="/regionalatlas"
-                    onClick={() => setMobileOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => setMobileAtlasOpen((prev) => !prev)}
+                  aria-expanded={mobileAtlasOpen}
+                  aria-controls="mobile-regionalatlas-links"
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
+                    isRegionalatlasActive
+                      ? "text-emerald-300"
+                      : "text-slate-200 hover:text-emerald-400"
+                  )}
+                >
+                  <Layers className="w-4 h-4 text-emerald-400" />
+                  <span>Regionalatlas</span>
+                  <ChevronDown
                     className={cn(
-                      "flex items-center gap-2.5 text-sm font-semibold transition-colors flex-1",
-                      isRegionalatlasActive
-                        ? "text-emerald-300"
-                        : "text-slate-200 hover:text-emerald-400"
+                      "ml-auto w-4 h-4 transition-transform",
+                      mobileAtlasOpen && "rotate-180 text-emerald-400"
                     )}
-                  >
-                    <Layers className="w-4 h-4 text-emerald-400" />
-                    <span>Regionalatlas</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setMobileAtlasOpen((prev) => !prev)}
-                    aria-label="Regionalatlas Untermenü ein-/ausklappen"
-                    aria-expanded={mobileAtlasOpen}
-                    className="p-1 text-slate-400 hover:text-slate-200"
-                  >
-                    <ChevronDown
-                      className={cn(
-                        "w-4 h-4 transition-transform",
-                        mobileAtlasOpen && "rotate-180 text-emerald-400"
-                      )}
-                    />
-                  </button>
-                </div>
+                  />
+                </button>
 
                 {mobileAtlasOpen && (
-                  <div className="pl-3 pr-1 py-1 space-y-0.5 border-t border-slate-800/60">
+                  <div id="mobile-regionalatlas-links" className="pl-3 pr-1 py-1 space-y-0.5 border-t border-slate-800/60">
                     {REGIONALATLAS_NAV_SUBITEMS.map((sub) => {
                       const SubIcon = sub.icon;
                       const isSubActive =
