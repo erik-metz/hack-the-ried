@@ -131,7 +131,6 @@ export default function SiteHeader({
   totalStations,
 }: SiteHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileAtlasOpen, setMobileAtlasOpen] = useState(false);
   const [desktopDropdownOpen, setDesktopDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
@@ -141,7 +140,6 @@ export default function SiteHeader({
   if (navigationPath !== pathname) {
     setNavigationPath(pathname);
     setMobileOpen(false);
-    setMobileAtlasOpen(false);
     setDesktopDropdownOpen(false);
   }
 
@@ -459,65 +457,51 @@ export default function SiteHeader({
                 <span>Karte</span>
               </Link>
 
-              {/* Regionalatlas with expandable sub-links */}
+              {/* Regionalatlas with always-visible sub-links */}
               <div className="rounded-xl border border-slate-800/80 bg-slate-950/40 p-1 space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setMobileAtlasOpen((prev) => !prev)}
-                  aria-expanded={mobileAtlasOpen}
-                  aria-controls="mobile-regionalatlas-links"
+                <div
                   className={cn(
-                    "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors hover:bg-slate-800/60 aria-expanded:bg-emerald-500/15 aria-expanded:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
-                    isRegionalatlasActive
-                      ? "text-emerald-300"
-                      : "text-slate-200 hover:text-emerald-400"
+                    "flex min-h-11 items-center gap-2.5 px-2.5 py-2 text-sm font-semibold",
+                    isRegionalatlasActive ? "text-emerald-300" : "text-slate-200"
                   )}
                 >
                   <Layers className="w-4 h-4 text-emerald-400" />
                   <span>Regionalatlas</span>
-                  <ChevronDown
-                    className={cn(
-                      "ml-auto w-4 h-4 transition-transform",
-                      mobileAtlasOpen && "rotate-180 text-emerald-400"
-                    )}
-                  />
-                </button>
+                </div>
 
-                {mobileAtlasOpen && (
-                  <div id="mobile-regionalatlas-links" className="pl-3 pr-1 py-1 space-y-0.5 border-t border-slate-800/60">
-                    {REGIONALATLAS_NAV_SUBITEMS.map((sub) => {
-                      const SubIcon = sub.icon;
-                      const isSubActive =
-                        sub.href === "/regionalatlas"
-                          ? pathname === "/regionalatlas"
-                          : pathname?.startsWith(sub.href);
+                <div id="mobile-regionalatlas-links" className="pl-3 pr-1 py-1 space-y-0.5 border-t border-slate-800/60">
+                  {REGIONALATLAS_NAV_SUBITEMS.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive =
+                      sub.href === "/regionalatlas"
+                        ? pathname === "/regionalatlas"
+                        : pathname?.startsWith(sub.href);
 
-                      return (
-                        <Link
-                          key={sub.href}
-                          href={sub.href}
-                          onClick={() => setMobileOpen(false)}
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={cn(
+                          "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                          isSubActive
+                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                        )}
+                      >
+                        <SubIcon
                           className={cn(
-                            "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                            "w-3.5 h-3.5 shrink-0",
                             isSubActive
-                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold"
-                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                              ? "text-emerald-400"
+                              : "text-slate-500"
                           )}
-                        >
-                          <SubIcon
-                            className={cn(
-                              "w-3.5 h-3.5 shrink-0",
-                              isSubActive
-                                ? "text-emerald-400"
-                                : "text-slate-500"
-                            )}
-                          />
-                          <span>{sub.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
+                        />
+                        <span>{sub.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Offene Daten & API */}
