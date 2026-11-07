@@ -440,7 +440,7 @@ export const PRESSE_DECK: PitchDeck = {
   badge: "Presse",
   summary:
     "Die Bürgerinitiative stellt sich vor: regionale Daten, eigene Sensoren und gemeinsames Lernen. Mit Ausblick auf die Infoveranstaltung Ende November 2026 und den Hackathon am 19.–20. Februar 2027.",
-  slides: POLITIK_DECK.slides.map((slide): PitchSlide => {
+  slides: POLITIK_DECK.slides.filter((slide) => slide.id !== "politik-school-bridge").map((slide): PitchSlide => {
     if (slide.id === "politik-ask") {
       return {
         id: "presse-ausblick",

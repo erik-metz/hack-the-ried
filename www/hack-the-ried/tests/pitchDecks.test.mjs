@@ -154,7 +154,7 @@ test("All decks tell the origin story, include collected data, and close with a 
   const { PITCH_DECKS } = await import("../lib/pitchData.ts");
   for (const deck of PITCH_DECKS) {
     assert.deepEqual(deck.slides.slice(0, 4).map(slide => slide.id), ["team", "hackathon", "origin", "collected"].map(id => `${deck.slug}-${id}`));
-    const mainSlides = ["politik", "presse"].includes(deck.slug) ? deck.slides.slice(0, -1) : deck.slides;
+    const mainSlides = deck.slug === "politik" ? deck.slides.slice(0, -1) : deck.slides;
     assert.equal(mainSlides.at(-2).layout, deck.slug === "presse" ? "event-outlook" : "the-ask-commitment");
     assert.equal(mainSlides.at(-1).layout, "collected-evidence");
     assert.equal(deck.slides.filter(slide => slide.layout === "collected-evidence").length, 1);
@@ -270,10 +270,12 @@ test("Admin panel integrates Pitch Decks navigation and quick launcher", () => {
 });
 
 
-test("Press deck copies the political story and replaces only the asks with the outlook", async () => {
+test("Press deck replaces political asks with the outlook and ends with the bonus", async () => {
   const { POLITIK_DECK, PRESSE_DECK, getPitchDeckBySlug } = await import("../lib/pitchData.ts");
   assert.equal(getPitchDeckBySlug("presse"), PRESSE_DECK);
-  assert.equal(PRESSE_DECK.slides.length, POLITIK_DECK.slides.length);
+  assert.equal(PRESSE_DECK.slides.length, POLITIK_DECK.slides.length - 1);
+  assert.equal(PRESSE_DECK.slides.at(-1).id, "presse-bonus");
+  assert.ok(PRESSE_DECK.slides.every(slide => slide.id !== "presse-school-bridge"));
   for (const [index, slide] of PRESSE_DECK.slides.entries()) {
     const original = POLITIK_DECK.slides[index];
     if (original.id === "politik-ask") {

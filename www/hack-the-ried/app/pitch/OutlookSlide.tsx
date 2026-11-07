@@ -34,7 +34,7 @@ export default function OutlookSlide({ outlook }: { outlook: NonNullable<PitchSl
         </article>
       </div>
       <div className="rounded-3xl border border-slate-700/80 bg-slate-900/50 p-4">
-        <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-400/15 p-2 text-emerald-300"><Cpu className="h-6 w-6" aria-hidden="true" /></span><div><h3 className="text-lg font-semibold text-white">Sensoren selbst bauen</h3><p className="text-sm text-slate-400">Geplante Workshops während des Hackathons</p></div></div>
+        <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-400/15 p-2 text-emerald-300"><Cpu className="h-6 w-6" aria-hidden="true" /></span><div><h3 className="text-lg font-semibold text-white">Sensoren selbst bauen</h3><p className="text-sm text-slate-400">Geplante Workshops von jetzt bis zum Hackathon</p></div></div>
         <div className="mx-auto mt-3 hidden h-3 w-2/3 border-x border-t border-emerald-400/30 sm:block" aria-hidden="true" />
         <div className="mt-3 grid gap-3 sm:mt-0 sm:grid-cols-3">{audiences.map(({ label, icon: Icon }) => <div key={label} className="flex items-center gap-2 rounded-2xl bg-slate-800/70 p-3 sm:flex-col sm:text-center"><Icon className="h-6 w-6 shrink-0 text-emerald-300" strokeWidth={1.5} aria-hidden="true" /><p className="text-sm font-medium leading-snug text-slate-200">{label}</p></div>)}</div>
       </div>
