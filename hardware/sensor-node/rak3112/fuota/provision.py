@@ -41,7 +41,9 @@ def main():
         return
     import serial
     with serial.Serial(port=None,baudrate=115200,timeout=.2) as port:
-        port.dtr=False; port.rts=False; port.port=args.port; port.open()
+        # Match the Arduino monitor's working native USB-CDC line state.
+        port.dtr=True; port.rts=True; port.port=args.port; port.open()
+        time.sleep(1.5)
         port.write(command); port.flush()
         deadline=time.monotonic()+30
         while time.monotonic()<deadline:
