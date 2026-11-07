@@ -16,13 +16,27 @@ class OtaStorage : public lab::Storage {
   }
   bool verify(const uint8_t expected[32], size_t size) override {
     if (!open) return false;
+    return hashMatches(target, expected, size);
+  }
+  bool copyBase(const uint8_t expected[32], size_t size) override {
+    const esp_partition_t* source = esp_ota_get_running_partition();
+    if (!open || !source || source->address == target->address || size > source->size || !hashMatches(source,expected,size)) return false;
+    uint8_t data[512];
+    for (size_t offset = 0; offset < size; offset += sizeof(data)) {
+      const size_t length = size-offset < sizeof(data) ? size-offset : sizeof(data);
+      if (esp_partition_read(source,offset,data,length) != ESP_OK || !write(offset,data,length)) return false;
+      yield();
+    }
+    return true;
+  }
+  static bool hashMatches(const esp_partition_t* partition, const uint8_t expected[32], size_t size) {
     uint8_t data[512], actual[32];
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
     bool valid = mbedtls_sha256_starts(&ctx, 0) == 0;
     for (size_t offset = 0; valid && offset < size; offset += sizeof(data)) {
       const size_t length = size - offset < sizeof(data) ? size - offset : sizeof(data);
-      valid = esp_partition_read(target, offset, data, length) == ESP_OK
+      valid = esp_partition_read(partition, offset, data, length) == ESP_OK
         && mbedtls_sha256_update(&ctx, data, length) == 0;
       yield();
     }

@@ -35,7 +35,7 @@ class Socket:
 
 class RoutingTests(unittest.IsolatedAsyncioTestCase):
     def owner(self):
-        return SimpleNamespace(devices={'70B3D57ED0079D88'},router_id='0102030405060708')
+        return SimpleNamespace(devices={'70B3D57ED0079D88'},router_id='0102030405060708',record_private=lambda message,now:None)
 
     async def test_private_devices_are_not_fallback_forwarded_to_ttn(self):
         station = Socket()

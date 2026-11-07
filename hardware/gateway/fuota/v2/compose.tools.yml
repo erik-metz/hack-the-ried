@@ -1,5 +1,8 @@
 # Overlay on ../v1/compose.yml. No host ports or radio devices.
 services:
+  chirpstack:
+    volumes:
+      - ${FUOTA_LAB_DIR:?Set the absolute v2 directory}/region_eu868.toml:/etc/chirpstack/region_eu868.toml:ro
   lab-tools:
     profiles: [tools]
     build:

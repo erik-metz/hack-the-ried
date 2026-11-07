@@ -26,7 +26,10 @@ downlinks. This overlay is a bench experiment, not a production release.
 Build with `fuota/build.py rak3112-003 1 --network chirpstack`. The helper derives
 independent AppKey/NwkKey values and a local JoinEUI from the selected profile.
 It preserves the DevEUI and leaves the user's TTN profile unchanged. Private
-and TTN builds use different NVS namespaces and different output folders.
+and TTN identities use different NVS namespaces and build output folders. The
+common image obtains credentials from NVS; `provision.py` sends the selected
+identity only over the physical USB port. Never embed one device's identity
+into a multicast image.
 Registration is written to the ignored, private `build/rak3112-003/chirpstack/provision.json`.
 The matching B build uses version `2`. Do not register the raw TTN keys in
 ChirpStack, and do not flash the TTN build while routing this DevEUI privately.
@@ -61,6 +64,23 @@ creates a dedicated lab tenant, application, profile and gateway. Existing
 devices outside that application are refused; existing lab session keys are
 compared and never silently changed. Nothing is printed except object IDs and
 nonsecret diagnostics. Keep the admin UI bound to loopback.
+
+## Private update test
+
+The v2 server overlay selects EU868 RX2 DR5 for USB-powered bench nodes, so
+128-byte data blocks fit Class-C downlinks. The original v1 region file stays
+unchanged. `send.py` uses only the local ChirpStack API and MQTT, refuses non-lab
+devices, paces packets by at least three seconds and defaults to at most 32
+radio blocks. START and STATUS are acknowledged by real uplinks; missing blocks
+are repaired in bounded rounds. APPLY is followed by an independent firmware-2,
+value-222 uplink check. A queue insertion alone never counts as delivery.
+
+For the first test use a small delta bundle (the count is measured
+from the built images) with `pack.py --base <A.bin> <B.bin> <bundle.json>`. The
+receiver validates the running base and complete target image. Full-image
+transfers remain possible with an explicit larger sender block limit and take
+substantially longer under the same duty-cycle limits. This is the project's
+lab protocol, not ChirpStack's standard TS004/TS005 FUOTA deployment workflow.
 
 ## Rollback
 

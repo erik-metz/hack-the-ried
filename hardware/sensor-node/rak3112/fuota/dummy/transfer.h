@@ -26,6 +26,7 @@ struct Storage {
   virtual bool verify(const uint8_t hash[32], size_t size) = 0;
   virtual bool apply() = 0;
   virtual void abort() = 0;
+  virtual bool copyBase(const uint8_t hash[32], size_t size) { (void)hash; (void)size; return false; }
 };
 class Transfer {
  public:
@@ -40,18 +41,39 @@ class Transfer {
     const uint32_t id = u32(p + 1);
     // Never erase the selected boot target while waiting for the final ACK.
     if (state == Applied) return p[0] == 5 && n == 5 && id == session ? Applied : Rejected;
-    if (p[0] == 1) {
-      if (n != 41 || !id) return Rejected;
+    if (p[0] == 1 || p[0] == 6) {
+      const bool delta = p[0] == 6;
+      if ((!delta && n != 41) || (delta && (n < 79 || n > 111)) || !id) return Rejected;
       const uint32_t length = u32(p + 5);
       if (!length || length > MAX_IMAGE) return Rejected;
       if (state == Receiving || state == Ready) {
         // Lost START ACK must not erase already received blocks.
-        return id == session && length == size && !memcmp(hash, p + 9, 32) ? state : Rejected;
+        return n == manifestSize && !memcmp(manifest, p, n) ? state : Rejected;
+      }
+      const size_t count = delta ? (size_t(p[77]) << 8) | p[78] : 0;
+      if (delta && (n != 79+2*count || u32(p+41) != length)) return Rejected;
+      if (delta) for (size_t i = 0; i < count; ++i) {
+        const size_t index = (size_t(p[79+2*i]) << 8) | p[80+2*i];
+        if (index >= (length+BLOCK-1)/BLOCK) return Rejected;
+        for (size_t j = 0; j < i; ++j) {
+          if (p[79+2*j] == p[79+2*i] && p[80+2*j] == p[80+2*i]) return Rejected;
+        }
       }
       storage.abort();
       session = id; size = length; received = 0;
+      memcpy(manifest, p, n); manifestSize = n;
       memcpy(hash, p + 9, 32); memset(bitmap, 0, sizeof(bitmap));
       if (!storage.begin(size)) return state = StorageError;
+      if (delta) {
+        if (!storage.copyBase(p+45, length)) { storage.abort(); return state = HashError; }
+        memset(bitmap, 0xff, sizeof(bitmap));
+        for (size_t i = 0; i < count; ++i) {
+          const size_t index = (size_t(p[79+2*i]) << 8) | p[80+2*i];
+          bitmap[index/8] &= ~(1 << (index%8));
+        }
+        received = blocks()-count;
+        return state = count ? Receiving : Ready;
+      }
       return state = Receiving;
     }
     if (id != session || !id) return Rejected;
@@ -97,6 +119,8 @@ class Transfer {
  private:
   Storage& storage;
   uint8_t hash[32] = {};
+  uint8_t manifest[111] = {};
+  size_t manifestSize = 0;
   uint8_t bitmap[MAX_BLOCKS / 8] = {};
 };
 }

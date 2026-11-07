@@ -162,6 +162,7 @@ class StationRouter:
             elif private_uplink(message, self.owner.devices):
                 info = message.get('upinfo', {})
                 now = time.time()
+                self.owner.record_private(message,now)
                 self.recent[(info.get('rctx'), info.get('xtime'))] = ReceiveContext(
                     now, join=message['msgtype'] == 'jreq')
                 self.recent = {k:v for k,v in self.recent.items() if now-v.received < 30}
@@ -218,6 +219,11 @@ class DualBridge(Bridge):
         super().__init__(*args, **kwargs)
         self.devices = {eui(device) for device in devices}
         self.secondary_uri = secondary_uri
+
+    def record_private(self, message, now):
+        self.radio_stats.add(message,now)
+        self.last_rx=now
+        self.spool.set('last_rx',now)
 
     async def handler(self, websocket, path):
         if path.endswith('/router-info'):

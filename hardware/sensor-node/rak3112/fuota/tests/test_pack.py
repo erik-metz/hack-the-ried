@@ -34,3 +34,22 @@ class PackTest(unittest.TestCase):
         for session in (0, -1, 0x100000000):
             with self.assertRaises(ValueError):
                 pack.package(b'\xe9', session)
+
+    def test_delta_names_only_changed_blocks_and_binds_exact_base_hash(self):
+        base = b'\xe9'+bytes(range(256))
+        image = bytearray(base)
+        image[130] ^= 1
+        bundle = pack.package(image,123,base)
+        start = base64.b64decode(bundle['start'])
+        self.assertEqual(start[0],6)
+        self.assertEqual(start[45:77],hashlib.sha256(base).digest())
+        self.assertEqual(start[77:],b'\x00\x01\x00\x01')
+        self.assertEqual(bundle['block_indices'],[1])
+        rebuilt = bytearray(base)
+        block = base64.b64decode(bundle['blocks'][0])
+        rebuilt[128:256] = block[7:]
+        self.assertEqual(rebuilt,image)
+        with self.assertRaises(ValueError):
+            pack.package(image,123,base[:-1])
+        with self.assertRaises(ValueError):
+            pack.package(b'\xe9'+b'A'*3000,123,b'\xe9'+b'B'*3000)

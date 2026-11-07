@@ -6,6 +6,7 @@
 struct Flash : lab::Storage {
   std::vector<uint8_t> image;
   bool active = false, bootChanged = false, failWrite = false, failApply = false;
+  bool baseMatches = true;
   int writes = 0;
   bool begin(size_t n) override { image.assign(n, 0xff); active = true; return true; }
   bool write(size_t offset, const uint8_t* data, size_t n) override {
@@ -18,6 +19,12 @@ struct Flash : lab::Storage {
   }
   bool apply() override { bootChanged = !failApply; active = false; return bootChanged; }
   void abort() override { active = false; }
+  bool copyBase(const uint8_t*, size_t n) override {
+    if (!baseMatches) return false;
+    for (size_t i=0;i<n;++i) image[i]=uint8_t(i);
+    image[0]=0x99; // A differs from expected B in one block.
+    return true;
+  }
 };
 std::vector<uint8_t> command(uint8_t kind, uint32_t session=123) {
   std::vector<uint8_t> p(5); p[0]=kind; lab::put32(p.data()+1,session); return p;
@@ -72,4 +79,17 @@ int main() {
     std::vector<uint8_t> shortPacket(n);
     assert(send(t,shortPacket)==lab::Rejected);
   }
+  Flash copied; lab::Transfer delta(copied);
+  auto manifest=start(257);
+  manifest[0]=6; manifest.resize(81);
+  lab::put32(manifest.data()+41,257); manifest[78]=1; // one changed block, index 0
+  assert(send(delta,manifest)==lab::Receiving && delta.received==2);
+  assert(send(delta,manifest)==lab::Receiving && delta.received==2);
+  assert(send(delta,command(3))==lab::Rejected && !copied.bootChanged);
+  assert(send(delta,block(0,128))==lab::Ready);
+  assert(send(delta,command(3))==lab::Applied && copied.bootChanged);
+  Flash mismatch; lab::Transfer wrongBase(mismatch); mismatch.baseMatches=false;
+  assert(send(wrongBase,manifest)==lab::HashError && !mismatch.bootChanged);
+  manifest[80]=3; // outside image
+  assert(send(wrongBase,manifest)==lab::Rejected);
 }

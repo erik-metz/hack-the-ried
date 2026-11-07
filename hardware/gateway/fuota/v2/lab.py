@@ -100,7 +100,7 @@ def validate_registration(item):
 
 async def probe(gateway):
     async with connect('ws://gateway-bridge:3001/router-info') as websocket:
-        await websocket.send(json.dumps({'router':gateway}))
+        await websocket.send(json.dumps({'router':'-'.join(gateway[i:i+2] for i in range(0,16,2))}))
         result = json.loads(await websocket.recv())
     target = urlsplit(result.get('uri',''))
     if (target.scheme != 'ws' or target.hostname != 'gateway-bridge' or target.port != 3001
