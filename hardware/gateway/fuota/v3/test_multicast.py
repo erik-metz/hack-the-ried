@@ -25,6 +25,8 @@ class MulticastTests(unittest.TestCase):
             if isinstance(request,api.GetMulticastGroupRequest):
                 return api.GetMulticastGroupResponse(multicast_group=group)
             if isinstance(request,api.ListDevicesRequest):
+                self.assertEqual(request.application_id,group.application_id)
+                self.assertEqual(request.multicast_group_id,group.id)
                 return api.ListDevicesResponse(total_count=2,result=[api.DeviceListItem(dev_eui=i) for i in ids])
             if isinstance(request,api.GetDeviceRequest):
                 return api.GetDeviceResponse(device=api.Device(dev_eui=request.dev_eui,application_id='app',tags={'update_role':'ttn-companion-v3'}))

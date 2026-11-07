@@ -45,7 +45,7 @@ def transfer(devices,bundle,pace=3,maximum=32):
     saved=json.loads(Path('/state/v3-group-id.json').read_text())
     group=lab.call(groups.Get,api.GetMulticastGroupRequest(id=saved['id'])).multicast_group
     if group.name!='kamue-ttn-update-v3' or group.f_cnt<1: raise ValueError('Not the private v3 multicast group')
-    listing=lab.call(lab.devices.List,api.ListDevicesRequest(multicast_group_id=group.id,limit=100))
+    listing=lab.call(lab.devices.List,api.ListDevicesRequest(application_id=group.application_id,multicast_group_id=group.id,limit=100))
     members=listing.result
     if listing.total_count!=len(members): raise ValueError('Group exceeds explicit device limit')
     if {d.dev_eui.lower() for d in members}!={d.lower() for d in devices}:
