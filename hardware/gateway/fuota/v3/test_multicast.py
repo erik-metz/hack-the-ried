@@ -13,8 +13,6 @@ def module(name,file):
     result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result);return result
 tools3=module('companion_tools','tools.py')
 sender=module('multicast_sender','send.py')
-firmware=Path(__file__).resolve().parents[3]/'sensor-node/rak3112/fuota'
-sys.path.insert(0,str(firmware))
 
 class MulticastTests(unittest.TestCase):
     def test_multicast_repairs_one_receivers_loss_before_applying_to_all(self):
