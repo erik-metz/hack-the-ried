@@ -156,7 +156,7 @@ export interface PitchDeck {
   title: string;
   subtitle: string;
   targetAudience: string;
-  category: "politik" | "bildung" | "wirtschaft";
+  category: "politik" | "bildung" | "wirtschaft" | "presse";
   badge: string;
   accentColor: "emerald" | "sky" | "violet" | "amber";
   estimatedMinutes: number;
@@ -421,6 +421,48 @@ export const POLITIK_DECK: PitchDeck = {
       stepLabel: "09 / Backup",
     },
   ],
+};
+
+export const PRESSE_DECK: PitchDeck = {
+  ...POLITIK_DECK,
+  slug: "presse",
+  title: "HackTheRied: Bürger machen Daten erlebbar",
+  targetAudience: "Presse und regionale Öffentlichkeit",
+  category: "presse",
+  badge: "Presse",
+  summary:
+    "Die Bürgerinitiative stellt sich vor: regionale Daten, eigene Sensoren und gemeinsames Lernen. Mit Ausblick auf die Infoveranstaltung Ende November 2026 und den Hackathon am 19.–20. Februar 2027.",
+  slides: POLITIK_DECK.slides.map((slide): PitchSlide => {
+    if (slide.id === "politik-ask") {
+      return {
+        id: "presse-ausblick",
+        title: "Ausblick: Mitmachen im Ried",
+        lead: "Die nächsten Schritte: informieren, gemeinsam entwickeln und Sensoren selbst bauen.",
+        layout: "story",
+        eyebrow: "HackTheRied",
+        stepNumber: slide.stepNumber,
+        stepLabel: slide.stepLabel,
+        bullets: [
+          {
+            title: "Ende November 2026 · Infoveranstaltung geplant",
+            description:
+              "Für alle Interessierten: die Initiative kennenlernen, Fragen stellen und Möglichkeiten zum Mitmachen entdecken.",
+          },
+          {
+            title: "19.–20. Februar 2027 · Hackathon",
+            description:
+              "Gemeinsam Ideen für das Ried entwickeln und mit regionalen Daten experimentieren.",
+          },
+          {
+            title: "Während des Hackathons · Sensorbau-Workshops",
+            description:
+              "Geplant sind Angebote für Schulen, mit dem Quartiersbüro Bürstadt-Fortuna sowie mit der VHS für Erwachsene.",
+          },
+        ],
+      };
+    }
+    return { ...slide, id: slide.id.replace(/^politik-/, "presse-") };
+  }),
 };
 
 export const SCHULEN_DECK: PitchDeck = {
@@ -1041,6 +1083,7 @@ export const WIRTSCHAFT_DECK: PitchDeck = {
 
 export const PITCH_DECKS: PitchDeck[] = [
   POLITIK_DECK,
+  PRESSE_DECK,
   SCHULEN_DECK,
   VHS_DECK,
   WIRTSCHAFT_DECK,

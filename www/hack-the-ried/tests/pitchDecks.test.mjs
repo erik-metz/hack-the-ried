@@ -13,7 +13,7 @@ test("Pitch data defines all required stakeholder decks and structure", () => {
   );
 
   // Check required stakeholder slugs (politik, schulen, vhs, wirtschaft)
-  const expectedSlugs = ["politik", "schulen", "vhs", "wirtschaft"];
+  const expectedSlugs = ["politik", "presse", "schulen", "vhs", "wirtschaft"];
 
   for (const slug of expectedSlugs) {
     assert.ok(
@@ -100,7 +100,7 @@ test("Core Team members (Rüdiger Engert, Michael Binzen, Erik Metz) are feature
 test("Every pitch deck (Politik, Schulen, VHS, Wirtschaft) contains the Core Team slide", async () => {
   const { PITCH_DECKS } = await import("../lib/pitchData.ts");
 
-  assert.equal(PITCH_DECKS.length, 4, "Must have exactly 4 stakeholder pitch decks");
+  assert.equal(PITCH_DECKS.length, 5, "Must have exactly 5 stakeholder pitch decks");
 
   for (const deck of PITCH_DECKS) {
     const teamSlide = deck.slides.find((s) => s.layout === "team-showcase");
@@ -154,8 +154,8 @@ test("All decks tell the origin story, include collected data, and close with a 
   const { PITCH_DECKS } = await import("../lib/pitchData.ts");
   for (const deck of PITCH_DECKS) {
     assert.deepEqual(deck.slides.slice(0, 4).map(slide => slide.id), ["team", "hackathon", "origin", "collected"].map(id => `${deck.slug}-${id}`));
-    const mainSlides = deck.slug === "politik" ? deck.slides.slice(0, -1) : deck.slides;
-    assert.equal(mainSlides.at(-2).layout, "the-ask-commitment");
+    const mainSlides = ["politik", "presse"].includes(deck.slug) ? deck.slides.slice(0, -1) : deck.slides;
+    assert.equal(mainSlides.at(-2).layout, deck.slug === "presse" ? "story" : "the-ask-commitment");
     assert.equal(mainSlides.at(-1).layout, "collected-evidence");
     assert.equal(deck.slides.filter(slide => slide.layout === "collected-evidence").length, 1);
     assert.equal(new Set(deck.slides.map(slide => slide.id)).size, deck.slides.length);
@@ -267,4 +267,24 @@ test("Admin panel integrates Pitch Decks navigation and quick launcher", () => {
     clientSource.includes('href="/pitch"'),
     "AdminClient must link to pitch hub"
   );
+});
+
+
+test("Press deck copies the political story and replaces only the asks with the outlook", async () => {
+  const { POLITIK_DECK, PRESSE_DECK, getPitchDeckBySlug } = await import("../lib/pitchData.ts");
+  assert.equal(getPitchDeckBySlug("presse"), PRESSE_DECK);
+  assert.equal(PRESSE_DECK.slides.length, POLITIK_DECK.slides.length);
+  for (const [index, slide] of PRESSE_DECK.slides.entries()) {
+    const original = POLITIK_DECK.slides[index];
+    if (original.id === "politik-ask") {
+      assert.equal(slide.id, "presse-ausblick");
+      assert.match(slide.bullets[0].title, /Ende November 2026/);
+      assert.match(slide.bullets[1].title, /19.–20. Februar 2027/);
+      assert.match(slide.bullets[2].description, /Schulen.*Quartiersbüro Bürstadt-Fortuna.*VHS.*Erwachsene/);
+    } else {
+      assert.deepEqual(slide, { ...original, id: original.id.replace(/^politik-/, "presse-") });
+    }
+  }
+  assert.ok(PRESSE_DECK.slides.every(slide => !slide.specificAsks));
+  assert.ok(POLITIK_DECK.slides.some(slide => slide.id === "politik-ask"));
 });

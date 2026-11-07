@@ -83,11 +83,11 @@ export default function PitchHubClient() {
             <span>Pitch-Decks & Präsentationen</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-black text-slate-100 tracking-tight leading-tight">
-            Vier Gespräche, eine gemeinsame Idee fürs Ried
+            Eine gemeinsame Idee fürs Ried – für jede Zielgruppe
           </h1>
           <p className="text-base sm:text-lg text-slate-300 font-light leading-relaxed">
             Drei Menschen aus dem Ried möchten einen Hackathon organisieren. Die Website bündelt dafür bereits regionale Daten.
-            Eigene Sensoren und Bildungsprojekte ergänzen die Initiative. Jedes Deck führt zu einer konkreten Bitte an seine Zielgruppe.
+            Eigene Sensoren und Bildungsprojekte ergänzen die Initiative. Die Decks zeigen passende Perspektiven für Presse, Politik, Bildung und Wirtschaft.
           </p>
         </div>
 
