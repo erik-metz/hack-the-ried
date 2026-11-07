@@ -7,10 +7,14 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2, Copy, Check
 import type { PitchDeck, PitchSlide } from "@/lib/pitchData";
 import DataConnectionsDiagram from "../DataConnectionsDiagram";
 import CollectedDataEvidence from "../CollectedDataEvidence";
+import PresentationSticker from "../PresentationSticker";
 
 function SlideBody({ slide, startedAt }: { slide: PitchSlide; startedAt: number }) {
   if (slide.layout === "data-connections") return <DataConnectionsDiagram />;
-  if (slide.layout === "collected-evidence") return <CollectedDataEvidence startedAt={startedAt} />;
+  if (slide.layout === "collected-evidence") return <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <CollectedDataEvidence startedAt={startedAt} />
+    <aside aria-label="HackTheRied zum Mitnehmen" className="justify-self-center lg:justify-self-end"><PresentationSticker compact /></aside>
+  </div>;
   if (slide.website) return <iframe
     src={slide.website.src} title={slide.website.title}
     className="h-[48vh] min-h-[260px] w-full rounded-xl border border-slate-700 bg-white"
@@ -37,7 +41,7 @@ function SlideBody({ slide, startedAt }: { slide: PitchSlide; startedAt: number 
       <p className="mt-2 text-lg leading-relaxed text-slate-300">{ask.description}</p>
     </article>)}
   </div>;
-  return <div className={`grid items-center gap-8 ${slide.imageVisual ? "md:grid-cols-2" : "max-w-5xl"}`}>
+  return <div className={`grid items-center gap-8 ${slide.audienceSticker ? "lg:grid-cols-[minmax(0,1fr)_22rem]" : slide.imageVisual ? "md:grid-cols-2" : "max-w-5xl"}`}>
     {slide.imageVisual && <figure>
       <div className="relative aspect-video max-h-[38vh] overflow-hidden rounded-xl">
         <Image src={slide.imageVisual.src} alt={slide.imageVisual.alt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -48,6 +52,7 @@ function SlideBody({ slide, startedAt }: { slide: PitchSlide; startedAt: number 
       <h3 className="text-xl md:text-2xl font-semibold">{bullet.title}</h3>
       <p className="mt-2 text-lg leading-relaxed text-slate-300">{bullet.description}</p>
     </div>)}</div>
+    {slide.audienceSticker && <PresentationSticker />}
   </div>;
 }
 

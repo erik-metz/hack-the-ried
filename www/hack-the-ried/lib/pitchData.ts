@@ -125,6 +125,7 @@ export interface PitchSlide {
   title: string;
   lead: string;
   layout: SlideLayout;
+  audienceSticker?: boolean;
   website?: { src: string; title: string };
   imageVisual?: {
     src: string;
@@ -436,6 +437,7 @@ export const PRESSE_DECK: PitchDeck = {
     if (slide.id === "politik-ask") {
       return {
         id: "presse-ausblick",
+        audienceSticker: true,
         title: "Ausblick: Mitmachen im Ried",
         lead: "Die nächsten Schritte: informieren, gemeinsam entwickeln und Sensoren selbst bauen.",
         layout: "story",

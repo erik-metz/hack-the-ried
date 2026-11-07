@@ -4,7 +4,7 @@ type DailyScan = { day: string; qr_id: string; scans: number };
 const qrCodes = [
   { id: "1", label: "Aufkleber", color: "#34D399" },
   { id: "2", label: "Flyer", color: "#2DD4BF" },
-  { id: "3", label: "Reserve 3", color: "#A3E635" },
+  { id: "3", label: "Präsentationen", color: "#A3E635" },
   { id: "4", label: "Reserve 4", color: "#38BDF8" },
   { id: "5", label: "Reserve 5", color: "#C084FC" },
 ];

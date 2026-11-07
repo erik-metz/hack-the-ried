@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 const qrCodes = [
   { id: "1", title: "Aufkleber", description: "QR-Code 1 · vorgesehen für Aufkleber." },
   { id: "2", title: "Flyer", description: "QR-Code 2 · vorgesehen für Flyer." },
-  { id: "3", title: "Reserve 3", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "3", title: "Präsentationen", description: "QR-Code 3 · für Ausblick- und Bonus-Folien in unseren Präsentationen." },
   { id: "4", title: "Reserve 4", description: "Noch keinem Marketingmaterial zugeordnet." },
   { id: "5", title: "Reserve 5", description: "Noch keinem Marketingmaterial zugeordnet." },
 ];
@@ -76,7 +76,7 @@ export default function MarketingPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-400">Direkt zum Ziel</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Fünf QR-Codes für unterwegs</h2>
             </div>
-            <p className="max-w-xl text-sm leading-relaxed text-slate-400">Alle fünf Codes führen zur Startseite und übergeben ihre Kennung als `qr=1` bis `qr=5`. So bleiben Aufkleber und Flyer getrennt auswertbar; die übrigen Codes sind für spätere Einsätze reserviert.</p>
+            <p className="max-w-xl text-sm leading-relaxed text-slate-400">Alle fünf Codes führen zur Startseite und übergeben ihre Kennung als `qr=1` bis `qr=5`. So bleiben Aufkleber, Flyer und Präsentationen getrennt auswertbar; die Codes 4 und 5 sind für spätere Einsätze reserviert.</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {qrCodes.map((qr, index) => {
