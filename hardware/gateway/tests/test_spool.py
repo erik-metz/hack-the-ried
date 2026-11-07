@@ -79,9 +79,16 @@ class SpoolTests(unittest.TestCase):
             self.assertFalse(downlink_fresh(message,{},101.6))
         self.assertFalse(downlink_fresh(dict(shifted,rctx=1),contexts,101))
         self.assertFalse(downlink_fresh(dict(shifted,xtime=original+3_000_000),contexts,101))
-        self.assertFalse(downlink_fresh(shifted,{(0,original):ReceiveContext(100)},101))
         for delay in (-1,16,None,'1',True):
             self.assertFalse(downlink_fresh(dict(shifted,RxDelay=delay),contexts,101))
+
+    def test_shifted_negotiated_data_window_expires_at_its_actual_rx2_deadline(self):
+        contexts = {(0,10_000_000):ReceiveContext(100)}
+        message = dict(msgtype='dnmsg',dC=0,rctx=0,xtime=14_000_000,RxDelay=1)
+        self.assertTrue(downlink_fresh(message,contexts,104))
+        self.assertFalse(downlink_fresh(message,contexts,106))
+        for timestamp in (14_000_001,9_000_000,25_000_000):
+            self.assertFalse(downlink_fresh(dict(message,xtime=timestamp),contexts,101))
 
 
 class OfflineBridgeTests(unittest.IsolatedAsyncioTestCase):

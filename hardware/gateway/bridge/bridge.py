@@ -41,13 +41,19 @@ def downlink_fresh(message, recent, now):
         context = recent.get((rctx, xtime))
         if context is not None and not context.join:
             return 0 <= now-context.received < delay+1
-        # TTS may encode a join RX1 at original xtime + 4 s, RxDelay=1.
-        # Match the actual five-second join window, not an arbitrary timestamp
-        # offset. Both unchanged xtime/RxDelay=5 and the shifted form are valid.
+        # TTS can encode an RX1 at original xtime + 4 s, RxDelay=1.
+        # Match the resulting receive opportunity. Join RX1 is fixed at 5 s;
+        # data RX1 may be negotiated anywhere from 1 to 15 s. Timestamp shifts
+        # must be whole, nonnegative seconds and can never revive an old window.
         for (rx_context, received_xtime), context in recent.items():
-            if (context.join and rx_context == rctx and type(received_xtime) is int
-                    and xtime + delay*1_000_000 == received_xtime + 5_000_000
-                    and 0 <= now-context.received < 6):
+            if rx_context != rctx or type(received_xtime) is not int:
+                continue
+            shift = xtime-received_xtime
+            if shift < 0 or shift % 1_000_000:
+                continue
+            effective_delay = delay + shift//1_000_000
+            valid_delay = effective_delay == 5 if context.join else 1 <= effective_delay <= 15
+            if valid_delay and 0 <= now-context.received < effective_delay+1:
                 return True
         return False
     return True
