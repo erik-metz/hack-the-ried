@@ -51,7 +51,8 @@ def channel_frequencies(config):
         for key, channel in concentrator.items():
             if not key.startswith('chan_') or not channel.get('enable'):
                 continue
-            radio = concentrator.get('radio_' + str(channel.get('radio')), {})
+            # Gateway Bridge omits zero-valued fields in its JSON response.
+            radio = concentrator.get('radio_' + str(channel.get('radio', 0)), {})
             frequencies.add(radio.get('freq', 0) + channel.get('if', 0))
     return frequencies
 

@@ -86,6 +86,9 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         secondary=config()
         secondary['DRs'][8:]=[[-1,0,0] for _ in range(8)]
         self.assertTrue(compatible(config(),secondary))
+        del secondary['sx1301_conf'][0]['chan_multiSF_0']['radio']
+        del secondary['sx1301_conf'][0]['chan_multiSF_0']['if']
+        self.assertTrue(compatible(config(),secondary))
         secondary['DRs'][5]=[8,125,0]
         self.assertFalse(compatible(config(),secondary))
         self.assertFalse(compatible(dict(config(),DRs=[]),dict(config(),DRs=[])))
