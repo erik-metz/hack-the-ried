@@ -1,18 +1,25 @@
 #pragma once
 #include "transfer.h"
+#include "sector_patch.h"
 #include <esp_ota_ops.h>
 #include <mbedtls/sha256.h>
 
 class OtaStorage : public lab::Storage {
  public:
   bool begin(size_t size) override {
+    baseCopied = false;
     target = esp_ota_get_next_update_partition(nullptr);
     if (!target || size > target->size) return false;
     open = esp_ota_begin(target, size, &handle) == ESP_OK;
     return open;
   }
   bool write(size_t offset, const uint8_t* data, size_t size) override {
-    return open && esp_ota_write_with_offset(handle, data, size, offset) == ESP_OK;
+    if (!open || offset > target->size || size > target->size-offset) return false;
+    if (!baseCopied) return esp_ota_write_with_offset(handle, data, size, offset) == ESP_OK;
+    return lab::rewriteSector(offset,data,size,scratch,
+      [this](size_t at,uint8_t* bytes,size_t n) { return esp_partition_read(target,at,bytes,n)==ESP_OK; },
+      [this](size_t at,size_t n) { return esp_partition_erase_range(target,at,n)==ESP_OK; },
+      [this](size_t at,const uint8_t* bytes,size_t n) { return esp_ota_write_with_offset(handle,bytes,n,at)==ESP_OK; });
   }
   bool verify(const uint8_t expected[32], size_t size) override {
     if (!open) return false;
@@ -27,6 +34,7 @@ class OtaStorage : public lab::Storage {
       if (esp_partition_read(source,offset,data,length) != ESP_OK || !write(offset,data,length)) return false;
       yield();
     }
+    baseCopied = true;
     return true;
   }
   static bool hashMatches(const esp_partition_t* partition, const uint8_t expected[32], size_t size) {
@@ -59,4 +67,6 @@ class OtaStorage : public lab::Storage {
   esp_ota_handle_t handle = 0;
   const esp_partition_t* target = nullptr;
   bool open = false;
+  bool baseCopied = false;
+  uint8_t scratch[lab::SECTOR];
 };

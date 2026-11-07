@@ -1,4 +1,5 @@
 #include "../dummy/transfer.h"
+#include "../dummy/sector_patch.h"
 #include <assert.h>
 #include <vector>
 #include <algorithm>
@@ -40,7 +41,37 @@ std::vector<uint8_t> block(size_t i, size_t size) {
 lab::Result send(lab::Transfer& transfer, std::vector<uint8_t> p) {
   return transfer.command(p.data(),p.size());
 }
+void norDeltaPatch() {
+  std::vector<uint8_t> flash(2*lab::SECTOR,0x55);
+  uint8_t scratch[lab::SECTOR], first[128], second[96];
+  memset(first,0xaa,sizeof(first)); memset(second,0xff,sizeof(second));
+  auto read = [&](size_t at,uint8_t* bytes,size_t n) {
+    std::copy_n(flash.data()+at,n,bytes); return true;
+  };
+  auto erase = [&](size_t at,size_t n) {
+    std::fill_n(flash.begin()+at,n,0xff); return true;
+  };
+  auto write = [&](size_t at,const uint8_t* bytes,size_t n) {
+    for (size_t i=0;i<n;++i) flash[at+i] &= bytes[i];
+    return true;
+  };
+  // A direct write cannot turn cloned zero bits back into one bits.
+  write(128,first,sizeof(first)); assert(flash[128]!=0xaa);
+  assert(lab::rewriteSector(128,first,sizeof(first),scratch,read,erase,write));
+  assert(lab::rewriteSector(384,second,sizeof(second),scratch,read,erase,write));
+  for (size_t i=0;i<flash.size();++i) {
+    assert(flash[i]==(i>=128 && i<256 ? 0xaa : i>=384 && i<480 ? 0xff : 0x55));
+  }
+  assert(!lab::rewriteSector(4090,first,128,scratch,read,erase,write));
+  assert(!lab::rewriteSector(0,first,128,scratch,
+    [](size_t,uint8_t*,size_t){return false;},erase,write));
+  assert(!lab::rewriteSector(0,first,128,scratch,read,
+    [](size_t,size_t){return false;},write));
+  assert(!lab::rewriteSector(0,first,128,scratch,read,erase,
+    [](size_t,const uint8_t*,size_t){return false;}));
+}
 int main() {
+  norDeltaPatch();
   Flash flash; lab::Transfer t(flash);
   assert(send(t,start(257))==lab::Receiving);
   assert(send(t,block(2,1))==lab::Receiving);
