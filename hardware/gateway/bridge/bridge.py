@@ -1,5 +1,6 @@
 """Loopback LNS bridge: durable uplinks, cached channel plan, TLS to the real LNS."""
 import asyncio
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -23,12 +24,32 @@ def valid_target(uri, discovery_host):
             and u.hostname == discovery_host and u.port in (None, 443, 8887))
 
 
+@dataclass(frozen=True)
+class ReceiveContext:
+    received: float
+    join: bool = False
+
+
 def downlink_fresh(message, recent, now):
     # Never turn a historical Class A uplink into a new receive opportunity.
     if message.get('msgtype') == 'dnmsg' and message.get('dC', 0) == 0:
-        key = (message.get('rctx'), message.get('xtime'))
-        received = recent.get(key)
-        return received is not None and now-received < message.get('RxDelay',1)+1
+        rctx, xtime = message.get('rctx'), message.get('xtime')
+        delay = message.get('RxDelay', 1)
+        if any(type(v) is not int for v in (rctx, xtime, delay)) or not 0 <= delay <= 15:
+            return False
+        delay = max(1, delay)
+        context = recent.get((rctx, xtime))
+        if context is not None and not context.join:
+            return 0 <= now-context.received < delay+1
+        # TTS may encode a join RX1 at original xtime + 4 s, RxDelay=1.
+        # Match the actual five-second join window, not an arbitrary timestamp
+        # offset. Both unchanged xtime/RxDelay=5 and the shifted form are valid.
+        for (rx_context, received_xtime), context in recent.items():
+            if (context.join and rx_context == rctx and type(received_xtime) is int
+                    and xtime + delay*1_000_000 == received_xtime + 5_000_000
+                    and 0 <= now-context.received < 6):
+                return True
+        return False
     return True
 
 
@@ -94,13 +115,15 @@ class Bridge:
                     now = time.time()
                     self.last_rx = now
                     upinfo = message.get('upinfo', {})
-                    self.recent[(upinfo.get('rctx'),upinfo.get('xtime'))] = now
-                    self.recent = {k:v for k,v in self.recent.items() if now-v < 30}
+                    self.recent[(upinfo.get('rctx'),upinfo.get('xtime'))] = ReceiveContext(now)
+                    self.recent = {k:v for k,v in self.recent.items() if now-v.received < 30}
                     self.wake.set()
                 elif kind == 'jreq':
                     # Joining is meaningful only while a receive window is open.
                     info = message.get('upinfo',{})
-                    self.recent[(info.get('rctx'),info.get('xtime'))] = time.time()
+                    now = time.time()
+                    self.recent[(info.get('rctx'),info.get('xtime'))] = ReceiveContext(now, join=True)
+                    self.recent = {k:v for k,v in self.recent.items() if now-v.received < 30}
                     if self.ready:
                         await self.remote.send(raw)
                     else:

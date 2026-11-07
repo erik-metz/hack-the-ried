@@ -10,7 +10,7 @@ from unittest.mock import patch
 BRIDGE = Path(__file__).resolve().parents[1]/'bridge'
 sys.path.insert(0,str(BRIDGE))
 from spool import Spool
-from bridge import Bridge, downlink_fresh, valid_target
+from bridge import Bridge, ReceiveContext, downlink_fresh, valid_target
 from websockets.legacy.client import connect
 
 
@@ -62,9 +62,26 @@ class SpoolTests(unittest.TestCase):
 
     def test_stale_class_a_downlink_is_blocked(self):
         m=dict(msgtype='dnmsg',dC=0,rctx=0,xtime=123,RxDelay=1)
-        self.assertTrue(downlink_fresh(m,{(0,123):99.5},100))
-        self.assertFalse(downlink_fresh(m,{(0,123):80},100))
+        self.assertTrue(downlink_fresh(m,{(0,123):ReceiveContext(99.5)},100))
+        self.assertFalse(downlink_fresh(m,{(0,123):ReceiveContext(80)},100))
         self.assertFalse(downlink_fresh(m,{},100))
+
+    def test_join_accept_matches_real_tts_shift_but_never_old_receive_windows(self):
+        original = 66991044486414000
+        contexts = {(0,original):ReceiveContext(100, join=True)}
+        shifted = dict(msgtype='dnmsg',dC=0,rctx=0,xtime=original+4_000_000,RxDelay=1)
+        unchanged = dict(shifted,xtime=original,RxDelay=5)
+        for message in (shifted,unchanged):
+            self.assertTrue(downlink_fresh(message,contexts,101.6))
+            self.assertTrue(downlink_fresh(message,contexts,105.9))
+            self.assertFalse(downlink_fresh(message,contexts,106))
+            self.assertFalse(downlink_fresh(message,contexts,99))
+            self.assertFalse(downlink_fresh(message,{},101.6))
+        self.assertFalse(downlink_fresh(dict(shifted,rctx=1),contexts,101))
+        self.assertFalse(downlink_fresh(dict(shifted,xtime=original+3_000_000),contexts,101))
+        self.assertFalse(downlink_fresh(shifted,{(0,original):ReceiveContext(100)},101))
+        for delay in (-1,16,None,'1',True):
+            self.assertFalse(downlink_fresh(dict(shifted,RxDelay=delay),contexts,101))
 
 
 class OfflineBridgeTests(unittest.IsolatedAsyncioTestCase):
