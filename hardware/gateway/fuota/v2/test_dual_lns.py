@@ -12,7 +12,8 @@ from dual_lns import StationRouter, compatible, private_uplink, secondary_target
 
 
 def config(frequency=868100000):
-    return dict(msgtype='router_config',region='EU868',NetID=[19],DRs=[[7,125,0]],
+    return dict(msgtype='router_config',region='EU868',NetID=[19],
+        DRs=[[sf,125,0] for sf in range(12,6,-1)]+[[7,250,0],[0,0,0]]+[[0,0,0] for _ in range(8)],
         sx1301_conf=[dict(radio_0=dict(freq=frequency),chan_multiSF_0=dict(enable=True,radio=0,**{'if':0}))])
 
 
@@ -82,6 +83,12 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(compatible(config(),config()))
         self.assertFalse(compatible(config(),config(867100000)))
         self.assertFalse(compatible(config(),dict(config(),DRs=[])))
+        secondary=config()
+        secondary['DRs'][8:]=[[-1,0,0] for _ in range(8)]
+        self.assertTrue(compatible(config(),secondary))
+        secondary['DRs'][5]=[8,125,0]
+        self.assertFalse(compatible(config(),secondary))
+        self.assertFalse(compatible(dict(config(),DRs=[]),dict(config(),DRs=[])))
         self.assertFalse(private_uplink(dict(msgtype='updf',DevAddr='0'),set()))
 
     async def test_primary_plan_change_pauses_incompatible_secondary(self):

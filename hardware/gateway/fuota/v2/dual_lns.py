@@ -63,7 +63,18 @@ def compatible(primary, secondary):
             and secondary.get('region') in ('EU868', 'EU863')
             and bool(primary_frequencies) and bool(secondary_frequencies)
             and secondary_frequencies <= primary_frequencies
-            and primary.get('DRs') == secondary.get('DRs'))
+            and data_rates(primary) is not None
+            and data_rates(primary) == data_rates(secondary))
+
+
+def data_rates(config):
+    rates = config.get('DRs')
+    if not isinstance(rates, list) or len(rates) != 16:
+        return None
+    # TTS marks unused EU868 DR8..15 as [0,0,0], Gateway Bridge as
+    # [-1,0,0]. Compare their meaning while retaining every usable DR.
+    return [([0,0,0] if i >= 8 and rate in ([0,0,0],[-1,0,0]) else rate)
+            for i,rate in enumerate(rates)]
 
 
 class StationRouter:
