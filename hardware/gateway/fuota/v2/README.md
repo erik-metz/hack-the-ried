@@ -1,5 +1,9 @@
 # FUOTA lab v2: one Station, two network paths
 
+The first real single-device delta update is recorded in
+[the 2026-11-07 test report](TEST-2026-11-07.md), including exact image hashes,
+independent uplink confirmation and the remaining multi-device work.
+
 This experimental overlay preserves the existing Basics Station hardware owner,
 the durable TTN uplink bridge, TLS authentication to TTN, the current channel
 plan and the host guardian. It adds a secondary local Basics Station connection
