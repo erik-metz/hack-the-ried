@@ -155,7 +155,7 @@ test("All decks tell the origin story, include collected data, and close with a 
   for (const deck of PITCH_DECKS) {
     assert.deepEqual(deck.slides.slice(0, 4).map(slide => slide.id), ["team", "hackathon", "origin", "collected"].map(id => `${deck.slug}-${id}`));
     const mainSlides = ["politik", "presse"].includes(deck.slug) ? deck.slides.slice(0, -1) : deck.slides;
-    assert.equal(mainSlides.at(-2).layout, deck.slug === "presse" ? "story" : "the-ask-commitment");
+    assert.equal(mainSlides.at(-2).layout, deck.slug === "presse" ? "event-outlook" : "the-ask-commitment");
     assert.equal(mainSlides.at(-1).layout, "collected-evidence");
     assert.equal(deck.slides.filter(slide => slide.layout === "collected-evidence").length, 1);
     assert.equal(new Set(deck.slides.map(slide => slide.id)).size, deck.slides.length);
@@ -278,9 +278,11 @@ test("Press deck copies the political story and replaces only the asks with the 
     const original = POLITIK_DECK.slides[index];
     if (original.id === "politik-ask") {
       assert.equal(slide.id, "presse-ausblick");
-      assert.match(slide.bullets[0].title, /Ende November 2026/);
-      assert.match(slide.bullets[1].title, /19.–20. Februar 2027/);
-      assert.match(slide.bullets[2].description, /Schulen.*Quartiersbüro Bürstadt-Fortuna.*VHS.*Erwachsene/);
+      assert.equal(slide.outlook.infoMonth, "November");
+      assert.equal(slide.outlook.infoTiming, "Ende des Monats · 2026");
+      assert.equal(slide.outlook.hackathonDays, "19.–20.");
+      assert.equal(slide.outlook.hackathonMonth, "Februar 2027");
+      assert.deepEqual(slide.outlook.audiences, ["Schulen", "Quartiersbüro Bürstadt-Fortuna", "VHS · Erwachsene"]);
     } else {
       assert.deepEqual(slide, { ...original, id: original.id.replace(/^politik-/, "presse-") });
     }

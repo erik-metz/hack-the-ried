@@ -97,6 +97,7 @@ export interface SpecificAskItem {
 }
 
 export type SlideLayout =
+  | "event-outlook"
   | "data-connections"
   | "story"
   | "website"
@@ -125,7 +126,13 @@ export interface PitchSlide {
   title: string;
   lead: string;
   layout: SlideLayout;
-  audienceSticker?: boolean;
+  outlook?: {
+    infoMonth: string;
+    infoTiming: string;
+    hackathonDays: string;
+    hackathonMonth: string;
+    audiences: [string, string, string];
+  };
   website?: { src: string; title: string };
   imageVisual?: {
     src: string;
@@ -437,30 +444,19 @@ export const PRESSE_DECK: PitchDeck = {
     if (slide.id === "politik-ask") {
       return {
         id: "presse-ausblick",
-        audienceSticker: true,
         title: "Ausblick: Mitmachen im Ried",
-        lead: "Die nächsten Schritte: informieren, gemeinsam entwickeln und Sensoren selbst bauen.",
-        layout: "story",
+        lead: "",
+        layout: "event-outlook",
+        outlook: {
+          infoMonth: "November",
+          infoTiming: "Ende des Monats · 2026",
+          hackathonDays: "19.–20.",
+          hackathonMonth: "Februar 2027",
+          audiences: ["Schulen", "Quartiersbüro Bürstadt-Fortuna", "VHS · Erwachsene"],
+        },
         eyebrow: "HackTheRied",
         stepNumber: slide.stepNumber,
         stepLabel: slide.stepLabel,
-        bullets: [
-          {
-            title: "Ende November 2026 · Infoveranstaltung geplant",
-            description:
-              "Für alle Interessierten: die Initiative kennenlernen, Fragen stellen und Möglichkeiten zum Mitmachen entdecken.",
-          },
-          {
-            title: "19.–20. Februar 2027 · Hackathon",
-            description:
-              "Gemeinsam Ideen für das Ried entwickeln und mit regionalen Daten experimentieren.",
-          },
-          {
-            title: "Während des Hackathons · Sensorbau-Workshops",
-            description:
-              "Geplant sind Angebote für Schulen, mit dem Quartiersbüro Bürstadt-Fortuna sowie mit der VHS für Erwachsene.",
-          },
-        ],
       };
     }
     return { ...slide, id: slide.id.replace(/^politik-/, "presse-") };

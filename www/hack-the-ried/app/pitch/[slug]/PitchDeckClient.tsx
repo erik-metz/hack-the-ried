@@ -8,10 +8,12 @@ import type { PitchDeck, PitchSlide } from "@/lib/pitchData";
 import DataConnectionsDiagram from "../DataConnectionsDiagram";
 import CollectedDataEvidence from "../CollectedDataEvidence";
 import PresentationSticker from "../PresentationSticker";
+import OutlookSlide from "../OutlookSlide";
 
 function SlideBody({ slide, startedAt }: { slide: PitchSlide; startedAt: number }) {
+  if (slide.layout === "event-outlook" && slide.outlook) return <OutlookSlide outlook={slide.outlook} />;
   if (slide.layout === "data-connections") return <DataConnectionsDiagram />;
-  if (slide.layout === "collected-evidence") return <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+  if (slide.layout === "collected-evidence") return <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_15rem]">
     <CollectedDataEvidence startedAt={startedAt} />
     <aside aria-label="HackTheRied zum Mitnehmen" className="justify-self-center lg:justify-self-end"><PresentationSticker compact /></aside>
   </div>;
@@ -41,7 +43,7 @@ function SlideBody({ slide, startedAt }: { slide: PitchSlide; startedAt: number 
       <p className="mt-2 text-lg leading-relaxed text-slate-300">{ask.description}</p>
     </article>)}
   </div>;
-  return <div className={`grid items-center gap-8 ${slide.audienceSticker ? "lg:grid-cols-[minmax(0,1fr)_22rem]" : slide.imageVisual ? "md:grid-cols-2" : "max-w-5xl"}`}>
+  return <div className={`grid items-center gap-8 ${slide.imageVisual ? "md:grid-cols-2" : "max-w-5xl"}`}>
     {slide.imageVisual && <figure>
       <div className="relative aspect-video max-h-[38vh] overflow-hidden rounded-xl">
         <Image src={slide.imageVisual.src} alt={slide.imageVisual.alt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -52,7 +54,6 @@ function SlideBody({ slide, startedAt }: { slide: PitchSlide; startedAt: number 
       <h3 className="text-xl md:text-2xl font-semibold">{bullet.title}</h3>
       <p className="mt-2 text-lg leading-relaxed text-slate-300">{bullet.description}</p>
     </div>)}</div>
-    {slide.audienceSticker && <PresentationSticker />}
   </div>;
 }
 
@@ -109,9 +110,9 @@ export default function PitchDeckClient({ deck }: { deck: PitchDeck }) {
         <p className="text-sm text-emerald-400">{item.stepLabel} · {deck.badge}</p>
         <h2 className="text-3xl font-bold">{item.title}</h2><p className="text-lg text-slate-300">{item.lead}</p>
         <SlideBody slide={item} startedAt={startedAt} />
-      </section>)}</div> : <section key={slide.id} className="space-y-5">
+      </section>)}</div> : <section key={slide.id} className={slide.layout === "event-outlook" ? "space-y-4" : "space-y-5"}>
         <div className="flex justify-between gap-4 text-sm text-emerald-400"><span>{slide.stepLabel} · {deck.badge}</span><span className="text-slate-400">Folie {index + 1} / {deck.slides.length}</span></div>
-        <h2 className={`text-3xl md:text-4xl ${slide.layout === "collected-evidence" ? "lg:text-4xl" : "lg:text-5xl"} font-bold leading-tight`}>{slide.title}</h2>
+        <h2 className={`text-3xl md:text-4xl ${["collected-evidence", "event-outlook"].includes(slide.layout) ? "lg:text-4xl" : "lg:text-5xl"} font-bold leading-tight`}>{slide.title}</h2>
         {slide.lead && <p className="max-w-6xl text-lg leading-relaxed text-slate-300">{slide.lead}</p>}
         <SlideBody slide={slide} startedAt={startedAt} />
       </section>}
