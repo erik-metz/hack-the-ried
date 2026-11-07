@@ -17,6 +17,8 @@ def main():
     parser.add_argument('profile')
     parser.add_argument('version', type=int, choices=[1, 2])
     parser.add_argument('--port')
+    parser.add_argument('--network', choices=['ttn', 'chirpstack'], default='ttn',
+                        help='TTN uses the existing 868.1-MHz device plan; ChirpStack uses full EU868')
     args = parser.parse_args()
     if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,59}', args.profile):
         parser.error('Invalid profile ID')
@@ -36,6 +38,7 @@ def main():
         os.chmod(sketch / 'secrets.h', 0o600)
         (sketch / 'build_config.h').write_text(
             f'#define TEST_FIRMWARE_VERSION {args.version}\n'
+            f'#define TEST_TTN_SINGLE_CHANNEL {int(args.network == "ttn")}\n'
             f'#define TEST_NVS_NAMESPACE "f{identity}"\n')
         subprocess.run(['arduino-cli', 'compile', '--fqbn', fqbn,
             '--libraries', str(ROOT.parents[2] / 'libraries'),

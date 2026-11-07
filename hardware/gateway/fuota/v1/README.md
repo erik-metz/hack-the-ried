@@ -3,8 +3,9 @@
 This is an isolated ChirpStack 4.20.0 server stack for the RAK3112 experiment.
 Starting it does not stop or reconfigure the existing TTN Basics Station, does
 not access SPI/GPIO, and does not automatically enable FUOTA transmissions.
-This first increment provides the server and dummy firmware bring-up; the
-shared radio transport and actual firmware installation are not yet enabled.
+This server increment provides the isolated backend. The lab dummy firmware
+now has a private fragment/OTA receiver; shared radio transport, provisioning
+and a paced server sender are still required before end-to-end FUOTA tests.
 
 ## Start on the Pi
 

@@ -16,3 +16,7 @@ test('rejects other ports, truncated payloads, trailing data and other formats',
   }
   assert.equal(decode(valid, 10).errors.length, 1);
 });
+test('decodes transfer status and targeted repair list', () => {
+  assert.deepEqual(decode([1,1,0,0,0,123,0,0,0,1,0,0,0,3,0,0,0,2],43),
+    {data:{fuota_state:1,session:123,received_blocks:1,total_blocks:3,missing_blocks:[0,2]}});
+});
