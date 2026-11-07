@@ -1,0 +1,5 @@
+# Third overlay after v1/compose.yml and v2/compose.tools.yml.
+services:
+  lab-tools:
+    volumes:
+      - ${FUOTA_V3_DIR:?Set the absolute v3 directory}:/lab3:ro
