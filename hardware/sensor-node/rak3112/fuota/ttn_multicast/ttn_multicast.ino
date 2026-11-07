@@ -66,7 +66,9 @@ void payload(uint8_t out[8]) {
   lab::put32(out+4,counter);
 }
 void setup() {
+  const size_t usbBuffer=Serial.setRxBufferSize(512);
   Serial.begin(115200);delay(1500);
+  if (usbBuffer<512) halt("ERROR: USB provisioning buffer unavailable");
   Serial.printf("TTN-FUOTA firmware=%u value=%u protocol=lab1 transport=multicast\n",firmwareVersion,testValue);
   while (!credentials.load()) {
     Serial.println("PROFILE missing; CFG3 USB provisioning required");

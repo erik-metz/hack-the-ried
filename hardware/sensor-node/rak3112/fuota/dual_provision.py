@@ -20,7 +20,9 @@ if __name__=='__main__':
     if not re.fullmatch('[a-z0-9][a-z0-9_-]{0,59}',args.profile): parser.error('Invalid profile')
     source=ROOT.parent/'profiles'/(args.profile+'.h')
     source.chmod(0o600)
-    text=source.read_text()
+    # Preserve exact bytes for migration of the original embedded-profile NVS
+    # namespace, including CRLF profiles created by other editors.
+    text=source.read_bytes().decode()
     state=ROOT/'build'/'dual-network'; state.mkdir(parents=True,exist_ok=True,mode=0o700)
     state.chmod(0o700)
     group=group_file(state/'group.json')
@@ -36,7 +38,14 @@ if __name__=='__main__':
         import serial
         with serial.Serial(port=None,baudrate=115200,timeout=.2) as port:
             port.dtr=True; port.rts=True; port.port=args.port; port.open(); time.sleep(1.5)
-            port.write(command); port.flush()
+            # Finish and reject a partial prior command before sending keys.
+            port.reset_input_buffer();port.write(b'\n');port.flush()
+            clear_until=time.monotonic()+10
+            while time.monotonic()<clear_until:
+                if port.readline().decode(errors='replace').strip()=='PROFILE rejected': break
+            else: raise TimeoutError('USB command parser did not acknowledge reset')
+            for offset in range(0,len(command),32):
+                port.write(command[offset:offset+32]);port.flush();time.sleep(.02)
             until=time.monotonic()+30
             while time.monotonic()<until:
                 line=port.readline().decode(errors='replace').strip()
