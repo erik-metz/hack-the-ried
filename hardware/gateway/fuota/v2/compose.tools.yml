@@ -1,0 +1,10 @@
+# Overlay on ../v1/compose.yml. No host ports or radio devices.
+services:
+  lab-tools:
+    profiles: [tools]
+    build:
+      context: ${FUOTA_LAB_DIR:?Set the absolute v2 directory}
+      dockerfile: Dockerfile.tools
+    volumes:
+      - ${FUOTA_LAB_DIR:?Set the absolute v2 directory}:/lab:ro
+      - ${FUOTA_PRIVATE_DIR:?Set a private host directory}:/state

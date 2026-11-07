@@ -44,8 +44,13 @@ jobs:
         run: |
           docker compose -f hardware/gateway/fuota/v1/compose.yml config --quiet
           python -m unittest discover -s hardware/gateway/fuota/v1 -p 'test_*.py' -v
+          python -m unittest discover -s hardware/gateway/fuota/v2 -p 'test_*.py' -v
           python -c 'import pathlib,tomllib; [tomllib.loads(p.read_text()) for p in pathlib.Path("hardware/gateway/fuota/v1/config").rglob("*.toml")]'
       - uses: docker/setup-buildx-action@v3
+      - name: Build and smoke-test private lab API tools
+        run: |
+          docker build -f hardware/gateway/fuota/v2/Dockerfile.tools -t kamue-fuota-tools:test hardware/gateway/fuota/v2
+          docker run --rm --entrypoint python kamue-fuota-tools:test -c 'from chirpstack_api import api; import grpc; print("ChirpStack API tools ready")'
       - name: Build existing forwarder with gateway configuration wrapper
         uses: docker/build-push-action@v6
         with:

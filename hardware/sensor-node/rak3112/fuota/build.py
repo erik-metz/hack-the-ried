@@ -2,12 +2,14 @@
 """Build experimental A/B binaries outside the stable vN release series."""
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import tempfile
+from private_profile import derive
 
 ROOT = Path(__file__).resolve().parent
 
@@ -26,15 +28,29 @@ def main():
     if not profile.is_file():
         parser.error('Missing local device profile')
     os.chmod(profile, 0o600)
-    identity = hashlib.sha256(profile.read_bytes()).hexdigest()[:12]
-    output = ROOT / 'build' / args.profile / str(args.version)
+    profile_text = profile.read_text()
+    registration = None
+    if args.network == 'chirpstack':
+        profile_text, registration = derive(profile_text)
+    identity = hashlib.sha256(profile_text.encode() if registration else profile.read_bytes()).hexdigest()[:12]
+    base = ROOT / 'build' / args.profile
+    if args.network == 'chirpstack':
+        base = base / 'chirpstack'
+    output = base / str(args.version)
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(ROOT / 'build', 0o700)
+    if registration is not None:
+        registration['name'] = args.profile
+        registration_path = base / 'provision.json'
+        fd = os.open(registration_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(registration, stream)
+        os.chmod(registration_path, 0o600)
     fqbn = 'esp32:esp32:esp32s3:USBMode=hwcdc,CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi'
     with tempfile.TemporaryDirectory(prefix='fuota-build-') as directory:
         sketch = Path(directory) / 'dummy'
         shutil.copytree(ROOT / 'dummy', sketch)
-        shutil.copyfile(profile, sketch / 'secrets.h')
+        (sketch / 'secrets.h').write_text(profile_text)
         os.chmod(sketch / 'secrets.h', 0o600)
         (sketch / 'build_config.h').write_text(
             f'#define TEST_FIRMWARE_VERSION {args.version}\n'

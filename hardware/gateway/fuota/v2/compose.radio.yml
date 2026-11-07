@@ -1,0 +1,15 @@
+# Overlay for the EXISTING gateway Compose project, never a second radio owner.
+services:
+  basicstation:
+    command: [bash, -ec, 'gateway-start --render-only; exec python3 /app/fuota/dual_lns.py']
+    environment:
+      FUOTA_TEST_DEV_EUIS: ${FUOTA_TEST_DEV_EUIS:?Set only the selected private test DevEUIs}
+    volumes:
+      - ${FUOTA_LAB_DIR:?Set the absolute v2 directory}:/app/fuota:ro
+    networks:
+      - default
+      - fuota
+networks:
+  fuota:
+    external: true
+    name: kamue-fuota-v1_default
