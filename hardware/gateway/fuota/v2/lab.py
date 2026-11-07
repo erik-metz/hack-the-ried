@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import re
 import sys
-import urllib.request
 from urllib.parse import urlsplit
 
 import grpc
@@ -15,16 +14,15 @@ from websockets.legacy.client import connect
 
 
 class Lab:
-    def __init__(self):
+    def __init__(self, endpoint='chirpstack:8080'):
         password = Path('/state/admin-password')
         password = password.read_text().strip() if password.exists() else 'admin'
-        request = urllib.request.Request('http://chirpstack:8080/api/internal/login',
-            data=json.dumps(dict(email='admin',password=password)).encode(),
-            headers={'Content-Type':'application/json'})
-        with urllib.request.urlopen(request,timeout=10) as response:
-            token = json.load(response)['jwt']
+        self.channel = grpc.insecure_channel(endpoint)
+        # ChirpStack v4 exposes this internal service over gRPC, not the v3
+        # /api/internal/login REST route. Keep the short-lived JWT in memory.
+        token = api.InternalServiceStub(self.channel).Login(
+            api.LoginRequest(email='admin',password=password),timeout=10).jwt
         self.metadata = [('authorization','Bearer '+token)]
-        self.channel = grpc.insecure_channel('chirpstack:8080')
         self.tenants = api.TenantServiceStub(self.channel)
         self.applications = api.ApplicationServiceStub(self.channel)
         self.profiles = api.DeviceProfileServiceStub(self.channel)

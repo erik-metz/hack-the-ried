@@ -47,6 +47,8 @@ health interface and hardware process.
 Set `FUOTA_LAB_DIR` to the absolute v2 source directory, `FUOTA_PRIVATE_DIR` to
 a mode-700 host directory for provisioning files, and `FUOTA_TEST_DEV_EUIS` to
 the comma-separated test whitelist. Never put device keys in these variables.
+The public `region_eu868.toml` must be readable by the nonroot ChirpStack
+container user (mode 644), including after checkout under a restrictive umask.
 Use the original gateway `.env`; do not create a second copy of its TTN key.
 
 Overlay the existing gateway manifest with `compose.radio.yml` in the same
@@ -58,7 +60,7 @@ private join/uplink. Verify both paths again after a reconnect.
 
 `compose.tools.yml` overlays the v1 server manifest and provides a private
 `lab-tools` container. It signs into the local-only API using the existing lab
-admin login (default for a new isolated instance; optional password file at
+admin login over gRPC (default for a new isolated instance; optional password file at
 `/state/admin-password`). It does not create persistent API tokens. Provisioning
 creates a dedicated lab tenant, application, profile and gateway. Existing
 devices outside that application are refused; existing lab session keys are
