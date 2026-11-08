@@ -64,9 +64,19 @@ def provision(config,gateway):
         try: lab.call(method,request)
         except grpc.RpcError as exc:
             if exc.code()!=grpc.StatusCode.ALREADY_EXISTS: raise
+    # Query existing memberships: this server reports duplicate inserts as
+    # INTERNAL, rather than ALREADY_EXISTS. Never hide unrelated server errors.
+    members=lab.call(lab.devices.List,api.ListDevicesRequest(application_id=application,multicast_group_id=existing,limit=100))
+    if members.total_count>len(members.result): raise ValueError('Multicast membership exceeds inspection limit')
+    member_ids={item.dev_eui.lower() for item in members.result}
     for item in config['devices']:
-        add(groups.AddDevice,api.AddDeviceToMulticastGroupRequest(multicast_group_id=existing,dev_eui=item['dev_eui']))
-    add(groups.AddGateway,api.AddGatewayToMulticastGroupRequest(multicast_group_id=existing,gateway_id=gateway))
+        if item['dev_eui'].lower() not in member_ids:
+            add(groups.AddDevice,api.AddDeviceToMulticastGroupRequest(multicast_group_id=existing,dev_eui=item['dev_eui']))
+    tenant=lab.call(lab.gateways.Get,api.GetGatewayRequest(gateway_id=gateway)).gateway.tenant_id
+    gateways=lab.call(lab.gateways.List,api.ListGatewaysRequest(tenant_id=tenant,multicast_group_id=existing,limit=100))
+    if gateways.total_count>len(gateways.result): raise ValueError('Multicast gateway membership exceeds inspection limit')
+    if gateway.lower() not in {item.gateway_id.lower() for item in gateways.result}:
+        add(groups.AddGateway,api.AddGatewayToMulticastGroupRequest(multicast_group_id=existing,gateway_id=gateway))
     state=Path('/state/v3-group-id.json')
     record=dict(id=existing,name=GROUP_NAME,application_id=application,gateway=gateway)
     fd=os.open(state,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
