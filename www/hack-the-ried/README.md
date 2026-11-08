@@ -157,9 +157,10 @@ Validation: `npm run test:map`, `npm run test:security`, `npm run build`.
 
 Marketing-QR-Codes verwenden `/qr/<id>`, getrennt von den Sensorseiten unter
 `/q/<id>`. Das öffentliche Markenportal unter `/branding` enthält QR-Codes,
-Logos und Gestaltungsfarben. Die fünf IDs `1` bis `5` leiten auf die
+Logos und Gestaltungsfarben. Die zehn IDs `1` bis `10` leiten auf die
 Startseite und ergänzen `?qr=<id>`.
-QR 1 ist für Aufkleber, QR 2 für Flyer und QR 3 bis 5 sind reserviert. Ziele
+QR 1 ist für Aufkleber, QR 2 für Flyer, QR 3 für Präsentationen und QR 4 für den
+Pressetermin im November 2026 vorgesehen. QR 5 bis 10 sind reserviert. Ziele
 stehen in `lib/marketingQr.ts`; die druckfertigen QR-PNGs liegen in
 `public/brand/qr/`. Das Markenportal bietet alle drei Bildmarken jeweils in
 eckigem und rundem Format auf Tiefgrün (`#102F26`) und Creme (`#F6F1DE`),

@@ -5,8 +5,13 @@ const qrCodes = [
   { id: "1", label: "Aufkleber", color: "#34D399" },
   { id: "2", label: "Flyer", color: "#2DD4BF" },
   { id: "3", label: "Präsentationen", color: "#A3E635" },
-  { id: "4", label: "Reserve 4", color: "#38BDF8" },
+  { id: "4", label: "Pressetermin November 2026", color: "#38BDF8" },
   { id: "5", label: "Reserve 5", color: "#C084FC" },
+  { id: "6", label: "Reserve 6", color: "#FBBF24" },
+  { id: "7", label: "Reserve 7", color: "#FB7185" },
+  { id: "8", label: "Reserve 8", color: "#FB923C" },
+  { id: "9", label: "Reserve 9", color: "#818CF8" },
+  { id: "10", label: "Reserve 10", color: "#F472B6" },
 ];
 
 async function loadDailyScans(): Promise<DailyScan[] | null> {
@@ -57,7 +62,7 @@ export default async function QrScanStats() {
               <article key={qr.id} className="rounded-2xl border border-slate-800 bg-slate-900/65 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">QR · 0{qr.id}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">QR · {qr.id.padStart(2, "0")}</p>
                     <h3 className="mt-1 text-lg font-semibold text-white">{qr.label}</h3>
                   </div>
                   <p className="text-right"><strong className="block text-2xl font-semibold text-white">{total}</strong><span className="text-xs text-slate-500">Aufrufe</span></p>

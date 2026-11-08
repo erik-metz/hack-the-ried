@@ -17,8 +17,13 @@ const qrCodes = [
   { id: "1", title: "Aufkleber", description: "QR-Code 1 · vorgesehen für Aufkleber." },
   { id: "2", title: "Flyer", description: "QR-Code 2 · vorgesehen für Flyer." },
   { id: "3", title: "Präsentationen", description: "QR-Code 3 · für Ausblick- und Bonus-Folien in unseren Präsentationen." },
-  { id: "4", title: "Reserve 4", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "4", title: "Pressetermin November 2026", description: "QR-Code 4 · für den Pressetermin im November 2026." },
   { id: "5", title: "Reserve 5", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "6", title: "Reserve 6", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "7", title: "Reserve 7", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "8", title: "Reserve 8", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "9", title: "Reserve 9", description: "Noch keinem Marketingmaterial zugeordnet." },
+  { id: "10", title: "Reserve 10", description: "Noch keinem Marketingmaterial zugeordnet." },
 ];
 
 const logos = [
@@ -57,7 +62,7 @@ export default function MarketingPage() {
             <div className="max-w-3xl">
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">Presse · Partner · Veranstalter</p>
               <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">Das Ried. Offen gedacht.</h1>
-              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-200">Hier findest du die offiziellen HackTheRied-Logos, fünf teilbare QR-Codes und unsere Gestaltungsfarben. Frei nutzbar für Berichte, Flyer, Veranstaltungen und gemeinsame Projekte.</p>
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-200">Hier findest du die offiziellen HackTheRied-Logos, zehn teilbare QR-Codes und unsere Gestaltungsfarben. Frei nutzbar für Berichte, Flyer, Veranstaltungen und gemeinsame Projekte.</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="#qr-codes" className="rounded-xl bg-emerald-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300">QR-Codes entdecken</a>
                 <a href="#logos" className="rounded-xl border border-white/20 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10">Logos ansehen</a>
@@ -74,17 +79,17 @@ export default function MarketingPage() {
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-400">Direkt zum Ziel</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Fünf QR-Codes für unterwegs</h2>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Zehn QR-Codes für unterwegs</h2>
             </div>
-            <p className="max-w-xl text-sm leading-relaxed text-slate-400">Alle fünf Codes führen zur Startseite und übergeben ihre Kennung als `qr=1` bis `qr=5`. So bleiben Aufkleber, Flyer und Präsentationen getrennt auswertbar; die Codes 4 und 5 sind für spätere Einsätze reserviert.</p>
+            <p className="max-w-xl text-sm leading-relaxed text-slate-400">Alle zehn Codes führen zur Startseite und übergeben ihre Kennung als `qr=1` bis `qr=10`. So bleiben Aufkleber, Flyer, Präsentationen und der Pressetermin im November 2026 getrennt auswertbar; die Codes 5 bis 10 sind für spätere Einsätze reserviert.</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {qrCodes.map((qr, index) => {
+            {qrCodes.map((qr) => {
               const shortUrl = `https://hack-the-ried.de/qr/${qr.id}`;
               return <article key={qr.id} className="group rounded-2xl border border-slate-800 bg-slate-900/65 p-5 transition hover:-translate-y-1 hover:border-emerald-400/30 hover:bg-slate-900">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-400">QR · 0{index + 1}</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-400">QR · {qr.id.padStart(2, "0")}</span>
                     <h3 className="mt-2 text-xl font-semibold text-white">{qr.title}</h3>
                     <p className="mt-2 min-h-12 text-sm leading-relaxed text-slate-400">{qr.description}</p>
                   </div>

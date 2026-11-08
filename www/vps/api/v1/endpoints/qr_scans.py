@@ -14,7 +14,7 @@ AdminAuth = Annotated[str, Depends(verify_admin_key)]
 
 
 class QrScanEvent(BaseModel):
-    qr_id: str = Field(pattern=r"^[1-5]$")
+    qr_id: str = Field(pattern=r"^(?:[1-9]|10)$")
     referrer_host: str | None = Field(default=None, max_length=255)
     user_agent: str | None = Field(default=None, max_length=512)
     campaign: dict[str, str] = Field(default_factory=dict, max_length=8)

@@ -44,9 +44,15 @@ class QrScanTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(connection.params[0:3], ("2", "example.org", "Browser"))
         self.assertEqual(connection.params[3].obj, {"utm_source": "flyer"})
 
+    async def test_all_ten_printed_qr_ids_are_accepted(self):
+        for qr_id in map(str, range(1, 11)):
+            with self.subTest(qr_id=qr_id):
+                self.assertEqual(QrScanEvent(qr_id=qr_id).qr_id, qr_id)
+
     async def test_qr_ids_outside_printed_set_are_rejected(self):
-        with self.assertRaises(ValidationError):
-            QrScanEvent(qr_id="999")
+        for qr_id in ("0", "11", "999", "01", "1\n", "10\n"):
+            with self.subTest(qr_id=qr_id), self.assertRaises(ValidationError):
+                QrScanEvent(qr_id=qr_id)
 
     async def test_public_aggregate_contains_only_day_code_and_count(self):
         connection = FakeConnection([{"day": date(2026, 10, 30), "qr_id": "1", "scans": 4}])
