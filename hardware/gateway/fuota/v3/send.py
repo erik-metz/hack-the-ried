@@ -38,13 +38,15 @@ def packets(bundle,maximum=32,pace=3):
         data[index]=block
     return control,data
 
-def transfer(devices,bundle,pace=3,maximum=32):
+def transfer(devices,bundle,pace=3,maximum=32,group_name="kamue-ttn-update-v3",state_path="/state/v3-group-id.json"):
+    if (group_name,state_path) not in [("kamue-ttn-update-v3","/state/v3-group-id.json"),("kamue-ttn-update-v3-heltec","/state/v3-heltec-group-id.json")]:
+        raise ValueError("Unsupported isolated update group")
     control,data=packets(bundle,maximum,pace)
     if not devices or len(set(devices))!=len(devices): raise ValueError('Explicit unique companion device list required')
     lab=Lab(); groups=api.MulticastGroupServiceStub(lab.channel)
-    saved=json.loads(Path('/state/v3-group-id.json').read_text())
+    saved=json.loads(Path(state_path).read_text())
     group=lab.call(groups.Get,api.GetMulticastGroupRequest(id=saved['id'])).multicast_group
-    if group.name!='kamue-ttn-update-v3' or group.f_cnt<1: raise ValueError('Not the private v3 multicast group')
+    if group.name!=group_name or group.f_cnt<1: raise ValueError('Not the private v3 multicast group')
     listing=lab.call(lab.devices.List,api.ListDevicesRequest(application_id=group.application_id,multicast_group_id=group.id,limit=100))
     members=listing.result
     if listing.total_count!=len(members): raise ValueError('Group exceeds explicit device limit')
@@ -94,7 +96,8 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('bundle',type=Path)
     parser.add_argument('--devices',nargs='+',required=True)
+    parser.add_argument('--heltec',action='store_true',help='Use the isolated Heltec multicast group')
     args=parser.parse_args()
     with open('/state/v3-send.lock','w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        transfer(args.devices,json.loads(args.bundle.read_text()))
+        transfer(args.devices,json.loads(args.bundle.read_text()),**(dict(group_name="kamue-ttn-update-v3-heltec",state_path="/state/v3-heltec-group-id.json") if args.heltec else {}))

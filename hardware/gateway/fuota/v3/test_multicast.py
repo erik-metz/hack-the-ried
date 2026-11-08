@@ -94,6 +94,12 @@ class MulticastTests(unittest.TestCase):
             tools3.provision(dict(group=group_config,devices=[item]),gateway_id)
         self.assertEqual(group.f_cnt,8)
 
+    def test_isolated_heltec_group_cannot_overwrite_rak_group_state(self):
+        with self.assertRaises(ValueError):
+            tools3.provision({},'98FE54FFFE63713B','kamue-ttn-update-v3-heltec','/state/v3-group-id.json')
+        with self.assertRaises(ValueError):
+            sender.transfer([],{},group_name='kamue-ttn-update-v3',state_path='/state/v3-heltec-group-id.json')
+
     def test_companion_registration_cannot_take_over_original_ttn_identity(self):
         item=dict(dev_eui='0211223344556677',ttn_dev_eui='70B3D57ED0079D8A',join_eui='0200000000000001',app_key='11'*16,nwk_key='22'*16)
         config=dict(group=dict(mc_addr='01f00001',mc_app_s_key='33'*16,mc_nwk_s_key='44'*16),devices=[item])

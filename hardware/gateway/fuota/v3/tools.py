@@ -33,7 +33,9 @@ def validate(config):
             raise ValueError('Companion identity must be distinct from TTN and unique')
         seen.add(device['dev_eui'].upper())
 
-def provision(config,gateway):
+def provision(config,gateway,group_name=GROUP_NAME,state_path="/state/v3-group-id.json"):
+    if (group_name,state_path) not in [(GROUP_NAME,"/state/v3-group-id.json"),(GROUP_NAME+"-heltec","/state/v3-heltec-group-id.json")]:
+        raise ValueError("Unsupported isolated group/state pair")
     validate(config)
     lab=Lab()
     lab.provision(gateway,config['devices'])
@@ -46,8 +48,8 @@ def provision(config,gateway):
         lab.call(lab.devices.Update,api.UpdateDeviceRequest(device=device))
     groups=api.MulticastGroupServiceStub(lab.channel)
     result=lab.call(groups.List,api.ListMulticastGroupsRequest(application_id=application,limit=100)).result
-    existing=next((g.id for g in result if g.name==GROUP_NAME),None)
-    expected=api.MulticastGroup(name=GROUP_NAME,application_id=application,region=common.EU868,
+    existing=next((g.id for g in result if g.name==group_name),None)
+    expected=api.MulticastGroup(name=group_name,application_id=application,region=common.EU868,
         mc_addr=config['group']['mc_addr'],mc_app_s_key=config['group']['mc_app_s_key'],
         mc_nwk_s_key=config['group']['mc_nwk_s_key'],f_cnt=1,group_type=api.CLASS_C,dr=5,frequency=869525000)
     if existing:
@@ -77,8 +79,8 @@ def provision(config,gateway):
     if gateways.total_count>len(gateways.result): raise ValueError('Multicast gateway membership exceeds inspection limit')
     if gateway.lower() not in {item.gateway_id.lower() for item in gateways.result}:
         add(groups.AddGateway,api.AddGatewayToMulticastGroupRequest(multicast_group_id=existing,gateway_id=gateway))
-    state=Path('/state/v3-group-id.json')
-    record=dict(id=existing,name=GROUP_NAME,application_id=application,gateway=gateway)
+    state=Path(state_path)
+    record=dict(id=existing,name=group_name,application_id=application,gateway=gateway)
     fd=os.open(state,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
     with os.fdopen(fd,'w') as stream: json.dump(record,stream)
     print('Private multicast group ready: '+existing+'; TTN identities unchanged')
@@ -87,5 +89,7 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('registration',type=Path)
     parser.add_argument('--gateway',required=True)
+    parser.add_argument('--group-name',default=GROUP_NAME)
+    parser.add_argument('--group-state',default='/state/v3-group-id.json')
     args=parser.parse_args()
-    provision(json.loads(args.registration.read_text()),args.gateway)
+    provision(json.loads(args.registration.read_text()),args.gateway,args.group_name,args.group_state)
