@@ -21,6 +21,7 @@ class MulticastTests(unittest.TestCase):
         all_ids=ids+[current]
         received={device:set() for device in ids}
         replies={}; sent=[]; dropped=False
+        clock=[0];last_control=[-10]
         group=api.MulticastGroup(id='group',name='kamue-ttn-update-v3',application_id='app',f_cnt=1)
         def call(method,request):
             nonlocal dropped
@@ -34,11 +35,13 @@ class MulticastTests(unittest.TestCase):
                 return api.GetDeviceResponse(device=api.Device(dev_eui=request.dev_eui,application_id='app',tags={'update_role':'ttn-companion-v3'}))
             packet=request.queue_item.data; kind=packet[0]; sent.append(packet)
             if kind==2:
+                self.assertGreaterEqual(clock[0]-last_control[0],10,'Receiver is still in private Class-A RX windows')
                 index=int.from_bytes(packet[5:7],'big')
                 received[ids[0]].add(index)
                 if index==1 and not dropped: dropped=True
                 else: received[ids[1]].add(index)
             else:
+                last_control[0]=clock[0]
                 for device in ids:
                     missing=sorted({0,1}-received[device])
                     state=3 if kind==3 else 2 if not missing else 1
@@ -63,7 +66,7 @@ class MulticastTests(unittest.TestCase):
             blocks=[enc(b'\2'+prefix+bytes([0,i])+b'x') for i in [0,1]])
         with patch.object(sender,'Lab',return_value=fake),patch.object(sender,'Events',Event), \
                 patch.object(sender.api,'MulticastGroupServiceStub',return_value=group_api), \
-                patch.object(sender.Path,'read_text',return_value='{"id":"group"}'),patch.object(sender.time,'sleep'):
+                patch.object(sender.Path,'read_text',return_value='{"id":"group"}'),patch.object(sender.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds)):
             sender.transfer(all_ids,bundle,already_current=[current])
         self.assertEqual([int.from_bytes(p[5:7],'big') for p in sent if p[0]==2],[0,1,1])
         self.assertEqual([p[0] for p in sent].count(3),1)

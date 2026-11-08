@@ -86,6 +86,10 @@ def transfer(devices,bundle,pace=3,maximum=32,group_name="kamue-ttn-update-v3",s
         print('Start real multicast for '+str(len(updating))+' devices; TTN telemetry is independent',flush=True)
         command('start'); missing=list(data)
         for repair in range(5):
+            # MQTT observes an uplink before the receiver has completed its
+            # private Class-A RX1/RX2 windows. Let all nodes return to Class C
+            # before sending the first (or first repaired) multicast block.
+            time.sleep(max(pace,10))
             for index in missing:
                 enqueue(data[index]); print('Multicast block '+str(index),flush=True); time.sleep(pace)
             replies=command('status')

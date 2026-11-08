@@ -100,3 +100,8 @@ payload remains firmware/value/counter; TTN combines the assigned device number
 with the **actually received** value in `message`, e.g. `rak3-222`. It also shows
 `rak3-111` before the update; the decoder never substitutes a fixed target value.
 This is a decoded label, not an ASCII string transmitted over the air.
+
+The sender waits ten seconds after control acknowledgements before starting
+each data/repair wave. MQTT reports the private uplink before the device has
+finished its Class-A RX windows; sending repairs immediately can repeatedly
+lose the first missing block while that device is still listening in RX1/RX2.
