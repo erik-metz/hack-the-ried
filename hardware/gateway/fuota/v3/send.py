@@ -38,11 +38,15 @@ def packets(bundle,maximum=32,pace=3):
         data[index]=block
     return control,data
 
-def transfer(devices,bundle,pace=3,maximum=32,group_name="kamue-ttn-update-v3",state_path="/state/v3-group-id.json"):
+def transfer(devices,bundle,pace=3,maximum=32,group_name="kamue-ttn-update-v3",state_path="/state/v3-group-id.json",already_current=()):
     if (group_name,state_path) not in [("kamue-ttn-update-v3","/state/v3-group-id.json"),("kamue-ttn-update-v3-heltec","/state/v3-heltec-group-id.json")]:
         raise ValueError("Unsupported isolated update group")
     control,data=packets(bundle,maximum,pace)
     if not devices or len(set(devices))!=len(devices): raise ValueError('Explicit unique companion device list required')
+    if not set(already_current)<=set(devices) or len(set(already_current))!=len(already_current):
+        raise ValueError('Already-current devices must be unique selected group members')
+    updating=[device for device in devices if device not in already_current]
+    if not updating: raise ValueError('No devices require this update')
     lab=Lab(); groups=api.MulticastGroupServiceStub(lab.channel)
     saved=json.loads(Path(state_path).read_text())
     group=lab.call(groups.Get,api.GetMulticastGroupRequest(id=saved['id'])).multicast_group
@@ -62,7 +66,9 @@ def transfer(devices,bundle,pace=3,maximum=32,group_name="kamue-ttn-update-v3",s
         result=lab.call(groups.Enqueue,api.EnqueueMulticastGroupQueueItemRequest(queue_item=item))
         print('Multicast queued frame '+str(result.f_cnt),flush=True)
     with ExitStack() as stack:
-        events={device:stack.enter_context(Events(device)) for device in devices}
+        events={device:stack.enter_context(Events(device)) for device in updating}
+        for device in already_current:
+            print("Already-current companion "+device+": update not applied; verify TTN before and after",flush=True)
         def command(name,expected=None):
             for attempt in range(3):
                 since=time.monotonic(); enqueue(control[name]); replies={}
@@ -77,7 +83,7 @@ def transfer(devices,bundle,pace=3,maximum=32,group_name="kamue-ttn-update-v3",s
                     if expected==3 and all(e.firmware==(2,222) for e in events.values()): return {}
                     print('Control retry '+str(attempt+1),flush=True)
             raise TimeoutError('Missing per-device multicast acknowledgement')
-        print('Start real multicast for '+str(len(devices))+' devices; TTN telemetry is independent',flush=True)
+        print('Start real multicast for '+str(len(updating))+' devices; TTN telemetry is independent',flush=True)
         command('start'); missing=list(data)
         for repair in range(5):
             for index in missing:
@@ -97,7 +103,8 @@ if __name__=='__main__':
     parser.add_argument('bundle',type=Path)
     parser.add_argument('--devices',nargs='+',required=True)
     parser.add_argument('--heltec',action='store_true',help='Use the isolated Heltec multicast group')
+    parser.add_argument('--already-current',nargs='*',default=[],help='Explicit members already verified at target; broadcast still reaches them and incompatible base is rejected')
     args=parser.parse_args()
     with open('/state/v3-send.lock','w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        transfer(args.devices,json.loads(args.bundle.read_text()),**(dict(group_name="kamue-ttn-update-v3-heltec",state_path="/state/v3-heltec-group-id.json") if args.heltec else {}))
+        transfer(args.devices,json.loads(args.bundle.read_text()),already_current=args.already_current,**(dict(group_name="kamue-ttn-update-v3-heltec",state_path="/state/v3-heltec-group-id.json") if args.heltec else {}))

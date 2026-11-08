@@ -83,3 +83,20 @@ USB recovery and the saved previous gateway image remain available. For the
 gateway rollback use the v2 README's plain original Compose deployment. For a
 device rollback flash a saved image and provision its matching identity; never
 erase NVS or reset LoRaWAN counters as a shortcut.
+
+For a fleet containing a member already verified at the exact saved target
+(e.g. RAK5 already on common B), pass its companion to `send.py
+--already-current <eui>`, while still selecting **every** multicast member in
+`--devices`. All radio frames still reach all keyed receivers. A receiver on a
+different base rejects the delta; its running image remains selected. The
+sender requires independent acknowledgements and boot reports from every
+updating member, and never counts an already-current member as updated.
+Check already-current devices in TTN before and after the transfer. Do not use
+this option to hide an offline, failed or unknown firmware state.
+
+For TTN device-level labels, run `label_formatter.py <rak-number>` from the RAK
+FUOTA directory and install its output on that device only. An eight-byte radio
+payload remains firmware/value/counter; TTN combines the assigned device number
+with the **actually received** value in `message`, e.g. `rak3-222`. It also shows
+`rak3-111` before the update; the decoder never substitutes a fixed target value.
+This is a decoded label, not an ASCII string transmitted over the air.

@@ -9,9 +9,14 @@ function decodeUplink(input) {
   if (input.fPort !== 42 || b.length !== 8 || b[0] !== 1) {
     return {errors: ['Expected FUOTA lab format 1: port 42, 8 bytes']};
   }
-  return {data: {
+  var data = {
     test_firmware: b[1],
     test_value: b[2] * 256 + b[3],
     counter: b[4] * 16777216 + b[5] * 65536 + b[6] * 256 + b[7]
-  }};
+  };
+  if (typeof RAK_NUMBER !== "undefined" && Number.isInteger(RAK_NUMBER) && RAK_NUMBER > 0 && RAK_NUMBER <= 999) {
+    data.rak_number = RAK_NUMBER;
+    data.message = "rak" + RAK_NUMBER + "-" + data.test_value;
+  }
+  return {data: data};
 }

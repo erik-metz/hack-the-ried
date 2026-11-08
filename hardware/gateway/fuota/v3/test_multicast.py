@@ -17,6 +17,8 @@ sender=module('multicast_sender','send.py')
 class MulticastTests(unittest.TestCase):
     def test_multicast_repairs_one_receivers_loss_before_applying_to_all(self):
         ids=['0211223344556677','0288776655443322']
+        current='02aaaaaaaaaaaaaa'
+        all_ids=ids+[current]
         received={device:set() for device in ids}
         replies={}; sent=[]; dropped=False
         group=api.MulticastGroup(id='group',name='kamue-ttn-update-v3',application_id='app',f_cnt=1)
@@ -27,7 +29,7 @@ class MulticastTests(unittest.TestCase):
             if isinstance(request,api.ListDevicesRequest):
                 self.assertEqual(request.application_id,group.application_id)
                 self.assertEqual(request.multicast_group_id,group.id)
-                return api.ListDevicesResponse(total_count=2,result=[api.DeviceListItem(dev_eui=i) for i in ids])
+                return api.ListDevicesResponse(total_count=3,result=[api.DeviceListItem(dev_eui=i) for i in all_ids])
             if isinstance(request,api.GetDeviceRequest):
                 return api.GetDeviceResponse(device=api.Device(dev_eui=request.dev_eui,application_id='app',tags={'update_role':'ttn-companion-v3'}))
             packet=request.queue_item.data; kind=packet[0]; sent.append(packet)
@@ -44,7 +46,9 @@ class MulticastTests(unittest.TestCase):
                 if kind==3: self.assertTrue(all(len(r)==2 for r in received.values()))
             return api.EnqueueMulticastGroupQueueItemResponse(f_cnt=len(sent))
         class Event:
-            def __init__(self,device): self.device=device; self.firmware=None
+            def __init__(self,device):
+                assert device!=current,"Already-current members must not count as update acknowledgements"
+                self.device=device; self.firmware=None
             def __enter__(self): return self
             def __exit__(self,*args): pass
             def wait_status(self,*args,**kwargs): return replies[self.device]
@@ -60,7 +64,7 @@ class MulticastTests(unittest.TestCase):
         with patch.object(sender,'Lab',return_value=fake),patch.object(sender,'Events',Event), \
                 patch.object(sender.api,'MulticastGroupServiceStub',return_value=group_api), \
                 patch.object(sender.Path,'read_text',return_value='{"id":"group"}'),patch.object(sender.time,'sleep'):
-            sender.transfer(ids,bundle)
+            sender.transfer(all_ids,bundle,already_current=[current])
         self.assertEqual([int.from_bytes(p[5:7],'big') for p in sent if p[0]==2],[0,1,1])
         self.assertEqual([p[0] for p in sent].count(3),1)
 
