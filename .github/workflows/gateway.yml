@@ -34,7 +34,7 @@ jobs:
           TC_KEY: 'NNSXS.synthetic-ci-key'
           GATEWAY_COMPOSE_JSON: /tmp/gateway-compose.json
         run: |
-          bash -n hardware/gateway/scripts/gateway-start hardware/gateway/scripts/gateway-healthcheck hardware/gateway/scripts/install-host-hardening
+          bash -n hardware/gateway/scripts/gateway-start hardware/gateway/scripts/gateway-healthcheck hardware/gateway/scripts/install-host-hardening hardware/gateway/scripts/install-network-fallback
           docker compose --env-file hardware/gateway/.env.example -f hardware/gateway/compose.yml config --format json > "$GATEWAY_COMPOSE_JSON"
           python -m unittest discover -s hardware/gateway/tests -v
       - name: Validate isolated FUOTA lab configuration

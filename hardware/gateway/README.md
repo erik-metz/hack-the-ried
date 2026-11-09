@@ -191,6 +191,87 @@ CI baut und startet zusätzlich das ARM64-Binary ohne Hardware und prüft die
 Konfiguration mit ausschließlich synthetischen Zugangsdaten. Das ersetzt keine
 Prüfung von SPI, GPIO, PoE, HAT-Kühlung oder TTN auf unserem Pi.
 
+## LAN mit automatischem WLAN-Fallback
+
+Der optionale Host-Installer verwendet NetworkManager auf Debian 13 / Raspberry
+Pi OS, nicht Docker. Voraussetzungen: verwaltete Interfaces `eth0` und `wlan0`,
+aktive LAN-Verbindung, `curl`, passende WLAN-Länderkennung und kein bereits
+vorhandenes WLAN-Profil. Eine Hardware-Funksperre muss vor Ort behoben werden.
+Die Software-Funksperre wird durch Aktivieren des WLAN-Radios aufgehoben.
+
+Die lokale, ignorierte `profiles/kamue.env` enthält ausschließlich die benötigten
+WLAN-Werte, siehe [synthetisches Beispiel](network/wifi.env.example). Der Installer
+liest `WIFI_SSID` und `WIFI_PASSWORD` wörtlich; er führt die Datei nicht als Shell
+aus. Gleichartige äußere Anführungszeichen werden entfernt; keine Variablen-
+oder Escape-Expansion. Unterstützt werden WPA-PSK-Netze, keine Captive Portals
+oder Enterprise-Anmeldung. Echte Zugangsdaten niemals in Git, Chat oder Logs.
+
+```bash
+chmod 600 profiles/kamue.env
+sudo bash scripts/install-network-fallback
+# Alternativ: sudo bash scripts/install-network-fallback /geschuetzter/pfad/wifi.env
+sudo python3 -I /usr/local/lib/kamue-gateway/network/fallback.py status
+nmcli -f DEVICE,TYPE,STATE device status
+ip -4 route
+ip -6 route
+```
+
+Das neue, rootgeschützte NetworkManager-Profil verbindet WLAN dauerhaft als
+Bereitschaft mit Routenmetrik 600 für IPv4 und IPv6; LAN bleibt bevorzugt.
+Vorhandene LAN-Einstellungen werden nicht geändert. Der Installer akzeptiert
+LAN-Metriken zwischen 50 und 600 oder NetworkManagers automatische Metrik
+(Ethernet normalerweise 100). Autoconnect versucht WLAN unbegrenzt erneut.
+Bei fehlendem LAN-Link oder ausbleibender LAN-IP übernimmt die WLAN-Route, sobald
+DHCP bzw. IPv6-Konfiguration eine entsprechende Route bereitstellt.
+
+Ein systemd-Timer prüft etwa alle 30 Sekunden beide Interfaces mit verifiziertem
+HTTPS zu TTN, ersatzweise zur numerischen Cloudflare-Adresse `1.1.1.1`. Dadurch
+kann WLAN auch bei defektem LAN-DNS als erreichbar erkannt werden. Drei negative
+LAN-Proben bei nachweisbar erreichbarem WLAN senken dessen Metrik auf 50. Nach
+drei erfolgreichen LAN-Proben wird wieder 600 gesetzt; bei unerreichbarem WLAN
+ebenfalls. Die Abstände zählen ab Ende der vorigen Prüfung; Timeouts verlängern
+die Umschaltzeit. DNS-Auswahl bleibt bei NetworkManager; ein reiner DNS-Fehler
+bei funktionierendem IP-Internet wird nicht als vollständiger Internetausfall
+behandelt. Die Proben sind kein Nachweis für jeden Dienst oder beide IP-Familien.
+Bestehende TCP-/Connect-Sitzungen können beim Wechsel neu aufgebaut werden.
+
+**Rücknahme:** Vor dem ersten Profil-/Radioeingriff aktiviert der Installer einen
+unabhängigen, bootfesten 15-Minuten-Timer. Erst nach geprüftem WLAN-Internet und
+erneutem Connect-Zugang bestätigen:
+
+```bash
+sudo python3 -I /usr/local/lib/kamue-gateway/network/fallback.py confirm
+```
+
+Ohne Bestätigung entfernt der Timer ausschließlich das neu erzeugte WLAN-Profil,
+stoppt die Überwachung und stellt den vorherigen WLAN-Radiostatus wieder her.
+Er stellt keine ausgefallene LAN-Infrastruktur wieder her. Installationszustand
+und UUID liegen ohne Passwort unter `/var/lib/kamue-gateway-network/`; der PSK
+liegt nur in NetworkManagers rootgeschütztem Profil. Status und Zähler stehen
+ohne Zugangsdaten auch unter `/run/kamue-gateway-network.json`. Monitor, Bestätigung
+und Rücknahme sind über eine Dateisperre serialisiert. Ein erneutes Installieren
+überschreibt keinen vorhandenen Zustand. Bewusstes späteres Zurücknehmen:
+
+```bash
+sudo python3 -I /usr/local/lib/kamue-gateway/network/fallback.py restore
+```
+
+Abnahme am zugänglichen Testaufbau: beide Verbindungen und Internet über `wlan0`
+prüfen, LAN-Kabel ziehen und Connect/TTN prüfen, LAN wieder anschließen, Neustart
+testen und fehlendes WLAN sowie LAN-Link ohne Internet gesondert prüfen. Bei PoE
+dafür eine unabhängige Stromversorgung verwenden. Ein bestandener Policy-Test
+ersetzt diesen Hardwaretest nicht. Host-Dateien müssen separat installiert werden;
+ein neues Gateway-Containerimage oder Watchtower verteilt diese Änderung nicht.
+
+Die verwendeten Profileigenschaften sind in der
+[NetworkManager-Dokumentation](https://networkmanager.dev/docs/api/latest/nm-settings-nmcli.html)
+beschrieben. Lokale Policy- und Recovery-Tests:
+
+```bash
+python3 -m unittest discover -s tests -p test_network_fallback.py -v
+bash -n scripts/install-network-fallback
+```
+
 ## Persistentes Empfangsjournal und Offlinebetrieb
 
 `./state` ist dauerhaft in `/var/lib/kamue-gateway` eingebunden. SQLite läuft
