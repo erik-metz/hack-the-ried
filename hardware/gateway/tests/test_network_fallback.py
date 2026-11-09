@@ -141,6 +141,26 @@ class NetworkTests(unittest.TestCase):
             self.assertFalse(profile.exists())
             self.assertNotIn(('radio', 'wifi', 'on'), events)
 
+            # AP absent during installation: retain autoconnect and monitoring,
+            # but keep recovery pending until real Internet can be confirmed.
+            state.unlink()
+            events.clear()
+            def absent_ap(*args, **kwargs):
+                result = nm(*args, **kwargs)
+                if args[:2] == ('connection', 'up'):
+                    result.returncode = 10
+                return result
+            def working_ctl(*args, **kwargs):
+                events.append(args)
+            with patch.object(network, 'STATE', state), patch.object(network, 'PROFILE', profile), \
+                    patch.object(network, 'run'), patch.object(network, 'nm', side_effect=absent_ap), \
+                    patch.object(network, 'install_units'), patch.object(network, 'ctl', side_effect=working_ctl):
+                network.apply(env)
+            self.assertEqual(json.loads(state.read_text())['phase'], 'pending_verification')
+            activation = next(i for i, event in enumerate(events) if event[:2] == ('connection', 'up'))
+            self.assertLess(events.index(('enable', '--now', network.MONITOR)), activation)
+            self.assertEqual(profile.stat().st_mode & 0o777, 0o600)
+
 
 if __name__ == '__main__':
     unittest.main()

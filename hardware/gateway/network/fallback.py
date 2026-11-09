@@ -196,9 +196,13 @@ def apply(env):
     write(PROFILE, keyfile(ssid, password, state['uuid']))
     nm('connection', 'load', str(PROFILE))
     nm('radio', 'wifi', 'on')
-    # Do not disconnect eth0, restart NetworkManager, or touch the firewall.
-    nm('connection', 'up', 'uuid', state['uuid'])
     ctl('enable', '--now', MONITOR)
+    # Do not disconnect eth0, restart NetworkManager, or touch the firewall.
+    # Freshly unblocked radios can still be scanning; an absent AP is not an
+    # installation error. Autoconnect retries and the recovery timer stay active.
+    activation = nm('connection', 'up', 'uuid', state['uuid'], check=False)
+    if activation.returncode:
+        print('Wi-Fi not connected yet; NetworkManager continues automatic attempts')
     print('Wi-Fi standby installed; confirm within 15 minutes or it is rolled back')
 
 
