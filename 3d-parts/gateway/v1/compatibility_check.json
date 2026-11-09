@@ -1,0 +1,29 @@
+{
+  "changed_print_parts": [
+    "01_gehaeuse.stl",
+    "08_mastsattel_40mm.stl",
+    "08_mastsattel_50mm.stl",
+    "09_passprobe_N_buchse.stl"
+  ],
+  "unchanged_print_parts": [
+    "02_deckel.stl",
+    "03_dichtung_TPU.stl",
+    "04_steckhalter_pi_poe_L.stl",
+    "04_steckhalter_pi_poe_R.stl",
+    "05_steckhalter_poe_rak_L.stl",
+    "05_steckhalter_poe_rak_R.stl",
+    "06_abschlusskappe_L.stl",
+    "06_abschlusskappe_R.stl",
+    "07_sensorhalter.stl",
+    "10_passprobe_PG9.stl",
+    "11_passprobe_PG7_optional.stl",
+    "12_passprobe_einsaetze_M2.stl",
+    "12_passprobe_einsaetze_M3.stl",
+    "13_passprobe_platinen_lochbild.stl",
+    "14_dichtring_N_TPU_optional.stl",
+    "15_steckprobe_zapfen.stl",
+    "16_steckprobe_huelse.stl"
+  ],
+  "V24_holders_lid_sensor_and_gasket_compatible": true,
+  "approved_probe_meshes_reused": []
+}

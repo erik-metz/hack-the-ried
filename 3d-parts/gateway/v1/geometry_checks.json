@@ -1,0 +1,247 @@
+{
+  "original_flange_missing_above_nut_mm3": 0,
+  "lower_wrench_access_interference_mm3": 0,
+  "nut_envelope_interference_mm3": 0,
+  "shell_intrusion_before_internal_mounts_mm3": 0,
+  "antenna_landing_wall_mm": 5.5,
+  "antenna_landing_diameter_mm": 34.0,
+  "groove_stock_before_cut_mm3": 2591.813786277723,
+  "seal_track_missing_stock_mm3": 0,
+  "seal_floor_missing_stock_mm3": 0,
+  "stack_to_shell_intersection_mm3": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "stack_pair_max_intersection_mm3": 0,
+  "mast_40_band_clearance_interference_mm3": 0,
+  "mast_50_band_clearance_interference_mm3": 0,
+  "mast_saddles_case_intersection_mm3": [
+    0,
+    0
+  ],
+  "mast_bolt_coordinates": [
+    [
+      -16,
+      45
+    ],
+    [
+      -16,
+      165
+    ],
+    [
+      132,
+      45
+    ],
+    [
+      132,
+      165
+    ]
+  ],
+  "planned_cable_to_case_intersection_mm3": 0,
+  "planned_cable_to_holders_max_intersection_mm3": 0,
+  "planned_cable_to_sensorholder_intersection_mm3": 0,
+  "RJ45_installation_corridor_intersection_mm3": 0,
+  "antenna_reference_length_mm": 260.0,
+  "antenna_reference_diameter_mm": 20.0,
+  "antenna_reference_mass_g": 120.0,
+  "new_gland_nut_envelope_intersection_mm3": 0,
+  "Pi4_shell_intersection_mm3": 0,
+  "Pi4_holder_intersection_mm3": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "RAK2287_shell_intersection_mm3": 0,
+  "RAK2287_holder_intersection_mm3": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "PoE_PCB_Huellmodell_holder_intersection_mm3": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "RAK_HAT_PCB_Huellmodell_holder_intersection_mm3": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "lan_clearance_before_gland_mm": 101.25,
+  "installation": "landscape, original X up, antenna +X, PG9 -X",
+  "cable_route_quarter_turn_radius_mm": 35.0,
+  "cable_route_planning_diameter_mm": 8.0,
+  "saddle_axis_original_coordinates": [
+    1,
+    0,
+    0
+  ],
+  "mast_band_tunnel_roof_angle_deg": 45.0,
+  "flat_nut_clearance_diameter_mm": 24.0,
+  "actual_nut_corner_diameter_mm": 22.0,
+  "nut_radial_clearance_mm": 1.0,
+  "verified_seal_underlay_mm": 10.0,
+  "side_print_peg_bottom_gap_mm": 0.0,
+  "pcb_locator_underside_angle_deg": 45.0,
+  "coupler_profile": "five-sided 45deg gable, flat bed face",
+  "socket_roof_angle_deg": 45.0,
+  "socket_horizontal_ceiling_span_mm": 0.0,
+  "roof_normal_clearance_mm": 0.2,
+  "lower_adapter_roof_wall_mm": 1.3171572875253816,
+  "base_socket_retains_V21_centered_interface": true,
+  "support_pins_diameter_mm": 1.8,
+  "support_pins_length_mm": 0.6,
+  "parts": {
+    "04_steckhalter_pi_poe_L": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 938.7780256580396
+    },
+    "04_steckhalter_pi_poe_R": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 938.7780256580396
+    },
+    "05_steckhalter_poe_rak_L": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 628.4620256582535
+    },
+    "05_steckhalter_poe_rak_R": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 628.4620256582535
+    },
+    "06_abschlusskappe_L": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 234.73535814124517
+    },
+    "06_abschlusskappe_R": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 234.73535814124517
+    },
+    "15_steckprobe_zapfen": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 168.89000000000001
+    },
+    "16_steckprobe_huelse": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 127.87369062425991
+    },
+    "02_deckel": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 131468.071357719
+    },
+    "03_dichtung_TPU": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 2856.2845807958447
+    },
+    "07_sensorhalter": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 719.9274207276022
+    },
+    "08_mastsattel_40mm": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 92775.26818043811
+    },
+    "08_mastsattel_50mm": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 91690.92989150193
+    },
+    "09_passprobe_N_buchse": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 7590.800736504755
+    },
+    "10_passprobe_PG9": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 2896.53848794125
+    },
+    "11_passprobe_PG7_optional": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 2672.5814457694455
+    },
+    "13_passprobe_platinen_lochbild": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 2084.578291702242
+    },
+    "14_dichtring_N_TPU_optional": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 209.35573443522384
+    },
+    "01_gehaeuse": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 381216.47952915047
+    },
+    "12_passprobe_einsaetze_M3": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 6887.488763900565
+    },
+    "12_passprobe_einsaetze_M2": {
+      "valid": true,
+      "solids": 1,
+      "volume_mm3": 6122.010038441585
+    }
+  }
+}

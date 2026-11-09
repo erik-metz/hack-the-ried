@@ -1,0 +1,12 @@
+{
+  "08_mastsattel_40mm": {
+    "sliced": true,
+    "support_paths": false,
+    "warnings": "print warning: Detected print stability issues:\n\n08_mastsattel_40mm.stl\nLow bed adhesion\n\nConsider enabling supports.\nAlso consider enabling brim.\n"
+  },
+  "08_mastsattel_50mm": {
+    "sliced": true,
+    "support_paths": false,
+    "warnings": "print warning: Detected print stability issues:\n\n08_mastsattel_50mm.stl\nLow bed adhesion\n\nConsider enabling supports.\nAlso consider enabling brim.\n"
+  }
+}

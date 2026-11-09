@@ -1,0 +1,82 @@
+{
+  "12_passprobe_einsaetze_M3": {
+    "group": "M3",
+    "blind_depth_mm": 6.0,
+    "remaining_floor_mm": 2.0,
+    "entry_chamfer_mm": 0.5,
+    "entry_chamfer_deg": 45.0,
+    "engraving_depth_mm": 0.4,
+    "rows": [
+      {
+        "label": "3,6",
+        "diameter_mm": 3.6,
+        "position_x_mm": 6.5,
+        "entry_diameter_mm": 4.6
+      },
+      {
+        "label": "3,7",
+        "diameter_mm": 3.7,
+        "position_x_mm": 19.5,
+        "entry_diameter_mm": 4.7
+      },
+      {
+        "label": "3,8",
+        "diameter_mm": 3.8,
+        "position_x_mm": 32.5,
+        "entry_diameter_mm": 4.8
+      },
+      {
+        "label": "3,9",
+        "diameter_mm": 3.9,
+        "position_x_mm": 45.5,
+        "entry_diameter_mm": 4.9
+      },
+      {
+        "label": "4,0",
+        "diameter_mm": 4.0,
+        "position_x_mm": 58.5,
+        "entry_diameter_mm": 5.0
+      }
+    ]
+  },
+  "12_passprobe_einsaetze_M2": {
+    "group": "M2",
+    "blind_depth_mm": 5.0,
+    "remaining_floor_mm": 2.0,
+    "entry_chamfer_mm": 0.5,
+    "entry_chamfer_deg": 45.0,
+    "engraving_depth_mm": 0.4,
+    "rows": [
+      {
+        "label": "3,0",
+        "diameter_mm": 3.0,
+        "position_x_mm": 6.5,
+        "entry_diameter_mm": 4.0
+      },
+      {
+        "label": "3,1",
+        "diameter_mm": 3.1,
+        "position_x_mm": 19.5,
+        "entry_diameter_mm": 4.1
+      },
+      {
+        "label": "3,2",
+        "diameter_mm": 3.2,
+        "position_x_mm": 32.5,
+        "entry_diameter_mm": 4.2
+      },
+      {
+        "label": "3,3",
+        "diameter_mm": 3.3,
+        "position_x_mm": 45.5,
+        "entry_diameter_mm": 4.3
+      },
+      {
+        "label": "3,4",
+        "diameter_mm": 3.4,
+        "position_x_mm": 58.5,
+        "entry_diameter_mm": 4.4
+      }
+    ]
+  }
+}

@@ -1,0 +1,254 @@
+{
+  "01_gehaeuse.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      233.9999999,
+      164.0,
+      78.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 381204.57588478393
+  },
+  "02_deckel.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      234.0,
+      140.0,
+      6.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 131466.5439558551
+  },
+  "03_dichtung_TPU.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      218.60000610351562,
+      124.5999984741211,
+      1.7999999523162842
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 2856.187603196831
+  },
+  "04_steckhalter_pi_poe_L.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      13.5,
+      22.600000381469727,
+      7.150000095367432
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 938.7773414179355
+  },
+  "04_steckhalter_pi_poe_R.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      13.5,
+      22.600000381469727,
+      7.150000095367432
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 938.7773255984189
+  },
+  "05_steckhalter_poe_rak_L.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      13.5,
+      17.5,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 628.4613323211877
+  },
+  "05_steckhalter_poe_rak_R.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      13.5,
+      17.5,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 628.4613207741348
+  },
+  "06_abschlusskappe_L.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      13.5,
+      5.599999904632568,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 234.73502611636812
+  },
+  "06_abschlusskappe_R.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      13.5,
+      5.599999904632568,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 234.7350199226153
+  },
+  "07_sensorhalter.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      12.0,
+      26.0,
+      6.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 719.8647872934863
+  },
+  "08_mastsattel_40mm.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      32.0,
+      144.0,
+      24.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 92780.42593922198
+  },
+  "08_mastsattel_50mm.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      32.0,
+      144.0,
+      24.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 91697.89453050192
+  },
+  "09_passprobe_N_buchse.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      40.0,
+      40.0,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 7591.159532622362
+  },
+  "10_passprobe_PG9.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      32.0,
+      32.0,
+      3.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 2896.772426769016
+  },
+  "11_passprobe_PG7_optional.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      30.0,
+      30.0,
+      3.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 2672.728349325136
+  },
+  "12_passprobe_einsaetze_M2.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      65.0,
+      14.0,
+      7.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 6122.0991195102615
+  },
+  "12_passprobe_einsaetze_M3.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      65.0,
+      14.0,
+      8.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 6887.638925164242
+  },
+  "13_passprobe_platinen_lochbild.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      57.0,
+      66.0,
+      3.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 2084.468457733425
+  },
+  "14_dichtring_N_TPU_optional.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      23.0,
+      22.99285122170113,
+      1.0
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 209.268987700891
+  },
+  "15_steckprobe_zapfen.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      5.5,
+      8.0,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 168.8900001502037
+  },
+  "16_steckprobe_huelse.stl": {
+    "watertight": true,
+    "winding_consistent": true,
+    "components": 1,
+    "size_mm": [
+      5.5,
+      5.0,
+      5.5
+    ],
+    "fits_MK3S": true,
+    "volume_mm3": 127.87369035971396
+  }
+}

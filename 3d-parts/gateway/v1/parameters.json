@@ -1,0 +1,19 @@
+{
+  "antenna_hole": 16.2,
+  "antenna_y": 133.0,
+  "antenna_z": 54.0,
+  "gland_hole": 15.5,
+  "gland_side_y": 35.0,
+  "gland_z": 24.0,
+  "antenna_wall_mm": 5.5,
+  "gap_pi_poe": 17.4,
+  "gap_poe_rak": 12.3,
+  "pcb": 1.6,
+  "M3_pilot": 3.8,
+  "M2_pilot": 3.2,
+  "M3_insert_length": 5.0,
+  "M2_insert_length": 4.0,
+  "socket_clearance": 0.2,
+  "M3_knurl_diameter": 4.1,
+  "M2_knurl_diameter": 3.5
+}

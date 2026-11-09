@@ -1,0 +1,13 @@
+{
+  "antenna_axis_Zup": [
+    0.0,
+    0.0,
+    1.0
+  ],
+  "PG9_axis_Zup": [
+    -0.0,
+    -0.0,
+    -1.0
+  ],
+  "same_mast_axis_for_both_saddles": true
+}
