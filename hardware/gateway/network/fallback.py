@@ -259,24 +259,43 @@ def rollback(force=False):
     print('Previous network configuration restored; LAN was not modified')
 
 
-def confirm():
+def confirm(allow_offline=False):
     state = json.loads(STATE.read_text())
     if state['phase'] != 'pending_verification':
         raise ValueError('No unconfirmed installation')
-    active_uuid = nm('-g', 'GENERAL.CON-UUID', 'device', 'show', 'wlan0').stdout.strip()
-    if active_uuid != state['uuid'] or not online('wlan0'):
-        raise ValueError('Managed Wi-Fi connection must have verified Internet access')
+    if allow_offline:
+        # Explicit operator choice for an AP located elsewhere: prove the current
+        # access path is intact, retain normal standby metrics, never claim a
+        # successful Wi-Fi test. The stored credentials are not tested here.
+        nm('connection', 'show', 'uuid', state['uuid'])
+        if not connected('eth0') or not online('eth0'):
+            raise ValueError('Offline standby confirmation requires working LAN Internet')
+        for family in ('ipv4', 'ipv6'):
+            metric = int(nm('-g', family + '.route-metric', 'connection', 'show',
+                            'uuid', state['uuid']).stdout.strip())
+            if metric != NORMAL_METRIC:
+                raise ValueError('Offline standby confirmation requires normal Wi-Fi metrics')
+    else:
+        active_uuid = nm('-g', 'GENERAL.CON-UUID', 'device', 'show', 'wlan0').stdout.strip()
+        if active_uuid != state['uuid'] or not online('wlan0'):
+            raise ValueError('Managed Wi-Fi connection must have verified Internet access')
     ctl('disable', '--now', TIMER)
     state['phase'] = 'confirmed'
+    state['wifi_verified_at_install'] = not allow_offline
     save(state)
-    print('Wi-Fi Internet verified; automatic installation rollback disarmed')
+    print(('Standby accepted with working LAN; Wi-Fi remains untested' if allow_offline
+           else 'Wi-Fi Internet verified') + '; automatic installation rollback disarmed')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('apply', 'check', 'confirm', 'rollback', 'restore', 'status'))
     parser.add_argument('--env', type=Path)
+    parser.add_argument('--allow-offline', action='store_true',
+                        help='Confirm standby using working LAN; skip Wi-Fi verification')
     args = parser.parse_args()
+    if args.allow_offline and args.action != 'confirm':
+        parser.error('--allow-offline is only valid with confirm')
     if os.geteuid() != 0:
         parser.error('Run with sudo')
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -292,7 +311,7 @@ def main():
             elif args.action == 'check':
                 check()
             elif args.action == 'confirm':
-                confirm()
+                confirm(allow_offline=args.allow_offline)
             elif args.action in ('rollback', 'restore'):
                 rollback(force=args.action == 'restore')
             else:

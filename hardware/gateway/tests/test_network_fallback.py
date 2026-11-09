@@ -161,6 +161,27 @@ class NetworkTests(unittest.TestCase):
             self.assertLess(events.index(('enable', '--now', network.MONITOR)), activation)
             self.assertEqual(profile.stat().st_mode & 0o777, 0o600)
 
+    def test_explicit_offline_confirmation_checks_lan_and_records_untested_wifi(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / 'state'
+            state.write_text(json.dumps(dict(phase='pending_verification', uuid='ours')))
+            result = subprocess.CompletedProcess([], 0, '600\n', '')
+            with patch.object(network, 'STATE', state), patch.object(network, 'nm', return_value=result), \
+                    patch.object(network, 'connected', return_value=True), \
+                    patch.object(network, 'online', return_value=False), patch.object(network, 'ctl') as ctl:
+                with self.assertRaises(ValueError):
+                    network.confirm(allow_offline=True)
+                ctl.assert_not_called()
+            with patch.object(network, 'STATE', state), patch.object(network, 'nm', return_value=result), \
+                    patch.object(network, 'connected', return_value=True) as connected, \
+                    patch.object(network, 'online', return_value=True) as online, patch.object(network, 'ctl'):
+                network.confirm(allow_offline=True)
+                connected.assert_called_once_with('eth0')
+                online.assert_called_once_with('eth0')
+                stored = json.loads(state.read_text())
+                self.assertEqual(stored['phase'], 'confirmed')
+                self.assertFalse(stored['wifi_verified_at_install'])
+
 
 if __name__ == '__main__':
     unittest.main()

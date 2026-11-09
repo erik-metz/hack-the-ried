@@ -243,6 +243,18 @@ erneutem Connect-Zugang bestätigen:
 sudo python3 -I /usr/local/lib/kamue-gateway/network/fallback.py confirm
 ```
 
+Wenn der Router bewusst nicht am Installationsort steht und der Betreiber die
+Zugangsdaten bereits bestätigt hat, kann die Bereitschaft ausdrücklich ohne
+WLAN-Test dauerhaft übernommen werden:
+
+```bash
+sudo python3 -I /usr/local/lib/kamue-gateway/network/fallback.py confirm --allow-offline
+```
+
+Diese Variante verlangt funktionierendes LAN-Internet, ein vorhandenes verwaltetes
+WLAN-Profil und dessen normale Metrik 600 für beide IP-Familien. Sie vermerkt
+`wifi_verified_at_install=false`; sie behauptet keinen WLAN-Verbindungserfolg.
+
 Ohne Bestätigung entfernt der Timer ausschließlich das neu erzeugte WLAN-Profil,
 stoppt die Überwachung und stellt den vorherigen WLAN-Radiostatus wieder her.
 Er stellt keine ausgefallene LAN-Infrastruktur wieder her. Installationszustand
