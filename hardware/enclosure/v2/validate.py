@@ -49,7 +49,7 @@ def overlap(a, b):
             .val()
         )
         b = b.intersect(clip)
-    return a.intersect(b).Volume()
+    return a.intersect(b, tol=1e-5).Volume()
 
 
 def main():
@@ -120,6 +120,12 @@ def main():
             z = (0, -math.sin(math.radians(angle)), math.cos(math.radians(angle)))
             y = (0, math.cos(math.radians(angle)), math.sin(math.radians(angle)))
             axes = [(1, 0, 0), y, z]
+            if name == "IN43434":
+                axes = [
+                    (0.70710678, -0.70710678, 0),
+                    (0, 0, 1),
+                    (-0.70710678, -0.70710678, 0),
+                ]
         else:
             axes = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
         axes_results = {}
@@ -137,7 +143,9 @@ def main():
         if v <= 0.01
     ]
     extraction = []
-    optical_bundle = parts["ltr_carrier"].fuse(parts["ref_LTR390"])
+    optical_bundle = parts["ltr_carrier"].fuse(
+        parts["ref_LTR390"], parts["ltr_edge_pad"]
+    )
     for distance in (0, 5, 10, 15, 20, 25, 30):
         move = (0, distance / math.sqrt(2), distance / math.sqrt(2))
         v = overlap(parts["body"], optical_bundle.translate(move))
@@ -145,13 +153,13 @@ def main():
     # Conservative continuous corridor: it contains the complete moving bundle
     # for every intermediate position, not just the sampled 5-mm positions.
     corridor = (
-        cq.Solid.makeCylinder(13.11, 55.0, cq.Vector(0, 0, -25.0))
+        cq.Solid.makeCylinder(19.31, 55.0, cq.Vector(0, 0, -25.0))
         .rotate((0, 0, 0), (1, 0, 0), -45)
-        .translate((42, 98, 34))
+        .translate((42, 106, 34))
     )
     contained = optical_bundle.cut(corridor).Volume() <= 0.01
     sweep_collisions = []
-    removed = {"ltr_carrier", "ref_LTR390", "ref_quartz_glass"}
+    removed = {"ltr_carrier", "ltr_edge_pad", "ref_LTR390", "ref_quartz_glass"}
     for name, shape in parts.items():
         if name in removed or name.startswith("quartz_"):
             continue
@@ -159,7 +167,8 @@ def main():
         if vol > 0.01:
             sweep_collisions.append({"part": name, "volume_mm3": round(vol, 5)})
     report["continuous_optical_extraction"] = {
-        "radius_mm": 13.11,
+        "radius_mm": 19.31,
+        "moving_parts": ["ltr_carrier", "ref_LTR390", "ltr_edge_pad"],
         "bundle_contained": contained,
         "obstacle_intersections": sweep_collisions,
         "travel_mm": 30,
@@ -169,6 +178,39 @@ def main():
         or not contained
         or bool(sweep_collisions)
     )
+    # Verify user requirements independently of the named construction cuts.
+    zone_checks = {
+        n: parts["ref_" + n].BoundingBox().ymin > -10.8 for n in ("IN43434", "SHT41")
+    }
+    # Exact lower-wall slab, subtract only the two intended air disks and the
+    # finite blind service bores. Every other point must remain closed material.
+    slab = cq.Workplane().box(163.2, 0.2, 42.6).translate((0, -83.1, 26.3)).val()
+    for x in (-58, 58):
+        slab = slab.cut(
+            cq.Solid.makeCylinder(9, 5, cq.Vector(x, -85, 14.1), cq.Vector(0, 1, 0))
+        )
+        # Blind holes end in bosses; inspect their closed ends separately.
+        for dx in (-16, 16):
+            slab = slab.cut(
+                cq.Solid.makeCylinder(
+                    1.8, 5, cq.Vector(x + dx, -85, 14.1), cq.Vector(0, 1, 0)
+                )
+            )
+    missing = slab.cut(parts["body"]).Volume()
+    blind_closed = all(
+        parts["body"].isInside(cq.Vector(x + dx, -77.5, 14.1), 1e-5)
+        for x in (-58, 58)
+        for dx in (-16, 16)
+    )
+    report["requirements"] = {
+        "dry_room": zone_checks,
+        "exterior_air_ports": 2,
+        "unscreened_lower_wall_missing_mm3": round(missing, 5),
+        "mesh_service_bores_blind": blind_closed,
+    }
+    requirements_failed = (
+        not all(zone_checks.values()) or missing > 0.01 or not blind_closed
+    )
     report["optical_front_extraction"] = extraction
     report.update(
         {
@@ -177,12 +219,15 @@ def main():
             "rigid_1mm_restraint_intersections": retention,
             "unblocked_directions": failed,
             "status": "checks-passed"
-            if not collisions and not failed and not extraction_failed
+            if not collisions
+            and not failed
+            and not extraction_failed
+            and not requirements_failed
             else "checks-failed",
         }
     )
     (p / "validation.json").write_text(json.dumps(report, indent=2))
-    if collisions or failed or extraction_failed:
+    if collisions or failed or extraction_failed or requirements_failed:
         raise SystemExit("Mechanical checks failed; do not present as passed")
     print("Mechanical CAD checks passed; no outdoor/load certification implied.")
 

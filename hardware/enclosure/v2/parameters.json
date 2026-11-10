@@ -1,5 +1,5 @@
 {
-  "revision": "R2",
+  "revision": "R3",
   "body_width": 168.0,
   "body_height": 168.0,
   "body_depth": 50.0,
@@ -17,5 +17,6 @@
   "gland_hole_assumed": 12.2,
   "quartz_diameter": 20.0,
   "quartz_thickness": 2.0,
-  "window_tilt_deg": 45.0
+  "window_tilt_deg": 45.0,
+  "ltr_chip_offset_y_provisional": 7.0
 }

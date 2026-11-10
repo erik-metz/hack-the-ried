@@ -1,4 +1,4 @@
-"""Offline review using installed Fusion references and actual R2 mounting solids."""
+"""Offline review using installed Fusion references and actual R3 mounting solids."""
 
 import argparse
 import base64
@@ -93,10 +93,15 @@ def main():
             in (
                 "ref_SPS30",
                 "sps_air_face_tpu",
-                "mesh_service_frame",
+                "mesh_service_frame_0",
+                "mesh_service_frame_1",
+                "holder_frame_SPS30",
+                "holder_pin_SPS30",
                 "ref_mesh_0",
                 "ref_mesh_1",
             )
+            else "sps"
+            if any(n.endswith("_" + q) for q in ("SCD41", "BME688", "SGP41"))
             else "all"
         )
         explode = {
@@ -116,27 +121,45 @@ def main():
                 "category": cat,
                 "focus": focus,
                 "explode": explode,
-                "explodeDir": [0, -1, 0] if focus == "mic" else [0, 0.7071, 0.7071],
+                "explodeDir": [-0.7071, -0.7071, 0]
+                if focus == "mic"
+                else [0, 0.7071, 0.7071],
                 "glass": kind == "glass",
                 "data": mesh(
                     s,
-                    3000 if n == "ref_SPS30" else 1800 if n == "ref_RAK_BASE" else None,
+                    1500 if n == "ref_SPS30" else 1200 if n == "ref_RAK_BASE" else None,
                 ),
             }
         )
-    for n, focus in [("SPS30", "sps"), ("IN43434", "mic")]:
-        s = cq.importers.importStep(
-            str(out / "parts" / f"fixture_check_{n}.step")
-        ).val()
+    marker = (
+        cq.Solid.makeCylinder(0.75, 0.12, cq.Vector(0, 0, -3))
+        .rotate((0, 0, 0), (1, 0, 0), -45)
+        .translate((42, 106, 34))
+    )
+    scene.append(
+        {
+            "name": "uv_photo_assumption",
+            "category": "reference",
+            "focus": "optics",
+            "data": mesh(marker),
+        }
+    )
+    for focus, center, size in [
+        ("mic", (-98, 30, 27), (40, 60, 56)),
+        ("sps", (0, -50, 24), (166, 68, 49)),
+    ]:
+        cropped = parts["body"].intersect(
+            cq.Workplane().box(*size).translate(center).val()
+        )
         scene.append(
             {
-                "name": "check_" + n,
+                "name": focus + "_housing_detail",
                 "category": "detail",
                 "focus": focus,
-                "data": mesh(s),
+                "data": mesh(cropped),
             }
         )
-    crop = cq.Workplane().box(52, 58, 54).translate((42, 94, 27)).val()
+    crop = cq.Workplane().box(58, 64, 58).translate((42, 102, 27)).val()
     scene.append(
         {
             "name": "optical_housing_detail",
@@ -148,7 +171,7 @@ def main():
     template = (Path(__file__).parent / "preview-template.html").read_text()
     payload = base64.b64encode(gzip.compress(json.dumps(scene).encode())).decode()
     (out / "review.html").write_text(template.replace("__SCENE__", payload))
-    print("R2 review generated:", (out / "review.html").stat().st_size, "bytes")
+    print("R3 review generated:", (out / "review.html").stat().st_size, "bytes")
 
 
 if __name__ == "__main__":

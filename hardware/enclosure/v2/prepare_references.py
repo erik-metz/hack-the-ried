@@ -64,6 +64,8 @@ def main():
             ]
             front = max(planes, key=lambda f: f.Area())
             fb = front.BoundingBox()
+            if name == "LTR390":
+                w, h = fb.xlen, fb.ylen
             ctr = cq.Vector((fb.xmin + fb.xmax) / 2, (fb.ymin + fb.ymax) / 2, fb.zmax)
             shape = shape.translate((-ctr.x, -ctr.y, -ctr.z))
         else:
