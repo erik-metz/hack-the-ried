@@ -30,3 +30,4 @@ jobs:
       - run: node --test hardware/sensor-node/rak3112/fuota/tests/*.test.mjs
       - run: python3 -m unittest discover -s hardware/sensor-node/rak3112/fuota/tests -p 'test_*.py'
       - run: node --test hardware/sensor-node/heltec-v4/v1/*.test.mjs
+      - run: python3 -m unittest discover -s hardware/sensor-node/heltec-v4 -p 'test_*.py'

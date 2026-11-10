@@ -105,3 +105,28 @@ Future same-board A/B transfers use `/lab3/send.py <bundle> --heltec --devices
 025D152A493EFC0D`. Preserve exact A images. This setup reuses the lab protocol,
 not standard TS003/TS004/TS005 FUOTA, and still needs an actual Heltec radio-update
 test. Existing RAK group keys, membership and counters must remain unchanged.
+
+### Small display-only acceptance delta
+
+If a newer GPS build is already installed, do not replace it with the old
+bring-up image solely for an OTA demonstration. First read the running app
+partition without erasing NVS and compare it byte-for-byte with its saved
+application binary. `../display_delta.py` can then reuse that build's exact ELF
+to change only `Heltec GPS v%u` to `Heltec OTA v%u`. It refuses an ambiguous title,
+a mismatched ELF/base, an existing output directory, or a delta exceeding the
+existing 16-block receiver limit. esptool regenerates all image digests.
+
+```sh
+python3 hardware/sensor-node/heltec-v4/display_delta.py \
+  --elf hardware/sensor-node/heltec-v4/build/2/v1.ino.elf \
+  --base hardware/sensor-node/heltec-v4/build/2/v1.ino.bin \
+  --output hardware/sensor-node/heltec-v4/build/display-ota-NEW-SESSION \
+  --esptool /absolute/path/to/esptool
+```
+
+This produces a fresh private bundle without rebuilding or changing the saved
+base. Transfer it only through the isolated Heltec group and check its checksum
+on the Pi before sending. This title-only test retains firmware2/value222, so a
+version2 feedback packet alone cannot identify the new target. Independently
+verify the changed OLED title and the selected app partition's exact target
+hash after reboot, then verify actual TTN position reception separately.
