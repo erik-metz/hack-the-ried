@@ -45,8 +45,19 @@ Er verwendet keinen Docker-Socket. systemd begrenzt Schreibzugriffe auf sein
 StateDirectory. Die Outbox nutzt SQLite/WAL und bestätigt erst nach DB-Commit.
 Aktuelle Messungen werden vor dem historischen Rückstau versendet; Timeouts und
 Backoff laufen unabhängig von der Erfassung. Keine HTTP-Redirects mit Token.
-Logische Outbox maximal 30 Tage, 43.200 Datensätze oder 96 MiB JSON plus
-SQLite-/WAL-Overhead. Bei Überlauf steigt der persistente Verlustzähler.
+HTTP 409 (widersprüchliche Messungs-/Ereignisidentität) und HTTP 422
+(ungültiger Datensatz) werden durch rekursives Aufteilen des Uploadpakets bis
+zur einzelnen Messung isoliert. Gültige Teilpakete werden bestätigt; abgewiesene
+Einzelmessungen wandern atomar mit unverändertem JSON, HTTP-Status, Fehlergrund
+und Quarantänezeitpunkt in die lokale SQLite-Tabelle `quarantine`. Sie blockieren
+keine neuen Messungen und werden nicht als erfolgreich übertragen ausgegeben.
+Netzwerk-, Authentifizierungs-, Rate-Limit- und Serverfehler bleiben wiederholbar;
+Teilerfolge vor einem späteren Verbindungsfehler werden mit denselben IDs erneut
+übertragen. Ein Datenbankfehler beim Aufbewahren lässt die Messung in der Outbox.
+
+Outbox und Quarantäne haben jeweils maximal 30 Tage Aufbewahrung ab ursprünglichem
+Erfassungszeitpunkt, 43.200 Datensätze oder 96 MiB JSON plus
+SQLite-/WAL-Overhead. Bei Ablauf oder Überlauf steigt der persistente Verlustzähler.
 
 ## VPS-Installation
 

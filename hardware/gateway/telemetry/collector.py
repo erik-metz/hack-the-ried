@@ -10,6 +10,7 @@ import shutil
 import sqlite3
 import subprocess
 import time
+import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
@@ -65,7 +66,9 @@ class Outbox:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA synchronous=FULL")
         self.db.executescript("""CREATE TABLE IF NOT EXISTS outbox(id TEXT PRIMARY KEY,at REAL,body TEXT);
-            CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY,value TEXT);""")
+            CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY,value TEXT);
+            CREATE TABLE IF NOT EXISTS quarantine(
+                id TEXT PRIMARY KEY,at REAL,body TEXT,status INTEGER,reason TEXT,quarantined_at REAL);""")
 
     def get(self, key, default=None):
         row = self.db.execute("SELECT value FROM state WHERE key=?", (key,)).fetchone()
@@ -83,23 +86,30 @@ class Outbox:
                 (sample["sample_id"], now, json.dumps(sample)),
             )
             self.set("checkpoint", checkpoint)
-            # Bound logical bytes and count. SQLite reuses freed pages.
-            dropped = self.db.execute(
-                "DELETE FROM outbox WHERE at<?", (now - 30 * 86400,)
-            ).rowcount
-            size, count = self.db.execute(
-                "SELECT coalesce(sum(length(body)),0),count(*) FROM outbox"
+            self.prune("outbox", now)
+            self.prune("quarantine", now)
+
+    def prune(self, table, now):
+        # Both queues have independent 30-day / 43,200-row / 96-MiB budgets.
+        # Table names come only from these fixed internal callers.
+        if table not in ("outbox", "quarantine"):
+            raise ValueError("Unknown telemetry queue")
+        dropped = self.db.execute(
+            f"DELETE FROM {table} WHERE at<?", (now - 30 * 86400,)
+        ).rowcount
+        size, count = self.db.execute(
+            f"SELECT coalesce(sum(length(body)),0),count(*) FROM {table}"
+        ).fetchone()
+        while size > 96 * 1024 * 1024 or count > 43200:
+            row = self.db.execute(
+                f"SELECT id,length(body) FROM {table} ORDER BY at LIMIT 1"
             ).fetchone()
-            while size > 96 * 1024 * 1024 or count > 43200:
-                row = self.db.execute(
-                    "SELECT id,length(body) FROM outbox ORDER BY at LIMIT 1"
-                ).fetchone()
-                self.db.execute("DELETE FROM outbox WHERE id=?", (row[0],))
-                size -= row[1]
-                count -= 1
-                dropped += 1
-            if dropped:
-                self.set("dropped", self.get("dropped", 0) + dropped)
+            self.db.execute(f"DELETE FROM {table} WHERE id=?", (row[0],))
+            size -= row[1]
+            count -= 1
+            dropped += 1
+        if dropped:
+            self.set("dropped", self.get("dropped", 0) + dropped)
 
     def batch(self):
         # Current sample first, then oldest backlog; never starve current status.
@@ -113,8 +123,29 @@ class Outbox:
         return [json.loads(body) for _, body in newest + old]
 
     def ack(self, ids):
+        self.complete(ids, [])
+
+    def complete(self, accepted, rejected):
+        if set(accepted) & {item["sample_id"] for item in rejected}:
+            raise ValueError("Conflicting upload result")
         with self.db:
-            self.db.executemany("DELETE FROM outbox WHERE id=?", [(i,) for i in ids])
+            for item in rejected:
+                # Preserve the exact queued body before removing it from retries.
+                self.db.execute(
+                    """INSERT OR REPLACE INTO quarantine
+                    SELECT id,at,body,?,?,? FROM outbox WHERE id=?""",
+                    (item["status"], item["reason"], time.time(), item["sample_id"]),
+                )
+                self.db.execute("DELETE FROM outbox WHERE id=?", (item["sample_id"],))
+            self.db.executemany(
+                "DELETE FROM outbox WHERE id=?", [(i,) for i in accepted]
+            )
+            self.prune("quarantine", time.time())
+        if rejected:
+            print(
+                f"Telemetry quarantined {len(rejected)} rejected sample(s); retained for inspection",
+                flush=True,
+            )
 
 
 class Collector:
@@ -358,6 +389,33 @@ def send(config, samples):
     return accepted
 
 
+def deliver(config, samples):
+    """Isolate permanent sample errors; transport/auth/server failures remain retryable."""
+    try:
+        return send(config, samples), []
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (409, 422):
+            exc.close()
+            raise
+        status = exc.code
+        reason = exc.read(1024).decode("utf-8", errors="replace")[:512]
+        exc.close()
+        if len(samples) == 1:
+            return [], [
+                {
+                    "sample_id": samples[0]["sample_id"],
+                    "status": status,
+                    "reason": reason,
+                }
+            ]
+    # The API commits a batch atomically. After splitting, successful sub-batches
+    # may be safely retried if a later request fails, using their original IDs.
+    middle = len(samples) // 2
+    accepted_left, rejected_left = deliver(config, samples[:middle])
+    accepted_right, rejected_right = deliver(config, samples[middle:])
+    return accepted_left + accepted_right, rejected_left + rejected_right
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="/etc/kamue-gateway-telemetry.json")
@@ -389,7 +447,7 @@ def main():
                 collector.tick(now)
             if future and future.done():
                 try:
-                    outbox.ack(future.result())
+                    outbox.complete(*future.result())
                     delay = 1
                 except (OSError, ValueError, TimeoutError) as exc:
                     print("Telemetry upload failed: " + type(exc).__name__, flush=True)
@@ -399,10 +457,10 @@ def main():
             if future is None and now >= retry_at:
                 samples = outbox.batch()
                 if samples:
-                    future = executor.submit(send, config, samples)
+                    future = executor.submit(deliver, config, samples)
             if args.once:
                 if future:
-                    outbox.ack(future.result())
+                    outbox.complete(*future.result())
                 break
             time.sleep(10)
 
