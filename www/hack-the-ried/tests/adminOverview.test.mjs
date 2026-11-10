@@ -52,7 +52,7 @@ test("admin data caches results for 60 seconds and forwards cursor and filters e
     calls.push({ url, options });
     return Response.json(url.pathname.endsWith("/subscribers") ? [] : { items: [], next_cursor: null });
   } });
-  assert.equal(configurations.length, 2);
+  assert.equal(configurations.length, 3);
   for (const config of configurations) assert.equal(config.options.revalidate, 60);
   assert.notDeepEqual(configurations[0].keys, configurations[1].keys);
   assert.equal(configurations[0].options.tags[0], overview.SUBSCRIBERS_CACHE_TAG);
@@ -62,6 +62,9 @@ test("admin data caches results for 60 seconds and forwards cursor and filters e
   assert.equal(calls[1].url.searchParams.get("qr_id"), "10");
   assert.equal(calls[1].url.searchParams.get("days"), "0");
   assert.equal(calls[1].options.headers.Authorization, "Bearer test-key");
+  await overview.getScanActivity(90);
+  assert.equal(calls[2].url.pathname, "/api/v1/qr/scans/daily");
+  assert.equal(calls[2].url.searchParams.get("days"), "90");
 });
 
 test("newsletter JSON and CSV stay protected; writes invalidate the shared cache", async () => {
@@ -93,4 +96,50 @@ test("newsletter JSON and CSV stay protected; writes invalidate the shared cache
     assert.equal(tag, "subscribers-test");
     assert.equal(options.expire, 0);
   }
+});
+
+
+test("QR activity route authenticates and restricts aggregate intervals", async () => {
+  let authenticated = false;
+  const calls = [];
+  const route = load("app/api/admin/qr-activity/route.ts", {
+    "@/lib/adminAuth": { isAuthenticated: async () => authenticated },
+    "@/lib/adminOverview": { getScanActivity: async days => { calls.push(days); return { items: [] }; } },
+    "next/server": server,
+  });
+  assert.equal((await route.GET(request(""))).status, 401);
+  assert.equal(calls.length, 0);
+  authenticated = true;
+  for (const days of ["0", "-1", "366", "garbage"]) assert.equal((await route.GET(request(`days=${days}`))).status, 400);
+  const response = await route.GET(request("days=90"));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(calls, [90]);
+});
+
+test("activity charts fill gaps, combine QR codes and separate workshop signups", () => {
+  const { subscriberActivity, scanActivity } = load("lib/adminCharts.ts", {});
+  const now = new Date("2026-01-03T12:00:00Z");
+  const months = subscriberActivity([
+    { consented_at: "2025-12-31T23:00:00Z", category: "newsletter" },
+    { consented_at: "2026-01-01T00:00:00Z", category: "sensor-workshop" },
+    { consented_at: "2024-01-01T00:00:00Z", category: "newsletter" },
+    { consented_at: "invalid", category: "newsletter" },
+  ], now);
+  assert.equal(months.length, 12);
+  assert.equal(months[10].date, "2025-12");
+  assert.equal(months[10].primary, 1);
+  assert.equal(months[11].secondary, 1);
+  assert.equal(months.reduce((sum, month) => sum + month.primary + month.secondary, 0), 2);
+  const rows = [
+    { day: "2026-01-01", qr_id: "1", scans: 4 },
+    { day: "2026-01-01", qr_id: "2", scans: 7 },
+    { day: "2026-01-03", qr_id: "1", scans: 2 },
+  ];
+  const days = scanActivity(rows, 2, "", now);
+  assert.equal(days.length, 3);
+  assert.equal(days[0].primary, 11);
+  assert.equal(days[1].primary, 0);
+  assert.equal(days[2].primary, 2);
+  assert.equal(scanActivity(rows, 2, "2", now)[0].primary, 7);
 });

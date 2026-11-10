@@ -1,8 +1,11 @@
 "use client";
 
-import type { SensorItem } from "@/lib/backend";
 import {
   AlertTriangle,
+  BarChart3,
+  Mail,
+  QrCode,
+  MapPin,
   ArrowLeft,
   Globe,
   Lock,
@@ -14,23 +17,29 @@ import {
   Shield,
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
-import { listSensorsAction, loginAction, logoutAction } from "./actions";
-import AdminClient from "./AdminClient";
+import { loginAction, logoutAction } from "./actions";
 import SiteFooter from "../components/SiteFooter";
 import NewsletterAdminPanel from "./NewsletterAdminPanel";
 import QrScansAdminPanel from "./QrScansAdminPanel";
 
+const GpsTrackerMap = dynamic(() => import("./GpsTrackerMap"), { ssr: false, loading: () => <p role="status">GPS-Karte wird geladen…</p> });
+
+const sections = [
+  { id: "overview", label: "Übersicht", icon: BarChart3 },
+  { id: "newsletter", label: "Anmeldungen", icon: Mail },
+  { id: "qr", label: "QR-Scans", icon: QrCode },
+  { id: "gps", label: "GPS & Reichweite", icon: MapPin },
+] as const;
+type Section = typeof sections[number]["id"];
+
 interface AdminClientGateProps {
   initialAuthenticated: boolean;
-  initialSensors: SensorItem[];
-  initialError?: string;
 }
 
 export default function AdminClientGate({
   initialAuthenticated,
-  initialSensors,
-  initialError,
 }: AdminClientGateProps) {
   const [, startTransition] = useTransition();
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuthenticated);
@@ -38,15 +47,7 @@ export default function AdminClientGate({
   const [authError, setAuthError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Dashboard state
-  const [sensors, setSensors] = useState<SensorItem[]>(initialSensors);
-  const [loadingSensors, setLoadingSensors] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
-
-  const [feedbackMessage, setFeedbackMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(initialError ? { type: "error", text: initialError } : null);
+  const [section, setSection] = useState<Section>("overview");
 
   function callAction<T>(operation: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -81,33 +82,10 @@ export default function AdminClientGate({
       const result = await callAction(() => logoutAction());
       if (result.ok) {
         setIsAuthenticated(false);
-        setSensors([]);
-        setToolsOpen(false);
+        setSection("overview");
       }
     } catch (err) {
       console.error("Logout failed:", err);
-    }
-  }
-
-  async function fetchSensors() {
-    setLoadingSensors(true);
-    try {
-      const result = await callAction(() => listSensorsAction());
-      if (result.ok) {
-        setSensors(result.data);
-      } else {
-        setFeedbackMessage({
-          type: "error",
-          text: result.error,
-        });
-      }
-    } catch {
-      setFeedbackMessage({
-        type: "error",
-        text: "Verbindung zum Server fehlgeschlagen.",
-      });
-    } finally {
-      setLoadingSensors(false);
     }
   }
 
@@ -136,7 +114,7 @@ export default function AdminClientGate({
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-100">
-                Admin Control Panel
+                Administration
               </h1>
               <p className="text-xs text-emerald-400 font-medium tracking-wide uppercase">
                 HackTheRied Management
@@ -146,7 +124,7 @@ export default function AdminClientGate({
 
           <p className="text-sm text-slate-400 mb-6 leading-relaxed">
             Nur autorisierte Administratorinnen und Administratoren des Projekts
-            können Anmeldungen und QR-Code-Scans einsehen und Stationen verwalten.
+            können Anmeldungen, QR-Code-Scans und die LoRa-Abdeckung einsehen.
           </p>
 
           {authError && (
@@ -158,11 +136,13 @@ export default function AdminClientGate({
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label htmlFor="admin-password" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
                 Admin-Passwort
               </label>
               <div className="relative">
                 <input
+                  id="admin-password"
+                  autoComplete="current-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -193,6 +173,7 @@ export default function AdminClientGate({
           <div className="mt-6 pt-6 border-t border-slate-800 text-center">
             <Link
               href="/"
+              aria-label="Website ansehen"
               className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-emerald-400 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" /> Zurück zur Hauptseite
@@ -208,7 +189,7 @@ export default function AdminClientGate({
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Top Header */}
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-3 flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Radio className="w-5 h-5" />
@@ -219,25 +200,19 @@ export default function AdminClientGate({
                   HackTheRied
                 </span>
                 <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Admin Panel
+                  Admin
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Anmeldungen & QR-Code-Scans
+                Übersicht & Technik
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <Link
-              href="/pitch"
-              className="flex items-center gap-2 text-sm px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all font-semibold"
-            >
-              <Presentation className="w-4 h-4" />
-              <span className="hidden sm:inline">Pitch-Decks</span>
-            </Link>
-            <Link
               href="/"
+              aria-label="Website ansehen"
               className="flex items-center gap-2 text-sm px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-emerald-400 hover:border-slate-700 transition-all"
             >
               <Globe className="w-4 h-4" />
@@ -245,6 +220,7 @@ export default function AdminClientGate({
             </Link>
             <Link
               href="/daten"
+              aria-label="API-Dokumentation öffnen"
               className="flex items-center gap-2 text-sm px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-emerald-400 hover:border-slate-700 transition-all"
             >
               <Server className="w-4 h-4" />
@@ -252,6 +228,7 @@ export default function AdminClientGate({
             </Link>
             <button
               onClick={handleLogout}
+              aria-label="Abmelden"
               className="flex items-center gap-2 text-sm px-3.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all"
             >
               <LogOut className="w-4 h-4" />
@@ -261,20 +238,27 @@ export default function AdminClientGate({
         </div>
       </header>
 
-      <NewsletterAdminPanel />
-      <QrScansAdminPanel />
-      <details className="mx-auto my-8 w-full max-w-7xl px-4 sm:px-6 lg:px-8" onToggle={event => {
-        const open = event.currentTarget.open;
-        setToolsOpen(open);
-        if (open) void fetchSensors();
-      }}>
-        <summary className="cursor-pointer rounded-xl border border-slate-800 p-4 text-sm text-slate-400">Technische Verwaltung: Sensoren und Gateways</summary>
-        {toolsOpen && <>
-          <div className="pt-6"><Link href="/admin/gateways" className="text-emerald-400 underline">LoRa-Gateway: Betriebszustand und Verläufe →</Link></div>
-          {loadingSensors ? <p role="status" className="py-6 text-slate-400">Sensoren werden geladen…</p>
-            : <AdminClient initialSensors={sensors} initialError={feedbackMessage?.text} />}
-        </>}
-      </details>
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Administration</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight">{sections.find(item => item.id === section)?.label}</h1>
+          <p className="mt-2 text-sm text-slate-400">Resonanz im Blick behalten und die Technik direkt erreichen.</p>
+        </div>
+        <nav aria-label="Adminbereiche" className="flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-2">
+          {sections.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => setSection(id)} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-emerald-400 ${section === id ? "bg-emerald-400 text-slate-950" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}><Icon className="size-4" aria-hidden="true" />{label}</button>)}
+          <Link href="/admin/gateways" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"><Server className="size-4" aria-hidden="true" />Gateways<ArrowLeft className="size-3 rotate-180" aria-hidden="true" /></Link>
+          <Link href="/pitch" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"><Presentation className="size-4" aria-hidden="true" />Präsentationen<ArrowLeft className="size-3 rotate-180" aria-hidden="true" /></Link>
+        </nav>
+        <div className={section === "overview" ? "grid items-start gap-6 xl:grid-cols-2" : "space-y-6"}>
+          {(section === "overview" || section === "newsletter") && <NewsletterAdminPanel compact={section === "overview"} />}
+          {(section === "overview" || section === "qr") && <QrScansAdminPanel compact={section === "overview"} />}
+          {section === "overview" && <div className="grid gap-4 sm:grid-cols-2 xl:col-span-2">
+            <button type="button" onClick={() => setSection("gps")} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-left hover:border-emerald-500/50"><MapPin className="mb-3 size-5 text-emerald-400" /><span className="font-semibold">GPS & Reichweite öffnen →</span><p className="mt-1 text-sm text-slate-400">Fahrten und Empfang durch eigene und öffentliche Gateways.</p></button>
+            <Link href="/admin/gateways" className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 hover:border-emerald-500/50"><Server className="mb-3 size-5 text-emerald-400" /><span className="font-semibold">Gateway-Betrieb öffnen →</span><p className="mt-1 text-sm text-slate-400">Betriebszustand, Messwerte und Verläufe.</p></Link>
+          </div>}
+          {section === "gps" && <section aria-labelledby="gps-title" className="space-y-5"><div><h2 id="gps-title" className="text-xl font-semibold">GPS-Reichweitentest & Gateway-Abdeckung</h2><p className="mt-1 text-sm text-slate-400">Empfang der 5-Minuten-Pakete über eigene und öffentliche TTN-Gateways.</p></div><GpsTrackerMap /></section>}
+        </div>
+      </main>
       <SiteFooter />
     </div>
   );

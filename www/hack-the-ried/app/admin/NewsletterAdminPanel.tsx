@@ -3,8 +3,11 @@
 import { Download, RefreshCw, Trash2 } from "lucide-react";
 import type { Subscriber } from "@/lib/adminOverview";
 import { useEffect, useState } from "react";
+import ActivityChart from "./ActivityChart";
+import { subscriberActivity } from "@/lib/adminCharts";
 
-export default function NewsletterAdminPanel() {
+export default function NewsletterAdminPanel({ compact = false }: { compact?: boolean }) {
+  const [showList, setShowList] = useState(false);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -68,12 +71,12 @@ export default function NewsletterAdminPanel() {
   }
 
   return (
-    <section aria-labelledby="newsletter-admin-title" className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
+    <section aria-labelledby="newsletter-admin-title" className="min-w-0">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 id="newsletter-admin-title" className="font-semibold text-slate-100">Newsletter- und Workshop-Anmeldungen</h2>
-            <p className="mt-1 text-sm text-slate-400">E-Mail-Adressen und Anmeldezeitpunkte · neueste zuerst. Server-Cache: 60 Sekunden.</p>
+            <p className="mt-1 text-sm text-slate-400">Interesse am Projekt und an den Workshops.</p>
           </div>
           <button type="button" onClick={downloadList} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50">
             <Download className="size-4" aria-hidden="true" /> CSV herunterladen
@@ -84,6 +87,15 @@ export default function NewsletterAdminPanel() {
           <button type="button" onClick={() => setRevision(value => value + 1)} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-slate-200"><RefreshCw className="size-4" aria-hidden="true" /> Neu laden</button>
         </div>
         {loadError && <p role="alert" className="mt-3 text-sm text-rose-300">{loadError}</p>}
+        {!data && !loadError && <p role="status" className="mt-4 text-sm text-slate-400">Anmeldungen werden geladen…</p>}
+        {data && <>
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            {[["Gesamt", data.items.length], ["Newsletter", data.items.filter(item => item.category !== "sensor-workshop").length], ["Workshops", data.items.filter(item => item.category === "sensor-workshop").length]].map(([label, value]) => <div key={label} className="rounded-xl bg-slate-950/60 p-3 sm:p-4"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-2xl font-bold text-slate-100 sm:text-3xl">{value}</p></div>)}
+          </div>
+          <ActivityChart data={subscriberActivity(data.items, new Date(data.fetched_at))} label="Anmeldungen pro Monat · letzte 12 Monate" primaryLabel="Newsletter" secondaryLabel="Workshop" monthly />
+        </>}
+        {!compact && <button type="button" aria-expanded={showList} aria-controls="subscriber-details" onClick={() => setShowList(value => !value)} className="mt-5 min-h-11 rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">{showList ? "Adressliste schließen" : "Adressliste & Abmeldungen öffnen"}</button>}
+        {!compact && showList && <div id="subscriber-details">
         {data && <div className="mt-4 max-h-[32rem] overflow-auto rounded-xl border border-slate-800">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Aktive Newsletter- und Workshop-Anmeldungen, Zeitangaben in Europe/Berlin</caption>
@@ -102,6 +114,7 @@ export default function NewsletterAdminPanel() {
             <Trash2 className="size-4" aria-hidden="true" /> Alle Anmeldungen dieser Adresse entfernen
           </button>
         </form>
+        </div>}
         {message && <p role="status" className="mt-3 text-sm text-emerald-300">{message}</p>}
       </div>
     </section>

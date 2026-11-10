@@ -53,3 +53,9 @@ export const getScanPage = unstable_cache(async (before: string, qrId: string, d
   const page = await backendData<Omit<ScanPage, "fetched_at">>(`/api/v1/admin/qr/scans?${params}`);
   return { ...page, fetched_at: new Date().toISOString() };
 }, ["admin-qr-scans-v1", env.BACKEND_API_URL], { revalidate: 60 });
+
+// Aggregate the entire selected interval, independently of event-list pagination.
+export const getScanActivity = unstable_cache(async (days: number) => ({
+  items: await backendData<import("./adminCharts").DailyScan[]>(`/api/v1/qr/scans/daily?days=${days}`),
+  fetched_at: new Date().toISOString(),
+}), ["admin-qr-activity-v1", env.BACKEND_API_URL], { revalidate: 60 });
