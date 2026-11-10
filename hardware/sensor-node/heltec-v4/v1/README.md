@@ -8,16 +8,20 @@ identity; private update feedback uses an independent identity.
 
 ## Plan and bring-up
 
-1. Identify the USB MAC; back up the complete gateway flash locally, retaining
+All four implementation steps below were completed on 2026-11-08; see the
+[hardware and TTN evidence](TEST-2026-11-08.md). The remaining radio-update
+acceptance is tracked separately in the [plan review](PLAN-REVIEW-2026-11-10.md).
+
+1. **Completed:** Identify the USB MAC; back up the complete gateway flash locally, retaining
    NVS and credentials privately. The ignored recovery artifact is
    `../build/recovery/gateway-original.bin`, SHA256
    `5cd26a5f41664f1a7a247658fb2086a8890f400edd1112d140bf9e31545e5205`.
-2. Build this separate end-device version; test the real C++ payload encoder
+2. **Completed:** Build this separate end-device version; test the real C++ payload encoder
    against the local TTN decoder. The two-partition layout supports later OTA.
-3. Install the [device-level TTN formatter](payload-formatter.js), build and
+3. **Completed:** Install the [device-level TTN formatter](payload-formatter.js), build and
    flash the exact identified board, provision its identity over USB, and add
    its separate companion to the Pi router and isolated Heltec multicast group.
-4. Verify OLED initialization, valid GPS sentences, a fresh satellite fix,
+4. **Completed:** Verify OLED initialization, valid GPS sentences, a fresh satellite fix,
    TTN application reception, and private activation separately. Without sky
    reception a real GPS position remains unverified. Do not invent coordinates.
 
