@@ -71,10 +71,13 @@ export default function GpsTrackerMap() {
     }).setView(defaultCenter, 13);
 
     L.tileLayer(publicMapTileUrl("base"), {
-      minZoom: 6,
+      minZoom: 8,
       maxZoom: 19,
+      // The VPS publishes base tiles through zoom 14; enlarge them above it.
+      maxNativeZoom: 14,
+      bounds: [[49.55, 8.30], [49.80, 8.65]],
       attribution:
-        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        '© <a href="https://www.bkg.bund.de">BKG</a> · <a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-Mitwirkende</a>',
     }).addTo(map);
 
     const layerGroup = L.layerGroup().addTo(map);
