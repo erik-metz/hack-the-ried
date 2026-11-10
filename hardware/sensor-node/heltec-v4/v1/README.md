@@ -78,6 +78,16 @@ less than 10 seconds old. No-fix packets use age255. Missing readings are flagge
 never presented as a real (0,0) position. A true valid (0,0) fix remains possible.
 The local formatter also handles shared private lab feedback on ports42/43.
 
+Firmware version 2 (build with `--firmware 2`) sends a batched payload instead:
+version2, fix mask1, application counter4, battery2, then 11 bytes per slot with
+a fix (signed latitude4/longitude4, signed altitude2, satellites1), firmware1,
+lab test value1. The five slots cover the previous four minutes and the current
+position. Missing fixes are omitted from the byte stream and marked in the mask,
+so a full packet is 65 bytes and a no-fix packet is 10 bytes. The formatter
+reports each slot as `positions[]` with `offset_seconds` -240 to 0 and keeps the
+latest fix mirrored at the top level. Position samples are taken every minute
+and one packet is sent every five minutes, matching the existing cadence.
+
 Normal telemetry is unconfirmed every five minutes; the first acquired fix
 triggers one extra uplink. Initial TTN plan is 868.1 MHz/DR5 (SF7), matching the
 existing test nodes and TTN profile. ADR is disabled for this moving range-test

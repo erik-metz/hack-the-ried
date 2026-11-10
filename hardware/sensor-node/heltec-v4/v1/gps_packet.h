@@ -21,4 +21,33 @@ inline size_t encode(uint8_t* out,const Sample& s,uint32_t counter,uint8_t firmw
   put(out+19,s.battery?s.batteryMv:0,2);out[21]=s.position?s.ageSeconds:255;
   out[22]=firmware;out[23]=firmware==1?111:222;return 24;
 }
+struct MultiSample {
+  static const size_t COUNT = 5;
+  Sample samples[COUNT]; // 0: -4m, 1: -3m, 2: -2m, 3: -1m, 4: current (0m)
+  uint16_t batteryMv = 0;
+};
+inline size_t encodeMulti(uint8_t* out,const MultiSample& ms,uint32_t counter,uint8_t firmware) {
+  out[0]=2; // version 2
+  uint8_t mask=0;
+  for(size_t i=0;i<MultiSample::COUNT;++i) {
+    if(ms.samples[i].position) mask|=(1<<i);
+  }
+  out[1]=mask;
+  put(out+2,counter,4);
+  put(out+6,ms.batteryMv,2);
+  size_t offset=8;
+  for(size_t i=0;i<MultiSample::COUNT;++i) {
+    if(mask&(1<<i)) {
+      const Sample& s=ms.samples[i];
+      put(out+offset,uint32_t(s.latitude),4);
+      put(out+offset+4,uint32_t(s.longitude),4);
+      put(out+offset+8,uint16_t(s.altitudeMetres),2);
+      out[offset+10]=s.satellites;
+      offset+=11;
+    }
+  }
+  out[offset]=firmware;
+  out[offset+1]=firmware==1?111:222;
+  return offset+2;
+}
 }

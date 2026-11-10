@@ -102,6 +102,7 @@ void setup() {
 }
 void loop() {
   credentials.serialCommand();
+  tickMinuteSample();
   trackerUi(ttnJoined,controlJoined,telemetryCount,lastTtnResult,firmwareVersion,transfer.received,transfer.blocks());
   uint32_t now=millis();
   if(ttnJoined && !firstFixSent && gpsSample().position) {nextTelemetry=now;firstFixSent=true;}
@@ -112,11 +113,15 @@ void loop() {
     listenMulticast();return;
   }
   if (ttnJoined && !rebootAt && (int32_t)(now-nextTelemetry)>=0 && quietTime()==0) {
-    uint8_t data[24],down[255];size_t length=sizeof(down);LoRaWANEvent_t event={};
-    tracker::Sample sample=gpsSample();tracker::encode(data,sample,counter,firmwareVersion);
-    int16_t result=ttn.sendReceive(data,sizeof(data),44,down,&length,false,nullptr,&event);
+    uint8_t data[65],down[255];size_t length=sizeof(down);size_t payloadSize=24;LoRaWANEvent_t event={};
+    if (firmwareVersion >= 2) {
+      payloadSize=tracker::encodeMulti(data,currentMultiSample(),counter,firmwareVersion);
+    } else {
+      tracker::Sample sample=gpsSample();payloadSize=tracker::encode(data,sample,counter,firmwareVersion);
+    }
+    int16_t result=ttn.sendReceive(data,payloadSize,44,down,&length,false,nullptr,&event);
     persist(ttn,ttnState);lastTtnResult=result;if(result>=0)++telemetryCount;
-    Serial.printf("TTN UPLINK firmware=%u value=%u counter=%lu state=%d\n",firmwareVersion,testValue,(unsigned long)counter++,result);
+    Serial.printf("TTN UPLINK firmware=%u value=%u counter=%lu size=%u state=%d\n",firmwareVersion,testValue,(unsigned long)counter++,payloadSize,result);
     if (result==RADIOLIB_ERR_NETWORK_NOT_JOINED) {ttnJoined=false;ttnFailures=0;}
     nextTelemetry=millis()+300000;listenMulticast();return;
   }

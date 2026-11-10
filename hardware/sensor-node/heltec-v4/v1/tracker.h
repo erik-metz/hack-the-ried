@@ -57,6 +57,29 @@ tracker::Sample gpsSample() {
   uint32_t mv=lround(analogReadMilliVolts(1)*4.9*1.045);
   s.battery=mv>=2800&&mv<=4500;s.batteryMv=s.battery?mv:0;return s;
 }
+tracker::MultiSample multiHistory;
+uint32_t lastMinuteTick=0;
+inline void tickMinuteSample() {
+  uint32_t now=millis();
+  if(!lastMinuteTick || (int32_t)(now-lastMinuteTick)>=60000) {
+    lastMinuteTick=now;
+    tracker::Sample s=gpsSample();
+    for(size_t i=0;i<tracker::MultiSample::COUNT-1;++i) {
+      multiHistory.samples[i]=multiHistory.samples[i+1];
+    }
+    multiHistory.samples[tracker::MultiSample::COUNT-1]=s;
+    multiHistory.batteryMv=s.batteryMv;
+  }
+}
+inline tracker::MultiSample currentMultiSample() {
+  tickMinuteSample();
+  tracker::MultiSample ms=multiHistory;
+  // Ensure the latest sample (index 4) has fresh GPS data
+  tracker::Sample fresh=gpsSample();
+  ms.samples[tracker::MultiSample::COUNT-1]=fresh;
+  ms.batteryMv=fresh.batteryMv;
+  return ms;
+}
 void trackerUi(bool joined,bool updateJoined,uint32_t sent,int result,uint8_t version,unsigned received,unsigned total) {
   static uint32_t last=0,log=0;if(millis()-last<1000)return;last=millis();
   tracker::Sample s=gpsSample();

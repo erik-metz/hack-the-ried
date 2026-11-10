@@ -32,6 +32,7 @@ import {
   setVisibilityAction,
   updateSensorAction,
 } from "./actions";
+import GpsTrackerMap from "./GpsTrackerMap";
 
 interface AdminClientProps {
   initialSensors: SensorItem[];
@@ -47,6 +48,9 @@ export default function AdminClient({
   initialError,
 }: AdminClientProps) {
   const [, startTransition] = useTransition();
+
+  // Navigation tab state
+  const [activeTab, setActiveTab] = useState<"sensors" | "gps_tracker">("sensors");
 
   // Dashboard state
   const [sensors, setSensors] = useState<SensorItem[]>(initialSensors);
@@ -384,6 +388,45 @@ export default function AdminClient({
           </div>
         )}
 
+        {/* Navigation Tabs (Sensors vs GPS Coverage Tracker) */}
+        <div className="flex border-b border-slate-800 pb-3 gap-3">
+          <button
+            onClick={() => setActiveTab("sensors")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              activeTab === "sensors"
+                ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
+                : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100"
+            }`}
+          >
+            <Radio className="w-4 h-4" />
+            <span>Stationen & Sensoren ({totalCount})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("gps_tracker")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              activeTab === "gps_tracker"
+                ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
+                : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100"
+            }`}
+          >
+            <MapPin className="w-4 h-4" />
+            <span>GPS Reichweitentest (Auto-Tracker)</span>
+          </button>
+        </div>
+
+        {activeTab === "gps_tracker" ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5">
+              <h2 className="text-lg font-bold text-slate-100">GPS Reichweitentest & Gateway-Abdeckung</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Visualisierung der 5-Minuten-Pakete (je 5 Minutenslots) mit Unterscheidung zwischen eigenem Gateway und öffentlichen TTN-Gateways.
+              </p>
+            </div>
+            <GpsTrackerMap />
+          </div>
+        ) : (
+          <>
         {/* Overview Stats Ribbon */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
@@ -728,6 +771,8 @@ export default function AdminClient({
             </table>
           </div>
         </div>
+        </>
+        )}
       </main>
 
       {/* CREATE MODAL */}

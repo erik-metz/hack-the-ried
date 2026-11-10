@@ -65,3 +65,51 @@ Before production, configure webhook credentials and application ID on the VPS,
 create a test device, send a sample uplink, confirm the receipt and canonical
 readings, verify the compatibility mean if a legacy chart consumes it, and
 confirm the sensor stays hidden until reviewed.
+
+## GPS tracker uplinks (FPort 44)
+
+The Heltec range-test tracker uses a separate device-level payload formatter and
+webhook. Do not route it through the sensor measurement endpoint above; its
+decoded payload is a position list, not measurements.
+
+```text
+POST https://<API-host>/api/v1/integrations/gps/uplink
+```
+
+Create a second custom webhook in the TTN application with the same Basic Auth
+credentials (`TTN_WEBHOOK_USERNAME` / `TTN_WEBHOOK_PASSWORD`) and enable only
+**Uplink message**. The endpoint also checks `TTN_APPLICATION_ID` when it is
+configured.
+
+The FPort-44 formatter emits five minute slots per uplink. Slot 4 is the
+current position, slots 0-3 are one to four minutes older:
+
+```json
+{
+  "version": 2,
+  "positions": [
+    {"slot": 0, "offset_seconds": -240, "has_fix": true,
+     "latitude": 49.68, "longitude": 8.45, "altitude": 95, "satellites": 7}
+  ],
+  "gps_fix": true
+}
+```
+
+Storage and security:
+
+- Coordinates are encrypted with AES-256-GCM before they reach PostgreSQL.
+  The key is never stored in the database. `GPS_ENCRYPTION_KEY` must be set to
+  64 hex characters (32 bytes) or exactly 32 raw characters; the API refuses to
+  ingest GPS data when the key is missing or malformed.
+- Redeliveries are deduplicated by `(uplink_event_id, slot_index)`.
+- `received_by_own_gateway` is true when any `rx_metadata` entry matches
+  `OWN_GATEWAY_ID` or `OWN_GATEWAY_EUI`. The best gateway RSSI/SNR and the
+  number of gateways that heard the uplink are stored for every slot.
+- The admin view decrypts points on demand through
+  `GET /api/v1/admin/gps-tracker/points`; this route requires
+  `ADMIN_API_KEY` and is proxied by the authenticated Next.js admin panel.
+
+Apply the migration before the first uplink. With `API_SCHEMA_MODE=bootstrap`
+the API runs `api/v1/migrations/20261109_gps_tracker.sql` during startup; with
+`API_SCHEMA_MODE=validate` run `python migrate.py` from the API container first.
+

@@ -27,3 +27,81 @@ test('rejects malformed and stale packets, unknown flags and impossible coordina
  assert.deepEqual(decode(b).errors,[]);
  for(const bad of [b.slice(1),[...b,0],b.map((v,i)=>i===1?128:v),b.map((v,i)=>i===21?10:v),b.map((v,i)=>i===6?127:v)]) assert.ok(decode(bad).errors.length);
 });
+test('real C++ GPS encodeMulti decodes 5-minute batched GPS points with time offsets',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'heltec-multi-protocol-'));
+ try {
+  const source=`#include <cstdio>
+#include "gps_packet.h"
+int main(){
+  tracker::MultiSample ms;
+  ms.batteryMv = 4050;
+  for(int i=0;i<5;++i){
+    ms.samples[i].position = true;
+    ms.samples[i].latitude = 496800000 + i*1000;
+    ms.samples[i].longitude = 84500000 + i*2000;
+    ms.samples[i].altitudeMetres = 90 + i;
+    ms.samples[i].satellites = 6 + i;
+  }
+  uint8_t out[70];
+  size_t len = tracker::encodeMulti(out, ms, 12345, 2);
+  printf("%u ", (unsigned)len);
+  for(size_t i=0;i<len;++i) printf("%u ", out[i]);
+
+  // Partial fix: only slot 1 and slot 4
+  tracker::MultiSample ms2;
+  ms2.batteryMv = 3900;
+  ms2.samples[1].position = true;
+  ms2.samples[1].latitude = 500000000;
+  ms2.samples[1].longitude = 80000000;
+  ms2.samples[1].altitudeMetres = 100;
+  ms2.samples[1].satellites = 7;
+  ms2.samples[4].position = true;
+  ms2.samples[4].latitude = 501000000;
+  ms2.samples[4].longitude = 81000000;
+  ms2.samples[4].altitudeMetres = 105;
+  ms2.samples[4].satellites = 8;
+  len = tracker::encodeMulti(out, ms2, 12346, 2);
+  printf("%u ", (unsigned)len);
+  for(size_t i=0;i<len;++i) printf("%u ", out[i]);
+}`;
+  writeFileSync(join(dir,'test_multi.cpp'),source);
+  execFileSync('c++',['-std=c++11','-I',here,join(dir,'test_multi.cpp'),'-o',join(dir,'run_multi')]);
+  const tokens=execFileSync(join(dir,'run_multi'),{encoding:'utf8'}).trim().split(/\s+/).map(Number);
+  
+  // Test 1: Full 5 fixes
+  const len1 = tokens[0];
+  const bytes1 = tokens.slice(1, 1 + len1);
+  assert.equal(len1, 65); // 8 header + 5*11 + 2 footer
+  const d1 = decode(bytes1);
+  assert.deepEqual(d1.errors, []);
+  assert.equal(d1.data.version, 2);
+  assert.equal(d1.data.counter, 12345);
+  assert.equal(d1.data.battery_v, 4.05);
+  assert.equal(d1.data.fix_count, 5);
+  assert.equal(d1.data.gps_fix, true);
+  assert.equal(d1.data.positions.length, 5);
+  assert.equal(d1.data.positions[0].offset_seconds, -240);
+  assert.equal(d1.data.positions[0].latitude, 49.68);
+  assert.equal(d1.data.positions[0].longitude, 8.45);
+  assert.equal(d1.data.positions[0].satellites, 6);
+  assert.equal(d1.data.positions[4].offset_seconds, 0);
+  assert.equal(d1.data.positions[4].latitude, 49.6804);
+  assert.equal(d1.data.positions[4].satellites, 10);
+  assert.equal(d1.data.latitude, 49.6804); // latest position at root
+  assert.equal(d1.data.firmware, 2);
+  assert.equal(d1.data.test_value, 222);
+
+  // Test 2: Partial fixes
+  const len2 = tokens[1 + len1];
+  const bytes2 = tokens.slice(2 + len1);
+  assert.equal(len2, 8 + 2*11 + 2); // 32 bytes
+  const d2 = decode(bytes2);
+  assert.deepEqual(d2.errors, []);
+  assert.equal(d2.data.fix_count, 2);
+  assert.equal(d2.data.positions[0].has_fix, false);
+  assert.equal(d2.data.positions[1].has_fix, true);
+  assert.equal(d2.data.positions[1].latitude, 50.0);
+  assert.equal(d2.data.positions[4].has_fix, true);
+  assert.equal(d2.data.positions[4].latitude, 50.1);
+ } finally {rmSync(dir,{recursive:true,force:true});}
+});

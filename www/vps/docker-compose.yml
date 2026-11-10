@@ -62,6 +62,9 @@ services:
       TTN_APPLICATION_ID: ${TTN_APPLICATION_ID:-}
       TTN_WEBHOOK_USERNAME: ${TTN_WEBHOOK_USERNAME:-}
       TTN_WEBHOOK_PASSWORD: ${TTN_WEBHOOK_PASSWORD:-}
+      GPS_ENCRYPTION_KEY: ${GPS_ENCRYPTION_KEY:-}
+      OWN_GATEWAY_ID: ${OWN_GATEWAY_ID:-kamue-gateway}
+      OWN_GATEWAY_EUI: ${OWN_GATEWAY_EUI:-98FE54FFFE63713B}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5)"]
       interval: 10s
