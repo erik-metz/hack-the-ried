@@ -1,4 +1,6 @@
 import { env } from "@/env";
+import { getSubscribers, SUBSCRIBERS_CACHE_TAG } from "@/lib/adminOverview";
+import { revalidateTag } from "next/cache";
 import { isAuthenticated } from "@/lib/adminAuth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -31,22 +33,21 @@ export async function POST(request: NextRequest) {
         : "Die Anmeldung ist gerade nicht möglich. Bitte versuche es später erneut.";
       return NextResponse.json({ error: message }, { status: response.status === 422 ? 400 : 503 });
     }
+    revalidateTag(SUBSCRIBERS_CACHE_TAG, { expire: 0 });
     return NextResponse.json({ success: true }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Die Anmeldung ist gerade nicht möglich. Bitte versuche es später erneut." }, { status: 503 });
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!(await isAuthenticated())) return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   try {
-    const response = await fetch(backendUrl("/api/v1/admin/newsletter/subscribers"), {
-      headers: { Authorization: `Bearer ${env.BACKEND_ADMIN_API_KEY}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) return NextResponse.json({ error: "Adressen konnten nicht geladen werden." }, { status: 503 });
-    const subscribers: { email: string; consented_at: string; category: string; name?: string | null; location?: string | null; interest?: string | null }[] = await response.json();
+    const data = await getSubscribers();
+    const subscribers = data.items;
+    if (request.nextUrl.searchParams.get("format") === "json") {
+      return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
+    }
     const csvCell = (value: string) => {
       const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
       return `"${safe.replaceAll('"', '""')}"`;
@@ -79,6 +80,7 @@ export async function DELETE(request: NextRequest) {
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return NextResponse.json({ error: "Adresse konnte nicht entfernt werden." }, { status: 503 });
+    revalidateTag(SUBSCRIBERS_CACHE_TAG, { expire: 0 });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Adresse konnte nicht entfernt werden." }, { status: 503 });

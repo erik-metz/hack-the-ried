@@ -53,3 +53,40 @@ async def daily_scans(
         )
         rows = await cursor.fetchall()
     return [{"day": row["day"].isoformat(), "qr_id": row["qr_id"], "scans": row["scans"]} for row in rows]
+
+
+@router.get("/admin/qr/scans")
+async def list_scans(
+    _admin: AdminAuth,
+    pool: DbPool,
+    before: int | None = Query(default=None, gt=0, le=9223372036854775807),
+    qr_id: str | None = Query(default=None, pattern=r"^(?:[1-9]|10)$"),
+    days: int = Query(default=0, ge=0, le=3650),
+    limit: int = Query(default=100, ge=1, le=100),
+):
+    """All retained events, newest first; ID cursors keep older pages stable."""
+    clauses = []
+    params = []
+    if before is not None:
+        clauses.append("id < %s")
+        params.append(before)
+    if qr_id is not None:
+        clauses.append("qr_id = %s")
+        params.append(qr_id)
+    if days:
+        clauses.append("scanned_at >= now() - (%s * interval '1 day')")
+        params.append(days)
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    params.append(limit + 1)
+    async with pool.connection() as conn:
+        cursor = await conn.execute(
+            "SELECT id, qr_id, scanned_at, referrer_host, user_agent, campaign "
+            "FROM qr_scan_events" + where + " ORDER BY id DESC LIMIT %s",
+            tuple(params),
+        )
+        rows = await cursor.fetchall()
+    items = [
+        {**dict(row), "id": str(row["id"]), "scanned_at": row["scanned_at"].isoformat()}
+        for row in rows[:limit]
+    ]
+    return {"items": items, "next_cursor": items[-1]["id"] if len(rows) > limit else None}

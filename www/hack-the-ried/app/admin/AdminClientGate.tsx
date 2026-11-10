@@ -19,15 +19,12 @@ import { listSensorsAction, loginAction, logoutAction } from "./actions";
 import AdminClient from "./AdminClient";
 import SiteFooter from "../components/SiteFooter";
 import NewsletterAdminPanel from "./NewsletterAdminPanel";
+import QrScansAdminPanel from "./QrScansAdminPanel";
 
 interface AdminClientGateProps {
   initialAuthenticated: boolean;
   initialSensors: SensorItem[];
   initialError?: string;
-}
-
-function getSensorId(sensor: SensorItem | null | undefined): string {
-  return sensor?.id ?? "";
 }
 
 export default function AdminClientGate({
@@ -44,6 +41,7 @@ export default function AdminClientGate({
   // Dashboard state
   const [sensors, setSensors] = useState<SensorItem[]>(initialSensors);
   const [loadingSensors, setLoadingSensors] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const [feedbackMessage, setFeedbackMessage] = useState<{
     type: "success" | "error";
@@ -70,7 +68,6 @@ export default function AdminClientGate({
       } else {
         setIsAuthenticated(true);
         setPassword("");
-        fetchSensors();
       }
     } catch {
       setAuthError("Netzwerkfehler beim Anmelden.");
@@ -85,6 +82,7 @@ export default function AdminClientGate({
       if (result.ok) {
         setIsAuthenticated(false);
         setSensors([]);
+        setToolsOpen(false);
       }
     } catch (err) {
       console.error("Logout failed:", err);
@@ -148,7 +146,7 @@ export default function AdminClientGate({
 
           <p className="text-sm text-slate-400 mb-6 leading-relaxed">
             Nur autorisierte Administratorinnen und Administratoren des Projekts
-            dürfen Stationen anlegen, konfigurieren, verbergen oder löschen.
+            können Anmeldungen und QR-Code-Scans einsehen und Stationen verwalten.
           </p>
 
           {authError && (
@@ -225,7 +223,7 @@ export default function AdminClientGate({
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Geschützter Verwaltungsbereich für Sensoren & Stationen
+                Anmeldungen & QR-Code-Scans
               </p>
             </div>
           </div>
@@ -263,9 +261,20 @@ export default function AdminClientGate({
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 pt-6"><Link href="/admin/gateways" className="text-emerald-400 underline">LoRa-Gateway: Betriebszustand und Verläufe →</Link></div>
       <NewsletterAdminPanel />
-      <AdminClient initialSensors={initialSensors} initialError="" />
+      <QrScansAdminPanel />
+      <details className="mx-auto my-8 w-full max-w-7xl px-4 sm:px-6 lg:px-8" onToggle={event => {
+        const open = event.currentTarget.open;
+        setToolsOpen(open);
+        if (open) void fetchSensors();
+      }}>
+        <summary className="cursor-pointer rounded-xl border border-slate-800 p-4 text-sm text-slate-400">Technische Verwaltung: Sensoren und Gateways</summary>
+        {toolsOpen && <>
+          <div className="pt-6"><Link href="/admin/gateways" className="text-emerald-400 underline">LoRa-Gateway: Betriebszustand und Verläufe →</Link></div>
+          {loadingSensors ? <p role="status" className="py-6 text-slate-400">Sensoren werden geladen…</p>
+            : <AdminClient initialSensors={sensors} initialError={feedbackMessage?.text} />}
+        </>}
+      </details>
       <SiteFooter />
     </div>
   );
