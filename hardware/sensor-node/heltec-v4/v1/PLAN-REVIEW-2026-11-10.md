@@ -43,15 +43,46 @@ bytes). The newer local B image is 443088 bytes. Its existing bundle contains
 Firmware version alone cannot identify an exact build. No stale image was
 flashed and no radio transfer was started during this review.
 
+### Exact-base and Pi checks completed afterward
+
+The user confirmed the connected OLED displays v2 and restored Pi access.
+Read-only esptool extraction of OTA selection records and app partition0
+confirmed the running 443088-byte image matches the saved B byte-for-byte:
+SHA256 `e9cfed0ec80eb39e4b878e20defd8eb0f648f45fadf37a4110edabbd2fa59e85`.
+No application or NVS flash write was performed over USB. These reads reset
+the board; they do not constitute a firmware installation.
+
+The Pi Basics Station and all five private-stack containers were running;
+Basics Station and PostgreSQL reported healthy. The temporary sender logs
+were absent and the existing private update directory contained Heltec
+registration/group state but no Heltec transfer bundle from the prior install.
+This does not establish how the existing version2 was installed.
+
+The new [display delta tool](../display_delta.py) exactly reproduced saved B
+using esptool5.3.1 before changing the ELF's unique OLED title from GPS to OTA.
+Only three ELF bytes changed; esptool regenerated the ELF/image digests and
+validated the resulting image checksum and digest. The separate test target is
+SHA256 `31cfa5bfde01f19101effcde932b6ae964d7b5a193691f7745f1259a647d2b99`.
+Its fresh session411052235 changes blocks [1,3,3461], retaining GPS behavior and
+firmware2/value222. Bundle SHA256 is
+`98b5dea489e2affcde84ea251d62e1ea027b9b264effe243fabb017bf1e2d1e1`.
+
+The first browser-transferred copy failed the checksum comparison and was
+**not sent**. Before any future send, replace that candidate with a correctly
+transferred copy and verify the exact bundle hash above. Repeated native
+browser window changes prevented continuing in the Pi shell; no multicast
+START/APPLY has been issued for this session. The next steps are correct
+transfer, isolated `send.py --heltec`, selected-partition hash/OLED verification
+and independent post-update TTN GPS reception. Version2 feedback alone cannot
+identify this title-only target.
+
 ## Remaining hardware acceptance
 
 - **Heltec real FUOTA transfer and post-update TTN GPS reception:** still lacks
   an installation log and independent post-update TTN evidence in the available
-  records. First inspect the Pi sender logs for the existing version-2 install;
-  do not repeat an update solely because an older report listed version1.
-  Browser control timed out during the Pi-access check in this review, so no
-  Pi-side conclusion can be drawn. The running build and installation method
-  must be reconciled before preparing a new exact-base update.
+  records. Exact-base identification and a small title-only acceptance delta
+  are now ready as described above. Radio execution and TTN proof remain open
+  until the Pi shell can be controlled without concurrent window changes.
 - **Moving range test:** requires taking the powered Heltec along the actual
   route and recording received packets, distance, RSSI/SNR and loss against
   the send schedule. This cannot be established by a stationary bench test.
@@ -66,5 +97,8 @@ tests and five gateway multicast tests successfully. The current local Heltec
 working-tree suite also passed all three tests, including its newer batched-GPS
 case. The two Heltec tests from the committed source were additionally run in
 an isolated temporary directory and passed. Those newer source edits predated
-this review and are not part of its
-documentation change. No enclosure, backend or other pending work was included.
+this review and are not part of its changes. Four new display-delta tests also
+passed: exact packet/base binding, wrong-base rejection, ambiguous-title
+rejection and prevention of overwriting previous artifacts. Hardware CI passed
+for both the initial plan review (`ab0a7c6`) and tool change (`5564379`).
+No enclosure, backend or other pending work was included.
