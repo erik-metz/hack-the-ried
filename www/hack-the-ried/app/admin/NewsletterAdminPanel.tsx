@@ -90,7 +90,7 @@ export default function NewsletterAdminPanel({ compact = false }: { compact?: bo
         {!data && !loadError && <p role="status" className="mt-4 text-sm text-slate-400">Anmeldungen werden geladen…</p>}
         {data && <>
           <div className="mt-5 grid grid-cols-3 gap-3">
-            {[["Gesamt", data.items.length], ["Newsletter", data.items.filter(item => item.category !== "sensor-workshop").length], ["Workshops", data.items.filter(item => item.category === "sensor-workshop").length]].map(([label, value]) => <div key={label} className="rounded-xl bg-slate-950/60 p-3 sm:p-4"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-2xl font-bold text-slate-100 sm:text-3xl">{value}</p></div>)}
+            {[["Gesamt", data.items.length], ["Newsletter", data.items.filter(item => item.category !== "sensor-workshop").length], ["Workshops", data.items.filter(item => item.category === "sensor-workshop").length]].map(([label, value]) => <div key={label} className="min-w-0 rounded-xl bg-slate-950/60 p-2 sm:p-4"><p className="break-words text-xs text-slate-400">{label}</p><p className="mt-1 text-2xl font-bold text-slate-100 sm:text-3xl">{value}</p></div>)}
           </div>
           <ActivityChart data={subscriberActivity(data.items, new Date(data.fetched_at))} label="Anmeldungen pro Monat · letzte 12 Monate" primaryLabel="Newsletter" secondaryLabel="Workshop" monthly />
         </>}

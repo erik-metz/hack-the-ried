@@ -56,13 +56,13 @@ export default function QrScansAdminPanel({ compact = false }: { compact?: boole
       <h2 id="qr-scans-title" className="font-semibold text-slate-100">QR-Code-Scans</h2>
       <p className="mt-1 text-sm text-slate-400">Welche QR-Codes werden genutzt und wann? Link-Vorschauen können als Scan mitzählen.</p>
       <div className="mt-5 flex flex-wrap items-end gap-3">
-        <label className="grid gap-1 text-xs text-slate-400">QR-Code
-          <select value={qrId} onChange={event => { setQrId(event.target.value); resetPage(); }} className="rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-slate-100">
+        <label className="grid min-w-0 max-w-full gap-1 text-xs text-slate-400">QR-Code
+          <select value={qrId} onChange={event => { setQrId(event.target.value); resetPage(); }} className="min-w-0 max-w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-slate-100">
             <option value="">Alle QR-Codes</option>{Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={String(i + 1)}>QR {i + 1} · {QR_LABELS[String(i + 1)] ?? "Reserve"}</option>)}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-slate-400">Zeitraum
-          <select value={days} onChange={event => { setDays(event.target.value); setActivity(null); setActivityError(""); resetPage(); }} className="rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-slate-100">
+        <label className="grid min-w-0 max-w-full gap-1 text-xs text-slate-400">Zeitraum
+          <select value={days} onChange={event => { setDays(event.target.value); setActivity(null); setActivityError(""); resetPage(); }} className="min-w-0 max-w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-slate-100">
             {showList && <option value="0">Alle Einzelscans</option>}<option value="30">Letzte 30 Tage</option><option value="90">Letzte 90 Tage</option><option value="365">Letzte 365 Tage</option>
           </select>
         </label>
