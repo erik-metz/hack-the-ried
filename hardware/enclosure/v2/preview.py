@@ -15,7 +15,7 @@ import trimesh
 def mesh(shape, max_faces=None):
     # Indexed, quantized geometry keeps the offline review below the inline limit.
     # Quantization is visualization-only (0.01 mm); STEP/STL exports are untouched.
-    vs, fs = shape.tessellate(0.3, 0.5)
+    vs, fs = shape.tessellate(0.4, 0.65)
     if max_faces and len(fs) > max_faces:
         simple = trimesh.Trimesh(
             vertices=np.array([v.toTuple() for v in vs]),
