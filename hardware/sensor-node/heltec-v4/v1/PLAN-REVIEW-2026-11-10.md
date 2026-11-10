@@ -5,6 +5,12 @@ and the subsequent RAK fleet test with recorded evidence. Historical test
 reports retain their original observations; later results supersede their
 then-open verification items.
 
+**Final status:** the original implementation and additional real Heltec FUOTA
+acceptance are complete. The [November 10 test report](TEST-2026-11-10-FUOTA.md)
+records the three-block radio update, selected-target verification, user-confirmed
+OLED change and actual post-update TTN GPS reception. The preparation history
+below describes the intermediate checks and access interruptions before success.
+
 ## Completed implementation and acceptance
 
 | Planned step | Status and evidence |
@@ -68,21 +74,18 @@ firmware2/value222. Bundle SHA256 is
 `98b5dea489e2affcde84ea251d62e1ea027b9b264effe243fabb017bf1e2d1e1`.
 
 The first browser-transferred copy failed the checksum comparison and was
-**not sent**. Before any future send, replace that candidate with a correctly
-transferred copy and verify the exact bundle hash above. Repeated native
-browser window changes prevented continuing in the Pi shell; no multicast
-START/APPLY has been issued for this session. The next steps are correct
-transfer, isolated `send.py --heltec`, selected-partition hash/OLED verification
-and independent post-update TTN GPS reception. Version2 feedback alone cannot
-identify this title-only target.
+**not sent**. During preparation, native browser window changes interrupted
+the Pi shell control. Once access was restored, a corrected separate copy
+matched the exact bundle hash, and the actual radio transfer and independent
+checks all completed successfully; see the final test report linked above.
+Version2 feedback alone was not used to identify this title-only target.
 
-## Remaining hardware acceptance
+## Hardware acceptance and remaining field work
 
-- **Heltec real FUOTA transfer and post-update TTN GPS reception:** still lacks
-  an installation log and independent post-update TTN evidence in the available
-  records. Exact-base identification and a small title-only acceptance delta
-  are now ready as described above. Radio execution and TTN proof remain open
-  until the Pi shell can be controlled without concurrent window changes.
+- **Heltec real FUOTA transfer and post-update TTN GPS reception: complete.**
+  Three blocks were sent, the receiver reported Ready, the sender completed,
+  selected OTA partition1 verified against the target, the user confirmed
+  `Heltec OTA v2`, and TTN forwarded a fresh seven-satellite GPS fix after reboot.
 - **Moving range test:** requires taking the powered Heltec along the actual
   route and recording received packets, distance, RSSI/SNR and loss against
   the send schedule. This cannot be established by a stationary bench test.

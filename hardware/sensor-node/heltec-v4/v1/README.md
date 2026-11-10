@@ -9,8 +9,9 @@ identity; private update feedback uses an independent identity.
 ## Plan and bring-up
 
 All four implementation steps below were completed on 2026-11-08; see the
-[hardware and TTN evidence](TEST-2026-11-08.md). The remaining radio-update
-acceptance is tracked separately in the [plan review](PLAN-REVIEW-2026-11-10.md).
+[hardware and TTN evidence](TEST-2026-11-08.md). The additional real radio-update
+acceptance also [passed on November 10](TEST-2026-11-10-FUOTA.md). Current scope
+and remaining field measurements are in the [plan review](PLAN-REVIEW-2026-11-10.md).
 
 1. **Completed:** Identify the USB MAC; back up the complete gateway flash locally, retaining
    NVS and credentials privately. The ignored recovery artifact is
@@ -103,8 +104,9 @@ its companion EUI to the router's private allowlist; the original DevEUI stays T
 
 Future same-board A/B transfers use `/lab3/send.py <bundle> --heltec --devices
 025D152A493EFC0D`. Preserve exact A images. This setup reuses the lab protocol,
-not standard TS003/TS004/TS005 FUOTA, and still needs an actual Heltec radio-update
-test. Existing RAK group keys, membership and counters must remain unchanged.
+not standard TS003/TS004/TS005 FUOTA. The [actual Heltec radio-update test](TEST-2026-11-10-FUOTA.md)
+verified the changed display, selected target partition and subsequent TTN GPS
+reception. Existing RAK group keys, membership and counters must remain unchanged.
 
 ### Small display-only acceptance delta
 
