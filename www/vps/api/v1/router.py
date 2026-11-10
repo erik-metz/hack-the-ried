@@ -22,6 +22,7 @@ from endpoints import (
     street_closures,
     telemetry,
     traffic,
+    ttn_integrations,
     waste_trucks,
 )
 from fastapi import APIRouter
@@ -38,6 +39,7 @@ api_router.include_router(satellite_tracking.router)
 api_router.include_router(sky.router)
 api_router.include_router(sensors.router, tags=["Sensors Metadata"])
 api_router.include_router(sensor_integrations.router)
+api_router.include_router(ttn_integrations.router)
 api_router.include_router(telemetry.router, tags=["Telemetry Data"])
 api_router.include_router(archives.router)
 api_router.include_router(data_exports.router)

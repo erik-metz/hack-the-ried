@@ -1,14 +1,28 @@
 # TTN sensor uplink ingestion
 
-The API receives The Things Stack application uplinks at:
+Use **one active JSON webhook** for all devices in the TTN application. The API receives The Things Stack application uplinks at:
 
 ```text
-POST https://<API-host>/api/v1/integrations/sensor/uplink
+POST https://hack-the-ried.duckdns.org/api/v1/integrations/ttn/uplink
 ```
 
 Configure `TTN_APPLICATION_ID`, `TTN_WEBHOOK_USERNAME`, and `TTN_WEBHOOK_PASSWORD` on the VPS. The application ID is an allowlist; the endpoint returns `503` while the application or credentials are not configured. Use unique, randomly generated webhook credentials and keep them out of source control and logs.
 
 In the TTN Console, create a custom webhook using JSON, set the URL above, configure Request authentication with the webhook username and password, and enable only **Uplink message**. TTN can filter event fields, but the endpoint expects device/application identifiers, the uplink, and a received timestamp. Keep `received_at`, `end_device_ids`, `uplink_message.f_port`, `uplink_message.f_cnt`, `uplink_message.frm_payload`, `uplink_message.correlation_ids`, and `uplink_message.decoded_payload`.
+
+The shared endpoint routes FPort **10** to sensor measurement storage and FPort
+**44** to encrypted GPS storage. Update feedback on FPorts **42/43** and other
+unsupported ports returns `200 ignored`, so ordinary feedback cannot deactivate
+the webhook. Authentication and the application allowlist apply to every port;
+invalid data on a supported measurement port is still rejected.
+
+Keep the full uplink including `rx_metadata` for gateway identification. Enable
+only **Uplink message**, not Location solved or Normalized uplink. Point the
+existing webhook at the URL above, then pause additional GPS/sensor webhooks to
+avoid duplicate delivery. The old `/integrations/sensor/uplink` and
+`/integrations/gps/uplink` API routes remain available for compatibility; no
+separate TTN webhook is needed for either route. The historical webhook ID can
+remain unchanged; it does not determine the destination hostname.
 
 ## Payload formatter contract
 
@@ -68,18 +82,10 @@ confirm the sensor stays hidden until reviewed.
 
 ## GPS tracker uplinks (FPort 44)
 
-The Heltec range-test tracker uses a separate device-level payload formatter and
-webhook. Do not route it through the sensor measurement endpoint above; its
-decoded payload is a position list, not measurements.
-
-```text
-POST https://<API-host>/api/v1/integrations/gps/uplink
-```
-
-Create a second custom webhook in the TTN application with the same Basic Auth
-credentials (`TTN_WEBHOOK_USERNAME` / `TTN_WEBHOOK_PASSWORD`) and enable only
-**Uplink message**. The endpoint also checks `TTN_APPLICATION_ID` when it is
-configured.
+The Heltec range-test tracker uses its own device-level payload formatter, but
+shares the application webhook above with the RAK sensors. The shared endpoint
+routes its FPort-44 uplinks to the GPS handler before any sensor measurement
+processing, keeping GPS coordinates out of plaintext sensor storage.
 
 The FPort-44 formatter emits five minute slots per uplink. Slot 4 is the
 current position, slots 0-3 are one to four minutes older:
