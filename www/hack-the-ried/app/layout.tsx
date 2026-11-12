@@ -24,9 +24,9 @@ export default function RootLayout({
       lang="de"
       className={cn("h-full antialiased", "font-sans", geist.variable)}
     >
-      <Analytics />
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950">
         {children}
+        <Analytics />
       </body>
     </html>
   );
