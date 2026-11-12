@@ -8,3 +8,5 @@ __pycache__/
 .DS_Store
 build/
 
+hardware/gateway/profiles/kamue.h
+hardware/gateway/profiles/kamue.env
