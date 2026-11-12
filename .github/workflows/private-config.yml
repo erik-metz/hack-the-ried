@@ -1,0 +1,17 @@
+name: Private configuration guard
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  private-config:
+    name: Reject committed private configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python3 .github/scripts/check_private_config.py
