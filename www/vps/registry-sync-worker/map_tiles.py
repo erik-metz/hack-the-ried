@@ -55,7 +55,9 @@ async def import_wms(conn, client, source):
 
     cutoff = datetime.now(UTC) - timedelta(seconds=source["interval_seconds"])
     cursor = await conn.execute(
-        "SELECT z,x,y FROM collected_map_tiles WHERE layer=%s AND fetched_at>%s",
+        """SELECT t.z,t.x,t.y FROM collected_map_tiles t
+        JOIN collected_file_assets f ON f.sha256=t.payload_sha256
+        WHERE t.layer=%s AND t.fetched_at>%s""",
         (source["layer"], cutoff),
     )
     fresh = set(await cursor.fetchall())
@@ -84,6 +86,12 @@ async def import_wms(conn, client, source):
         if not response.content.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("WMS returned no PNG image")
         async with conn.transaction():
+            # Acquisition retains only a fingerprint. Persist the served image
+            # atomically with its tile reference before marking it ready.
+            await conn.execute(
+                "SELECT store_collected_file(%s,%s,'image/png')",
+                (digest, response.content),
+            )
             await conn.execute(
                 """INSERT INTO collected_map_tiles(layer,z,x,y,payload_sha256,fetched_at)
                 VALUES (%s,%s,%s,%s,%s,NOW()) ON CONFLICT(layer,z,x,y)

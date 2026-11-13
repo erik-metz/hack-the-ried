@@ -98,11 +98,22 @@ class ResumeTests(DatabaseCase):
         async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
             await import_wms(self.conn,client,source)
             self.assertEqual(len(requests),1)
+            self.assertEqual(
+                bytes(await self.scalar("SELECT f.body FROM collected_map_tiles t JOIN collected_file_assets f ON f.sha256=t.payload_sha256")),
+                b'\x89PNG\r\n\x1a\nfixture',
+            )
+            self.assertIsNone(await self.scalar("SELECT body FROM collected_payloads"))
             await import_wms(self.conn,client,source)
             self.assertEqual(len(requests),1)
-            await self.conn.execute("UPDATE collected_map_tiles SET fetched_at=NOW()-INTERVAL '2 hours'")
+            # Repair already-indexed tiles whose image bytes were never retained,
+            # even when their collection timestamp is still fresh.
+            await self.conn.execute("DELETE FROM collected_file_assets")
             await import_wms(self.conn,client,source)
             self.assertEqual(len(requests),2)
+            self.assertEqual(await self.scalar("SELECT COUNT(*) FROM collected_file_assets"),1)
+            await self.conn.execute("UPDATE collected_map_tiles SET fetched_at=NOW()-INTERVAL '2 hours'")
+            await import_wms(self.conn,client,source)
+            self.assertEqual(len(requests),3)
 
     async def test_run_budget_reports_unprocessed_streets_without_erasing_calendar(self):
         def inventory_provider(request):
