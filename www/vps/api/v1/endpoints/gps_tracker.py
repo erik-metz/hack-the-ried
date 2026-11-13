@@ -272,13 +272,15 @@ async def get_gps_tracker_points(
     if only_own_gateway:
         query += " AND received_by_own_gateway = TRUE"
 
-    query += " ORDER BY recorded_at ASC LIMIT %s"
+    # Bound the latest history, then restore chronological order for the route.
+    # Limiting ascending rows would permanently hide newer trips once full.
+    query += " ORDER BY recorded_at DESC, id DESC LIMIT %s"
     params.append(limit)
 
     results = []
     async with pool.connection() as conn:
         rows = await (await conn.execute(query, tuple(params))).fetchall()
-        for row in rows:
+        for row in reversed(rows):
             point = {
                 "id": row["id"],
                 "device_id": row["device_id"],

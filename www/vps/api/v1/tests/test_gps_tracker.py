@@ -1,13 +1,18 @@
 import os
 import sys
 import unittest
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("GPS_ENCRYPTION_KEY", "11" * 32)
-from endpoints.gps_tracker import _inspect_gateways
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
+from db_support import DatabaseCase
+from endpoints.gps_tracker import _inspect_gateways, get_gps_tracker_points
 from gps_crypto import decrypt_gps_data, encrypt_gps_data, get_encryption_key
+from psycopg.rows import dict_row
 
 
 class GpsCryptoTests(unittest.TestCase):
@@ -92,6 +97,56 @@ class GatewayInspectionTests(unittest.TestCase):
         self.assertEqual(stats["best_gateway_rssi"], -98)
         self.assertEqual(stats["best_gateway_snr"], 3.5)
         self.assertEqual(stats["gateway_count"], 2)
+
+
+class GpsHistoryTests(DatabaseCase):
+    async def test_latest_points_are_selected_before_chronological_route_order(self):
+        start = datetime(2026, 11, 10, tzinfo=UTC)
+        encrypted = encrypt_gps_data({"latitude": 49.68, "longitude": 8.45})
+        # A later inserted point with an older timestamp must not displace a trip.
+        for event, device, minute, own in [
+            ('home', 'tracker', 0, True),
+            ('trip-a', 'tracker', 1, False),
+            ('trip-b', 'tracker', 2, True),
+            ('other', 'other', 3, True),
+            ('backfill', 'tracker', -1, True),
+        ]:
+            await self.conn.execute(
+                """INSERT INTO gps_tracker_points
+                (device_id,uplink_event_id,recorded_at,received_at,slot_index,
+                 has_fix,received_by_own_gateway,encrypted_payload)
+                VALUES (%s,%s,%s,%s,0,TRUE,%s,%s)""",
+                (device, event, start + timedelta(minutes=minute), start, own, encrypted),
+            )
+        self.conn.row_factory = dict_row
+        connection = self.conn
+
+        class Pool:
+            @asynccontextmanager
+            async def connection(self):
+                yield connection
+
+        async def read(**filters):
+            return await get_gps_tracker_points(
+                **{'device_id': None, 'since': None, 'only_own_gateway': False,
+                   'limit': 2, 'pool': Pool(), **filters}
+            )
+
+        result = await read(device_id='tracker')
+        self.assertEqual(
+            [datetime.fromisoformat(p['recorded_at']) for p in result['points']],
+            [start + timedelta(minutes=m) for m in (1, 2)],
+        )
+        self.assertEqual(result['count'], 2)
+        self.assertFalse(result['points'][0]['received_by_own_gateway'])
+        self.assertEqual(result['points'][0]['latitude'], 49.68)
+        own = await read(device_id='tracker', only_own_gateway=True)
+        self.assertEqual([datetime.fromisoformat(p['recorded_at']) for p in own['points']],
+                         [start, start + timedelta(minutes=2)])
+        recent = await read(device_id='tracker', since=start + timedelta(minutes=2))
+        self.assertEqual(recent['count'], 1)
+        all_devices = await read()
+        self.assertEqual([p['device_id'] for p in all_devices['points']], ['tracker', 'other'])
 
 
 if __name__ == "__main__":

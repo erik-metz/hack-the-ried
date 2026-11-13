@@ -270,6 +270,7 @@ jobs:
           done
           PYTHONPATH=www/vps/registry-sync-worker:www/vps/tests python -m pytest -q www/vps/registry-sync-worker/tests
           PYTHONPATH=www/vps/api/v1:www/vps/tests python -m pytest -q www/vps/api/v1/tests/test_collected_database.py -k "status or download"
+          PYTHONPATH=www/vps/api/v1:www/vps/tests python -m pytest -q www/vps/api/v1/tests/test_gps_tracker.py
           PYTHONPATH=www/vps/api/v1:www/vps/tests python -m pytest -q www/vps/api/v1/tests/test_traffic_database.py
           PYTHONPATH=www/vps/api/v1:www/vps/tests python -m pytest -q www/vps/api/v1/tests/test_ingestion_batches.py
           PYTHONPATH=www/vps/api/v1:www/vps/tests python -m pytest -q www/vps/api/v1/tests/test_sensor_integrations.py
