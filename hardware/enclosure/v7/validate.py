@@ -8,6 +8,7 @@ import hashlib
 import itertools
 import json
 import math
+from functools import lru_cache
 from pathlib import Path
 
 import cadquery as cq
@@ -18,10 +19,17 @@ from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 from shapely.geometry import GeometryCollection, Point, Polygon
 
 
+@lru_cache(maxsize=2048)
+def shape_bounds(shape):
+    # Shapes are immutable in this validator. Reuse exact OCC bounds for each
+    # placement rather than recomputing trimmed surface extrema per obstacle.
+    return shape.BoundingBox() if shape.Solids() else None
+
+
 def overlap(a, b):
-    if not a.Solids() or not b.Solids():
+    aa, bb = shape_bounds(a), shape_bounds(b)
+    if aa is None or bb is None:
         return 0.0
-    aa, bb = a.BoundingBox(), b.BoundingBox()
     if any(
         getattr(aa, k + "max") <= getattr(bb, k + "min") + 1e-6
         or getattr(bb, k + "max") <= getattr(aa, k + "min") + 1e-6

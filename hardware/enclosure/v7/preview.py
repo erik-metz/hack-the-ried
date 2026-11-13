@@ -243,8 +243,16 @@ def main():
             }
         )
     # These meshes come straight from the deliverable STLs, without invented poses.
+    targets["print_LTR390"] = {
+        "target": [0, -5, 3],
+        "distance": 100,
+        "az": 0.45,
+        "el": 0.7,
+        "note": "Tatsächliche STL-Drucklage: PETG-Kassette flach, Feder biegt in der Druckebene. Zusammen mit LTR_case_section.stl zuerst Passung und Rastung prüfen.",
+    }
     print_cache = {}
     for focus, name, placements in [
+        ("print_LTR390", "LTR390", [("tray_LTR390", (0, 0, 0))]),
         (
             "print_SHT41",
             "SHT41",

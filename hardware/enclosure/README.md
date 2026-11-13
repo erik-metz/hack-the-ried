@@ -10,6 +10,6 @@ Deckelsäulen; alle M3-Einschmelzmutter-Bohrungen haben Ø3,6 mm. Der SPS-Luftka
 entfällt. Busplatine, UV-Seitenreferenz und gerader Antennenkabelkorridor mit
 Winkelstecker-Platzhülle sind sichtbar modelliert.
 
-`v6/`, `v5/`, `v4/` und `v2/` bleiben ältere Stände. Druckteile nicht zwischen Revisionen
-mischen. Exporte und Kaufteilreferenzen liegen in den CAD-Artefakten außerhalb
-des Repositories.
+`v6/`, `v5/`, `v4/` und `v2/` bleiben ältere Stände. Für R7 Hauptgehäuse und
+LTR-Kassette erneuern; die übrigen R6-Druckteile sind unverändert. Exporte und
+Kaufteilreferenzen liegen in den CAD-Artefakten außerhalb des Repositories.
