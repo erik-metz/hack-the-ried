@@ -162,7 +162,7 @@ def main():
             "distance": 205,
             "az": 0.2,
             "el": 0.3,
-            "note": "RAK liegt tiefer; der MHF4-Ausgang zeigt vom Modul weg zur Antenne. Sanfter Ø3-mm-Freiraum statt Kabel über dem Schirm. Freie Kabellänge bleibt abzugleichen.",
+            "note": "RAK liegt tiefer; der MHF4-Ausgang zeigt vom Modul weg zur Antenne. Sanfter Ø3-mm-Freiraum statt Kabel über dem Schirm. Antennenkabellänge 50 mm vom Nutzer bestätigt; modellierter Weg ca. 37,3 mm.",
         },
         "all": {
             "target": [-20, 125, 20],

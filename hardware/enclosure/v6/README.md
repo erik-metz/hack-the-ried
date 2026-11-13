@@ -78,10 +78,9 @@ für eine IP-Schutzart.
 
 ## N-Anschluss und Antennenkabel
 
-Das Bestellbild benennt N-Buchse → MHF4 und zeigt die 10-cm-Produktvariante.
-Die erste Nutzerangabe nennt 5 cm. Der Entwurf bleibt bis zur Klärung konservativ
-auf 50 mm verfügbare Leitung ausgelegt; eine Bestell-Längenangabe allein
-unterscheidet nicht sicher zwischen freiem Kabel und Gesamtlänge mit Steckern.
+Die tatsächlich verbaute Antennenkabellänge ist vom Nutzer mit **5 cm (50 mm)**
+bestätigt. Diese Länge gilt für den Entwurf. Die 10-cm-Auswahl im Bestellbild
+ist dafür nicht maßgeblich; eine zusätzliche Kabelablage ist nicht vorgesehen.
 
 Der N-Durchgang des ursprünglichen Gehäuse-STEP hat Ø16 mm. R6 verwendet einen
 Ø16,2-mm-Durchgang mit 13,7-mm-Abflachungen gegen Verdrehen. Die frühere
@@ -102,10 +101,10 @@ die Metallabschirmung gezogen. Die geringe Höhendifferenz wird durch einen
 sanften Übergang mit achsparallelen Endtangenten ausgeglichen. Der Ø3-mm-Korridor
 ist die Freiraumprüfung; die dünnere Leitung ist nur eine sichtbare Referenz.
 
-Die Auslegung verwendet weiterhin konservativ 50 mm aus der ursprünglichen
-Nutzerangabe. Kabeldurchmesser, freie Länge und Steckerhöhe lassen sich aus dem
-Bestellbild nicht maßhaltig ablesen. Die 10-cm-Produktangabe kann Stecker mit
-einschließen. Vor Enddruck am realen Pigtail prüfen; nicht unter Zug einbauen.
+Der modellierte Kabelweg beträgt rund 37,3 mm. Mit 5 mm Steckerzugabe bleiben
+rund 7,7 mm Reserve innerhalb der bestätigten 50 mm. Kabeldurchmesser und
+Steckerhöhe sind weiterhin nicht maßhaltig bestimmt. Vor Enddruck die
+Anschlussfreiheit am realen Pigtail prüfen; nicht unter Zug einbauen.
 Der MHF4-Winkelstecker und die N-Mutter sind ausdrücklich Platzhüllen.
 
 Die Original-Antennenreferenzen besitzen eine nominale Gewindeüberdeckung bereits
