@@ -1,12 +1,13 @@
 # Sensorgehäuse
 
-Aktueller Prüfentwurf: **[R5](v5/README.md)**.
+Aktueller Prüfentwurf: **[R6](v6/README.md)**.
 
-R5 verbindet die Deckelaufnahmen durchgehend mit den Seitenwänden, vereinfacht
-die Platinenhalter auf PETG-Auflage und PETG-Sicherungsrahmen und ergänzt die
-Originalantenne mit 50-mm-Kabelweg zur höher gesetzten RAK-Platine. Hohe
-Reservetaschen entfallen; Planungskörper gehören nicht zur realen Baugruppe.
+R6 ersetzt geklebte PCB-Sicherungen durch lösbare PETG-Federclips. Separate kleine
+TPU-Steckclips halten die Träger. Kurze Wandaufnahmen ersetzen die bodentiefen
+Deckelsäulen; alle M3-Einschmelzmutter-Bohrungen haben Ø3,6 mm. Der SPS-Luftkanal
+entfällt. Busplatine, UV-Seitenreferenz und gerader Antennenkabelkorridor mit
+Winkelstecker-Platzhülle sind sichtbar modelliert.
 
-`v4/` enthält den vorherigen Entwurf, `v2/` die Konstruktion bis R3. Druckteile
-verschiedener Revisionen nicht mischen. Exportierte Kaufteilreferenzen und
-Downloadpakete liegen außerhalb des Repositories in den jeweiligen CAD-Artefakten.
+`v5/`, `v4/` und `v2/` bleiben ältere Stände. Druckteile nicht zwischen Revisionen
+mischen. Exporte und Kaufteilreferenzen liegen in den CAD-Artefakten außerhalb
+des Repositories.

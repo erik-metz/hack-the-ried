@@ -7,16 +7,18 @@
   "lid_thickness": 3.0,
   "split_y": -12.0,
   "lid_top_y": 56.0,
-  "bevel_sum_yz": 106.0,
+  "bevel_sum_yz": 126,
   "seal_land": 6.0,
   "seal_free_height": 1.2,
   "seal_compressed_height": 1.0,
   "insert_hole": 3.6,
-  "insert_length_assumed": 5.0,
+  "insert_length_confirmed": 5,
   "gland_hole_assumed": 12.2,
   "gland_center_y": 24.0,
   "gland_center_z": 24.0,
   "gland_nut_diameter_reserved": 19.0,
   "gland_wrench_diameter_reserved": 28.0,
-  "ltr_chip_offset_y_provisional": 7.0
+  "ltr_chip_offset_y_provisional": 7.0,
+  "antenna_cable_length_mm": 50,
+  "bevel_z_factor": 1.4
 }
