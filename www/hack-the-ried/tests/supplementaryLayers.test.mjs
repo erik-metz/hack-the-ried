@@ -18,7 +18,7 @@ const polygon = (properties = {}) => ({type:"Feature",properties,geometry:{type:
 const point = (properties = {}) => ({type:"Feature",properties,geometry:{type:"Point",coordinates:[8.4,49.6]}});
 const page = (features = [], more = false) => ({type:"FeatureCollection",features,exceededTransferLimit:more});
 const warning = (extra={}) => ({OBJECTID:1,STATUS:"Actual",MSGTYPE:"Alert",SCOPE:"Public",ONSET:"2026-10-09T18:00:00Z",EXPIRES:"2026-10-09T20:00:00Z",...extra});
-function route(fetch) { return compile("../app/api/supplementary-layers/route.ts", {Date:Clock,fetch,require:id=>id.endsWith("/contextLayers")?context:lib}).GET; }
+function route(fetch) { return compile("../app/api/supplementary-layers/route.ts", {Date:Clock,fetch,require:id=>id.endsWith("/referenceProxy") ? compile("../lib/referenceProxy.ts",{Date:Clock,fetch,require:()=>({env:{BACKEND_API_URL:"https://backend.test"}})}) : id.endsWith("/contextLayers")?context:lib}).GET; }
 function request(layer) { return new Request(`http://localhost/api/supplementary-layers?layer=${layer}`); }
 test("all four sources use verified bounded queries and warning polygons only", () => {
   assert.equal(lib.isSupplementaryId("__proto__"),false);
@@ -59,15 +59,18 @@ test("warning API applies expiration filtering without inventing current observa
   const result=await route(async url=>Response.json(url.includes("/query?")?page([polygon(warning()),polygon(warning({OBJECTID:2,ONSET:"2026-10-09T12:00:00Z",EXPIRES:"2026-10-09T16:00:00Z"}))]):{editingInfo:{dataLastEditDate:now}}))(request("warnings"));
   const d=await result.json();assert.equal(result.status,200);assert.equal(d.source_feature_count,2);assert.equal(d.features.length,1);
 });
-test("monitoring preserves distinct source layers and stable identifiers",async()=>{
-  const result=await route(async()=>Response.json(page([point({FID:1})])))(request("monitoring"));
-  const d=await result.json();assert.equal(result.status,200);assert.equal(d.features.length,2);
-  assert.deepEqual(d.features.map(f=>f.properties.source_layer),[1,2]);
+test("monitoring and protected layers read only the stored VPS snapshots",async()=>{
+  for(const id of ["monitoring","protected"]) {
+    let calls=0;
+    const result=await route(async url=>{calls++;assert.equal(String(url),`https://backend.test/api/v1/reference/${id}`);return Response.json(page([id==="protected"?polygon({OBJECTID:1}):point({FID:1})]));})(request(id));
+    assert.equal(result.status,200);assert.equal(calls,1);
+  }
 });
-test("partial sublayer failure and duplicate pagination fail the entire publication",async()=>{
-  const partial=await route(async url=>Response.json(url.includes("/2/query?")?{error:{}}:page([point({FID:1})])))(request("monitoring"));assert.equal(partial.status,503);
-  let calls=0;const duplicate=await route(async()=>{calls++;return Response.json(page([point({OBJECTID:1})],true));})(request("chargers"));
-  assert.equal(duplicate.status,503);assert.equal(calls,2);
+test("unavailable monitoring snapshot fails without a provider fallback",async()=>{
+  const result=await route(async url=>{assert.equal(new URL(url).hostname,"backend.test");return new Response(null,{status:503});})(request("monitoring"));assert.equal(result.status,503);
+});
+test("duplicate charger pagination fails the entire publication",async()=>{
+  let calls=0;const result=await route(async()=>{calls++;return Response.json(page([point({OBJECTID:1})],true));})(request("chargers"));assert.equal(result.status,503);assert.equal(calls,2);
 });
 test("unknown sources never trigger upstream requests",async()=>{
   const result=await route(()=>{throw new Error("Unexpected network");})(request("http://example.com"));assert.equal(result.status,400);

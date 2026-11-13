@@ -13,6 +13,7 @@ from endpoints import (
     newsletter,
     pitch,
     qr_scans,
+    reference_data,
     satellite,
     satellite_tracking,
     sensor_integrations,
@@ -28,6 +29,7 @@ from endpoints import (
 from fastapi import APIRouter
 
 api_router = APIRouter()
+api_router.include_router(reference_data.router)
 api_router.include_router(gateways.router)
 api_router.include_router(gps_tracker.router)
 api_router.include_router(mcp.router)

@@ -1541,6 +1541,358 @@
       },
       "reason": "Snapshot-Collector vorbereitet; Dauerabruf und Archivnutzung noch nicht bestätigt.",
       "stale_after_seconds": 1800
+    },
+    {
+      "id": "reference-catalogue",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://grundradar.de/daten/karten-ebenen.json",
+      "interval_seconds": 604800,
+      "layer": "catalogue",
+      "title": "Grundradar-Quellenkatalog",
+      "reference_kind": "catalogue",
+      "attribution": "Grundradar · amtliche Originalquellen je Datensatz",
+      "license": "Quellenbezogene Bedingungen; siehe Originalquelle",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert."
+    },
+    {
+      "id": "reference-tax",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://grundradar.de/daten/grundsteuer-hebesaetze.json",
+      "interval_seconds": 604800,
+      "layer": "tax",
+      "title": "Grundsteuer-B-Hebesätze",
+      "reference_kind": "tax",
+      "attribution": "Grundradar · amtliche Originalquellen je Datensatz",
+      "license": "Quellenbezogene Bedingungen; siehe Originalquelle",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert."
+    },
+    {
+      "id": "reference-county-values",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://grundradar.de/daten/bodenrichtwerte-landkreise.json",
+      "interval_seconds": 2592000,
+      "layer": "county-values",
+      "title": "Bodenrichtwerte: Kreismediane",
+      "reference_kind": "county",
+      "attribution": "Grundradar · amtliche Originalquellen je Datensatz",
+      "license": "Quellenbezogene Bedingungen; siehe Originalquelle",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert."
+    },
+    {
+      "id": "reference-floodrisk",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/Überflutungsflächen_nach_Risiko/FeatureServer",
+      "interval_seconds": 2592000,
+      "layer": "floodrisk",
+      "title": "Hochwasserrisikoflächen",
+      "reference_kind": "arcgis",
+      "attribution": "WasserBLIcK/BfG und Landesbehörden · Esri Deutschland",
+      "license": "https://creativecommons.org/licenses/by/4.0/",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 1,
+          "name": "Hohes Risiko",
+          "scenario": 2,
+          "fields": "OBJECTID,POLY_NAME,FL_RECUR,QLIKE,COL_YEAR",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 2,
+          "name": "Mittleres Risiko",
+          "scenario": 1,
+          "fields": "OBJECTID,POLY_NAME,FL_RECUR,QLIKE,COL_YEAR",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 3,
+          "name": "Geringes Risiko",
+          "scenario": 0,
+          "fields": "OBJECTID,POLY_NAME,FL_RECUR,QLIKE,COL_YEAR",
+          "object_id": "OBJECTID"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-protected",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/Schutzgebiete/FeatureServer",
+      "interval_seconds": 2592000,
+      "layer": "protected",
+      "title": "Schutzgebiete",
+      "reference_kind": "arcgis",
+      "attribution": "BfN · Aufbereitung Esri Deutschland; Datenjahre 2019–2025",
+      "license": "https://www.gesetze-im-internet.de/geonutzv/index.html",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 0,
+          "name": "Landschaftsschutzgebiete",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 1,
+          "name": "Naturschutzgebiete",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 2,
+          "name": "Naturparke",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 3,
+          "name": "Nationalparke",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 4,
+          "name": "FFH-Gebiete",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 5,
+          "name": "Biosphärenreservate",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        },
+        {
+          "id": 6,
+          "name": "Vogelschutzgebiete",
+          "fields": "*",
+          "object_id": "OBJECTID"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-monitoring",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/Umweltüberwachungseinrichtungen_Deutschlands/FeatureServer",
+      "interval_seconds": 2592000,
+      "layer": "monitoring",
+      "title": "Umweltmessstellen",
+      "reference_kind": "arcgis",
+      "attribution": "BfG 2023 · Aufbereitung Esri Deutschland",
+      "license": "https://www.gesetze-im-internet.de/geonutzv/index.html",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 1,
+          "name": "Grundwassermessstellen",
+          "fields": "FID,NAME,EU_CD_GM,LASTMONITO,MONITORNET,URL",
+          "object_id": "FID"
+        },
+        {
+          "id": 2,
+          "name": "Oberflächenwassermessstellen",
+          "fields": "FID,NAME_STN,EU_CD_SM,MONITORNET,URL",
+          "object_id": "FID"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-census",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/Zensus2022_grid_final/FeatureServer",
+      "interval_seconds": 2592000,
+      "layer": "census",
+      "title": "Zensus 2022: Bevölkerung, Miete und Wohnen",
+      "reference_kind": "arcgis",
+      "attribution": "Statistische Ämter des Bundes und der Länder · Esri Deutschland",
+      "license": "https://www.govdata.de/dl-de/by-2-0",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 1,
+          "name": "Zensus 2022",
+          "fields": "OBJECTID,GITTER_ID_1km,Einwohner,Durchschnittsalter,durchschnMieteQM,Eigentuemerquote,Leerstandsquote",
+          "object_id": "OBJECTID"
+        }
+      ],
+      "reference_date": "2022-05-15",
+      "metrics": {
+        "Einwohner": "persons",
+        "Durchschnittsalter": "years",
+        "durchschnMieteQM": "EUR/m²",
+        "Eigentuemerquote": "%",
+        "Leerstandsquote": "%"
+      },
+      "discover_schema": true
+    },
+    {
+      "id": "reference-landcover",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services2.arcgis.com/jUpNdisbWqRpMo35/arcgis/rest/services/Landbedeckung_Deutschland_2021/FeatureServer",
+      "interval_seconds": 2592000,
+      "layer": "landcover",
+      "title": "Landbedeckung 2021",
+      "reference_kind": "arcgis",
+      "attribution": "BKG 2025 · Esri Deutschland; Datenstand 2021",
+      "license": "https://creativecommons.org/licenses/by/4.0/",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 0,
+          "name": "Landbedeckung",
+          "fields": "OBJECTID_1,LB_Klasse,LN_Klasse",
+          "object_id": "OBJECTID_1"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-water-protection",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://geodienste-umwelt.hessen.de/arcgis/rest/services/gruschu/gruschu_wsg/MapServer",
+      "interval_seconds": 2592000,
+      "layer": "water-protection",
+      "title": "Trinkwasserschutzgebiete",
+      "reference_kind": "arcgis",
+      "attribution": "HLNUG / Land Hessen; Rechtsstand laut jeweiliger Schutzgebietsverordnung",
+      "license": "https://www.gesetze-im-internet.de/geonutzv/index.html",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 8,
+          "name": "Trinkwasserschutzzonen",
+          "fields": "OBJECTID,WSG_ID,ZONE,WSG_KURZNAME,WSG_ART,STATUS_RPU,STAATSANZEIGER,STAATSANZEIGER_LINK",
+          "object_id": "OBJECTID"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-geology",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services.bgr.de/arcgis/rest/services/geologie/guek250/MapServer",
+      "interval_seconds": 2592000,
+      "layer": "geology",
+      "title": "Geologie GÜK250",
+      "reference_kind": "arcgis",
+      "attribution": "BGR · GÜK250; Übersicht 1:250.000",
+      "license": "https://www.gesetze-im-internet.de/geonutzv/index.html",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 8,
+          "name": "Petrographie",
+          "fields": "OBJECTID,klartext_kurz,klartext,gkart_legtxt_stat,gkart_legtxt_stat_kuerzel",
+          "object_id": "OBJECTID"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-soil",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://services.bgr.de/arcgis/rest/services/boden/buek200/MapServer",
+      "interval_seconds": 2592000,
+      "layer": "soil",
+      "title": "Bodenübersicht BÜK200",
+      "reference_kind": "arcgis",
+      "attribution": "BGR / Staatliche Geologische Dienste · BÜK200; Übersicht 1:200.000",
+      "license": "https://www.gesetze-im-internet.de/geonutzv/index.html",
+      "note": "Referenzdaten mit ursprünglichem Bezugsjahr; kein Live-Messwert.",
+      "layers": [
+        {
+          "id": 42,
+          "name": "Blatt Mannheim",
+          "fields": "OBJECTID,LEG_TEXT,Legende,Hinweis,Profile",
+          "object_id": "OBJECTID"
+        }
+      ],
+      "discover_schema": true
+    },
+    {
+      "id": "reference-heavy-rain",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://opendata.dwd.de/climate_environment/CDC/grids_germany/return_periods/precipitation/KOSTRA/KOSTRA_DWD_2020/asc/StatRR_KOSTRA-DWD-2020_D00060_ASC.zip",
+      "interval_seconds": 7776000,
+      "layer": "heavy-rain",
+      "title": "Starkregenstatistik KOSTRA",
+      "reference_kind": "kostra",
+      "attribution": "DWD · KOSTRA-DWD 2020 · doi:10.5676/DWD/KOSTRA-DWD-2020",
+      "license": "https://creativecommons.org/licenses/by/4.0/",
+      "note": "1951–2020 · 5-km-Raster · Regenhöhe in 60 Minuten, Wiederkehrintervall 100 Jahre. Keine Überflutungstiefe und keine Vorhersage.",
+      "reference_date": "2020-12-31"
+    },
+    {
+      "id": "reference-groundwater-depth",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://gis.uba.de/daten/073fa330-1c45-46cf-8373-8004359f68f8_tiff.zip",
+      "interval_seconds": 7776000,
+      "layer": "groundwater-depth",
+      "title": "Mittlerer Grundwasserflurabstand",
+      "reference_kind": "groundwater",
+      "attribution": "UBA / MoRE-DE · BÜK200 Bodenkennwerte; Originalangabe in dm, umgerechnet in m",
+      "license": "Quellenangaben und Nutzungshinweise des MoRE-DE-Exports: https://stoffeintraege-more.de",
+      "note": "Modellierter mittlerer Flurabstand aus Bodenkarten, für die Anzeige über 1-km-Zellen gemittelt. Keine aktuellen Pegel oder höchsten Grundwasserstände. Zeitangabe bezeichnet den Exportstand, keinen Messtag."
+    },
+    {
+      "id": "reference-heat",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://opendata.dwd.de/climate_environment/CDC/grids_germany/annual/Project_UHI-MAP/tropical_nights_diff/uhi-map_v7_clc2018_tropical-nights_diff_p1y_2024-01-01.nc",
+      "interval_seconds": 2592000,
+      "layer": "heat",
+      "title": "Zusätzliche Tropennächte durch Bebauung",
+      "reference_kind": "heat",
+      "reference_date": "2024-01-01",
+      "attribution": "DWD · UHI-MAP v7 · CLC2018 · Jahr 2024",
+      "license": "https://creativecommons.org/licenses/by/4.0/",
+      "note": "Modellierte zusätzliche Tropennächte durch Bebauung im 1-km-Raster. Keine aktuelle Temperatur und keine Gesamtzahl der Tropennächte. Neuere Ausgabe als die auf Grundradar verzeichnete 2023-Karte.",
+      "release_index": "https://opendata.dwd.de/climate_environment/CDC/grids_germany/annual/Project_UHI-MAP/tropical_nights_diff/"
+    },
+    {
+      "id": "reference-radon",
+      "group": "reference",
+      "adapter": "regional-reference",
+      "enabled": true,
+      "url": "https://www.imis.bfs.de/ogc/opendata/wfs",
+      "interval_seconds": 7776000,
+      "layer": "radon",
+      "title": "Geogenes Radonpotenzial",
+      "reference_kind": "wfs",
+      "type_name": "opendata:radonpotential",
+      "reference_date": "2020-12-31",
+      "attribution": "Bundesamt für Strahlenschutz · Geogenes Radonpotenzial · Datengrundlage 1992–2020",
+      "license": "https://www.govdata.de/dl-de/by-2-0",
+      "note": "Grobes Modell des geogenen Radonpotenzials (dimensionslos). Keine Radonmessung in Gebäuden und keine Aussage über ein einzelnes Grundstück."
     }
   ]
 }

@@ -17,6 +17,7 @@ REGISTERED_JOBS = {
         "statistics",
         "elections",
         "maps",
+        "reference",
     )
 }
 

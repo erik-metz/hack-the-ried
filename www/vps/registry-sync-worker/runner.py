@@ -40,6 +40,7 @@ from osm_addresses import import_addresses
 from prediction import predict_tick
 from publications import acquisition_error, import_json, public_url
 from realtime import import_realtime
+from reference_data import import_reference
 from regular_offers import (
     import_buerstadt_lauftreff,
     import_rompin_stompin,
@@ -64,6 +65,7 @@ from zakb import import_zakb
 
 LOG = logging.getLogger(__name__)
 ADAPTERS = {
+    "regional-reference": import_reference,
     "webcam-snapshot": import_webcam_snapshot,
     "autobahn-inventory": import_autobahn_inventory,
     "db-netex": import_netex,
@@ -343,5 +345,5 @@ async def main():
         webcam_maintenance_loop(settings, stop),
         *(source_loop(s, settings, stop,
                       realtime_slot if s["adapter"] in {"gtfs-rt", "db-siri-fm", "db-fasta", "db-ris-boards"} else slots,
-                      gtfs_slot) for s in manifest),
+                      gtfs_slot) for s in manifest if s.get("group") != "reference"),
     )

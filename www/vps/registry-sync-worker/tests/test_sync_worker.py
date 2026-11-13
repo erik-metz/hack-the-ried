@@ -22,6 +22,7 @@ def test_registered_jobs_completeness():
         "statistics",
         "elections",
         "maps",
+        "reference",
     }
     assert set(REGISTERED_JOBS.keys()) == expected_jobs
 

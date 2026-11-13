@@ -459,7 +459,10 @@ jobs:
           context: ./www/vps/api
           file: ./www/vps/api/v1/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-api:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/hack-the-ried-api:latest
+            ghcr.io/${{ github.repository_owner }}/hack-the-ried-api:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Build and Push Docker Image Shake Collector
         uses: docker/build-push-action@v6
@@ -547,7 +550,10 @@ jobs:
           context: ./www/vps/registry-sync-worker
           file: ./www/vps/registry-sync-worker/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/hack-the-ried-registry-sync-worker:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/hack-the-ried-registry-sync-worker:latest
+            ghcr.io/${{ github.repository_owner }}/hack-the-ried-registry-sync-worker:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Build and push EMF collector image
         uses: docker/build-push-action@v6

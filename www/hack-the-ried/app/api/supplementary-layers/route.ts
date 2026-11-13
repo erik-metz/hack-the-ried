@@ -1,9 +1,11 @@
+import { referenceProxy } from "@/lib/referenceProxy";
 import { CONTEXT_REGION, type ContextFeature } from "@/lib/contextLayers";
 import { SUPPLEMENTARY_SOURCES, isSupplementaryId, supplementaryLayerUrl, supplementaryQuery, decodeSupplementaryPage, warningSourceTimestamp, retainedWarning } from "@/lib/supplementaryLayers";
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("layer") ?? "";
   if (!isSupplementaryId(id)) return Response.json({ error: "Unbekannte Datenquelle" }, { status: 400 });
+  if (id === "protected" || id === "monitoring") return referenceProxy(id);
   const config = SUPPLEMENTARY_SOURCES[id];
   const live = id === "warnings";
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(40_000)]);

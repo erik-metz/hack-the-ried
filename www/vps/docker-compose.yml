@@ -438,6 +438,32 @@ services:
       backend-api:
         condition: service_healthy
 
+  reference-collector:
+    build:
+      context: ./registry-sync-worker
+      dockerfile: Dockerfile
+    image: ghcr.io/erik-metz/hack-the-ried-registry-sync-worker:latest
+    command: ["python", "reference_service.py"]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; p=pathlib.Path('/tmp/registry-sync-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 2m
+      retries: 3
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      backend-api:
+        condition: service_healthy
+
   aircraft-collector:
     build:
       context: ./aircraft-collector
