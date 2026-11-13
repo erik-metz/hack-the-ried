@@ -12,15 +12,17 @@ type Snapshot = FeatureCollection<Geometry | null, Props> & { source: Source };
 const labels: Record<string, string> = { geogenic_radon_potential: "Geogenes Radonpotenzial (dimensionslos)", durchschnMieteQM: "Durchschnittliche Nettokaltmiete", Eigentuemerquote: "Eigentümerquote", Leerstandsquote: "Leerstandsquote", additional_tropical_nights: "Zusätzliche Tropennächte durch Bebauung", groundwater_mean_depth: "Mittlerer Grundwasserflurabstand", property_tax_b_rate: "Grundsteuer B", land_value_county_median: "Kreismedian Bodenrichtwert", land_value_zone_count: "Richtwertzonen", rainfall_depth: "Starkregenhöhe", Einwohner: "Einwohner", Durchschnittsalter: "Durchschnittsalter" };
 function date(value: string) { return new Date(value).toLocaleDateString("de-DE"); }
 function text(value: unknown) { return typeof value === "string" || typeof value === "number" ? String(value) : ""; }
+const propertyLabels: Record<string,string> = { source_category: "Kategorie", ZONE: "Schutzzone", WSG_ID: "Schutzgebietskennung", STATUS_RPU: "Rechtlicher Status", POLY_NAME: "Gebiet", FL_RECUR: "Wiederkehrintervall (Jahre)", LB_Klasse: "Landbedeckung", LN_Klasse: "Landnutzung", LEG_TEXT: "Bodenbeschreibung", klartext_kurz: "Gestein", gkart_legtxt_stat: "Geologische Einheit", Hinweis: "Hinweis", export_date: "Exportstand", resolution_m: "Darstellungsraster (m)" };
+function unit(value: string) { return value === "1" ? "" : value === "nights/year" ? "Nächte/Jahr" : value; }
 function details(p: Props) {
   const block = document.createElement("div");
   const title = document.createElement("strong"); title.textContent = p.name; block.append(title);
   for (const [key, value] of Object.entries(p)) {
-    if (key === "measurements" || key === "name" || value == null || typeof value === "object") continue;
-    const line = document.createElement("p"); line.textContent = `${key}: ${text(value)}`; block.append(line);
+    if (!propertyLabels[key] || value == null || typeof value === "object") continue;
+    const line = document.createElement("p"); line.textContent = `${propertyLabels[key]}: ${text(value)}`; block.append(line);
   }
   for (const m of p.measurements) {
-    const line = document.createElement("p"); line.textContent = `${labels[m.metric] ?? m.metric}: ${m.value == null ? "unbekannt" : m.value.toLocaleString("de-DE")} ${m.unit} · Stand ${date(m.observed_at)}`; block.append(line);
+    const line = document.createElement("p"); line.textContent = `${labels[m.metric] ?? m.metric}: ${m.value == null ? "unbekannt" : m.value.toLocaleString("de-DE")} ${unit(m.unit)} · Stand ${date(m.observed_at)}`; block.append(line);
   }
   return block;
 }
@@ -93,7 +95,7 @@ export default function ReferenceData() {
     {source ? <div className="rounded border border-slate-700 p-4 space-y-2"><h2 className="text-xl font-semibold">{source.title}</h2><p>{source.note}</p><p>{source.attribution}</p><p>Prüfintervall: {Math.round(source.interval_seconds / 86400)} Tage. Der Datenstand steht am jeweiligen Wert; das Prüfdatum ändert ihn nicht.</p><a className="underline" href={source.url} target="_blank" rel="noreferrer">Originalquelle</a><p>Lizenz: {source.license}</p></div> : null}
     <div ref={host} className={`h-[480px] rounded border border-slate-700 ${isSpatial ? "" : "hidden"}`} aria-label="Karte der ausgewählten Referenzdaten" />
     {snapshot ? <div className="space-y-3">{snapshot.features.slice(0,100).map(f => <article key={String(f.id)} className="rounded border border-slate-800 p-4"><h3 className="font-semibold">{f.properties.name}</h3>
-      {f.properties.measurements.map(m => <p key={m.metric}>{labels[m.metric] ?? m.metric}: <strong>{m.value == null ? "unbekannt" : m.value.toLocaleString("de-DE")} {m.unit}</strong> · Stand {date(m.observed_at)} · {m.basis === "model" ? "modelliert" : "veröffentlicht"}</p>)}
+      {f.properties.measurements.map(m => <p key={m.metric}>{labels[m.metric] ?? m.metric}: <strong>{m.value == null ? "unbekannt" : m.value.toLocaleString("de-DE")} {unit(m.unit)}</strong> · Stand {date(m.observed_at)} · {m.basis === "model" ? "modelliert" : "veröffentlicht"}</p>)}
       {selected === "catalogue" ? <><p>{text(f.properties.overlap) || "Zusätzliche Fachquelle; regionaler Export separat erforderlich."}</p><p>Status: {({ collected: "Auf der VPS erfasst", existing: "Bereits über andere Quellen angebunden", authentication_required: "Zusätzlicher Anbieterzugang erforderlich", no_hessen_coverage: "Keine bestätigte Ried-Abdeckung", export_required: "Regionaler Datenexport noch nicht angebunden" } as Record<string,string>)[text(f.properties.integration)] ?? "Unbekannt"} · Abdeckung laut Anbieter: {text(f.properties.coverage)}</p><p>{text(f.properties.source)}</p></> : <p>{["ZONE", "source_category", "LB_Klasse", "LN_Klasse", "basis", "model", "source_date", "stichtag", "LEG_TEXT", "klartext_kurz", "geometry_status"].map(k => text(f.properties[k])).filter(Boolean).join(" · ")}</p>}
     </article>)}{snapshot.features.length > 100 ? <p>Die Liste zeigt die ersten 100 Datensätze; die Karte enthält alle regionalen Geometrien.</p> : null}</div> : null}
   </section>;

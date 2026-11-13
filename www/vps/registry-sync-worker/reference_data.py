@@ -12,6 +12,7 @@ import os
 import re
 import tempfile
 import zipfile
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -21,6 +22,7 @@ BBOX = [8.35, 49.55, 8.58, 49.76]  # existing context map coverage, lon/lat
 MUNICIPALITIES = {'06431003', '06431005', '06431010', '06431013'}
 COUNTIES = {'06431', '06432', '06433'}
 MAX_BODY = 24 * 1024 * 1024
+RECEIPTS = ContextVar("reference_receipts", default=None)
 EXISTING = {
     'bodenrichtwerte': 'Direkter HVBG/BORIS-Import; Kreismedian ist eine zusätzliche Aggregation.',
     'hochwasser': 'Bestehende Hochwasserszenarien werden durch den VPS-Collector übernommen.',
@@ -150,7 +152,10 @@ async def fetch_bytes(conn, client, source, url, headers=None, limit=MAX_BODY):
         digest = hashlib.sha256(raw).hexdigest()
         await conn.execute('INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING',
                            (digest, len(raw), response.headers.get('content-type', 'application/octet-stream')))
-        await conn.execute("INSERT INTO collection_attempts(source_id,http_status,payload_sha256,status) VALUES(%s,200,%s,'received')", (source['id'], digest))
+        cursor = await conn.execute("INSERT INTO collection_attempts(source_id,http_status,payload_sha256,status) VALUES(%s,200,%s,'received') RETURNING id", (source['id'], digest))
+        receipt=(await cursor.fetchone())[0]
+        if RECEIPTS.get() is not None:
+            RECEIPTS.get().append(receipt)
         await conn.commit()
         return raw, dict(response.headers)
 
@@ -412,9 +417,19 @@ async def groundwater_snapshot(conn,client,source,state):
     hexdigest=digest.hexdigest()
     await conn.execute('INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING',
                        (hexdigest,size,'application/zip'))
-    await conn.execute("INSERT INTO collection_attempts(source_id,http_status,payload_sha256,status) VALUES(%s,200,%s,'received')",(source['id'],hexdigest))
+    cursor=await conn.execute("INSERT INTO collection_attempts(source_id,http_status,payload_sha256,status) VALUES(%s,200,%s,'received') RETURNING id",(source['id'],hexdigest))
+    receipt=(await cursor.fetchone())[0]
+    if RECEIPTS.get() is not None:
+        RECEIPTS.get().append(receipt)
     await conn.commit()
     return records,hexdigest,response_headers
+
+
+async def accept_receipts(conn,source,count):
+    ids=RECEIPTS.get() or []
+    if ids:
+        await conn.execute("UPDATE collection_attempts SET status='success' WHERE source_id=%s AND id=ANY(%s)", (source['id'],ids))
+        await conn.execute("UPDATE collection_attempts SET item_count=%s,item_count_unit='items' WHERE id=%s",(count,ids[-1]))
 
 
 async def store_records(conn, source, records, digest, headers=None):
@@ -448,13 +463,17 @@ async def store_records(conn, source, records, digest, headers=None):
         await conn.execute("""INSERT INTO entities(id,name,entity_type,metadata) VALUES(%s,%s,'reference_source',%s)
             ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,metadata=EXCLUDED.metadata,updated_at=NOW()""",
                            ('reference-source:' + source['layer'], source['title'], Jsonb(state)))
-        await conn.execute("UPDATE collection_attempts SET status='success' WHERE source_id=%s AND status='received'", (source['id'],))
+        await accept_receipts(conn,source,len(records))
     await conn.commit()
 
 
 async def import_reference(conn, client, source):
-    async with asyncio.timeout(900):
-        await _import_reference(conn,client,source)
+    token=RECEIPTS.set([])
+    try:
+        async with asyncio.timeout(900):
+            await _import_reference(conn,client,source)
+    finally:
+        RECEIPTS.reset(token)
 
 
 async def _import_reference(conn, client, source):
@@ -479,9 +498,10 @@ async def _import_reference(conn, client, source):
     if kind == 'groundwater':
         records,digest,headers = await groundwater_snapshot(conn,client,source,state if same_contract else {})
         if records is None:
-            if not state.get('members'):
+            if 'members' not in state:
                 raise ValueError('304 without accepted groundwater snapshot')
             state['checked_at']=now.isoformat()
+            await accept_receipts(conn,source,state['count'])
             await conn.execute('UPDATE entities SET metadata=%s,updated_at=NOW() WHERE id=%s',(Jsonb(state),'reference-source:'+source['layer']))
             await conn.execute("INSERT INTO collection_attempts(source_id,http_status,status) VALUES(%s,304,'success')",(source['id'],))
             await conn.commit()
@@ -500,9 +520,10 @@ async def _import_reference(conn, client, source):
             conditional['If-Modified-Since'] = state['last_modified']
         raw, headers = await fetch_bytes(conn, client, source, source['url'], conditional)
         if raw is None:
-            if not state.get('members'):
+            if 'members' not in state:
                 raise ValueError('304 without accepted snapshot')
             state['checked_at'] = now.isoformat()
+            await accept_receipts(conn,source,state['count'])
             await conn.execute('UPDATE entities SET metadata=%s,updated_at=NOW() WHERE id=%s', (Jsonb(state), 'reference-source:' + source['layer']))
             await conn.execute("INSERT INTO collection_attempts(source_id,http_status,status) VALUES(%s,304,'success')", (source['id'],))
             await conn.commit()
@@ -511,7 +532,7 @@ async def _import_reference(conn, client, source):
         if digest == state.get('content_sha256') and same_contract:
             state['checked_at'] = now.isoformat()
             await conn.execute('UPDATE entities SET metadata=%s,updated_at=NOW() WHERE id=%s', (Jsonb(state), 'reference-source:' + source['layer']))
-            await conn.execute("UPDATE collection_attempts SET status='success' WHERE source_id=%s AND status='received'", (source['id'],))
+            await accept_receipts(conn,source,state['count'])
             await conn.commit()
             return
         records = heat_records(raw, source) if kind == 'heat' else kostra_records(raw, source) if kind == 'kostra' else catalogue_records(json.loads(raw)) if kind == 'catalogue' else scalar_records(json.loads(raw), kind)

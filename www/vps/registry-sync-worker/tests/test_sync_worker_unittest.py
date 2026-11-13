@@ -44,6 +44,7 @@ class TestSyncWorker(unittest.TestCase):
         "statistics",
         "elections",
         "maps",
+        "reference",
         }
         self.assertEqual(set(REGISTERED_JOBS.keys()), expected_jobs)
 

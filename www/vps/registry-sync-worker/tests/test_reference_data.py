@@ -64,10 +64,13 @@ class ReferenceDatabaseTests(DatabaseCase):
         await self.conn.execute(migration.read_text())
 
     async def test_replay_keeps_four_readings_and_original_dates(self):
+        prior=await self.scalar("INSERT INTO collection_attempts(source_id,status) VALUES('reference-tax','received') RETURNING id")
         with patch.dict(os.environ, {'REFERENCE_FORCE': '1'}):
             async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=taxes()))) as client:
                 await import_reference(self.conn, client, TAX)
                 await import_reference(self.conn, client, TAX)
+        assert await self.scalar('SELECT status FROM collection_attempts WHERE id=%s',(prior,)) == 'received'
+        assert await self.scalar("SELECT max(item_count) FROM collection_attempts WHERE status='success'") == 4
         assert await self.scalar('SELECT count(*) FROM readings') == 4
         assert await self.scalar('SELECT count(*) FROM measurement_definitions') == 4
         assert await self.scalar("SELECT count(*) FROM readings WHERE observed_at='2025-01-01T00:00:00Z'") == 4
