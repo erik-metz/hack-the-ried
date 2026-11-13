@@ -76,8 +76,8 @@ export default function ReferenceData() {
         pointToLayer: (_f, latlng) => L.circleMarker(latlng, { radius: 5, color: "#38bdf8" }),
         onEachFeature: (f, layer) => layer.bindPopup(details(f.properties as Props)),
       }).addTo(map.current);
-      const bounds = geometry.current.getBounds();
-      if (bounds.isValid()) map.current.fitBounds(bounds, { maxZoom: 12 });
+      // Border-intersecting source polygons can extend far beyond the Ried.
+      map.current.fitBounds([[49.55, 8.35], [49.76, 8.58]], { maxZoom: 12 });
       map.current.invalidateSize();
     });
     return () => { cancelled = true; geometry.current?.remove(); };
