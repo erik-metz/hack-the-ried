@@ -104,6 +104,14 @@ async def persist_gateways(
         )
         has_measurement_core = (await cur.fetchone()) is not None
 
+        await cur.execute(
+            "SELECT relkind = 'v' FROM pg_class WHERE oid = to_regclass('sensor_data')"
+        )
+        history_relation = await cur.fetchone()
+        canonical_history = has_measurement_core and bool(
+            history_relation and history_relation[0]
+        )
+
         # 1. Canonical Three-Table Core Schema: Physical Gateways
         for gw in gateways:
             if has_measurement_core:
@@ -184,6 +192,19 @@ async def persist_gateways(
                     **({"collection_attempt_id": attempt_id} if attempt_id is not None else {}),
                 })
                 online_val = 1.0 if gw.online else 0.0
+                if canonical_history:
+                    await cur.execute(
+                        """SELECT 1 FROM measurement_definitions d
+                        JOIN readings r ON r.measurement_id = d.id
+                        WHERE d.entity_id=%s AND d.metric='online_status'
+                        AND d.unit='state' AND d.source_id='ttnmapper'
+                        AND d.basis='observed' AND d.dimensions='{}'
+                        AND r.observed_at=%s AND r.quality='valid'
+                        AND r.value IS DISTINCT FROM %s::numeric""",
+                        (entity_id, now, online_val),
+                    )
+                    if await cur.fetchone() is not None:
+                        raise ValueError("Conflicting gateway status for the same poll")
                 await cur.execute(
                     """
                     SELECT write_measurement(
@@ -211,22 +232,23 @@ async def persist_gateways(
             )
 
             status_val = 1.0 if gw.online else 0.0
-            await cur.execute(
-                """SELECT 1 FROM sensor_data WHERE timestamp=%s AND sensor_id=%s
-                AND metric='online_status' AND unit='state' AND value IS DISTINCT FROM %s LIMIT 1""",
-                (now, gw.sensor_id, status_val),
-            )
-            if await cur.fetchone() is not None:
-                raise ValueError("Conflicting gateway status for the same poll")
-            # sensor_data has no unique key: ON CONFLICT does not make retries idempotent.
-            # The collector advisory lock serializes the existence check and insertion.
-            await cur.execute(
-                """INSERT INTO sensor_data (timestamp, sensor_id, metric, value, unit)
-                SELECT %s, %s, 'online_status', %s, 'state' WHERE NOT EXISTS (
-                    SELECT 1 FROM sensor_data WHERE timestamp=%s AND sensor_id=%s
-                    AND metric='online_status' AND unit='state')""",
-                (now, gw.sensor_id, status_val, now, gw.sensor_id),
-            )
+            if not canonical_history:
+                await cur.execute(
+                    """SELECT 1 FROM sensor_data WHERE timestamp=%s AND sensor_id=%s
+                    AND metric='online_status' AND unit='state' AND value IS DISTINCT FROM %s LIMIT 1""",
+                    (now, gw.sensor_id, status_val),
+                )
+                if await cur.fetchone() is not None:
+                    raise ValueError("Conflicting gateway status for the same poll")
+                # sensor_data has no unique key: ON CONFLICT does not make retries idempotent.
+                # The collector advisory lock serializes the existence check and insertion.
+                await cur.execute(
+                    """INSERT INTO sensor_data (timestamp, sensor_id, metric, value, unit)
+                    SELECT %s, %s, 'online_status', %s, 'state' WHERE NOT EXISTS (
+                        SELECT 1 FROM sensor_data WHERE timestamp=%s AND sensor_id=%s
+                        AND metric='online_status' AND unit='state')""",
+                    (now, gw.sensor_id, status_val, now, gw.sensor_id),
+                )
             await cur.execute(
                 """
                 INSERT INTO sensor_latest (sensor_id, metric, unit, timestamp, value)
