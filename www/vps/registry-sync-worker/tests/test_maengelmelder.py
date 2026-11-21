@@ -119,6 +119,12 @@ class MaengelmelderTests(unittest.TestCase):
         published = next(params[7].obj for query,params in conn.calls if "INSERT INTO collected_datasets" in query)
         self.assertEqual(published["features"][0]["properties"]["status"], "solved")
         self.assertNotIn("marker_uri", published["features"][0]["properties"])
+        history_query, history_params = next(
+            (query, params) for query, params in conn.calls
+            if "INSERT INTO maengelmelder_status_history" in query
+        )
+        self.assertIn("NOT EXISTS", history_query)
+        self.assertEqual(history_params[1], json.dumps(published))
         safe_payload = json.dumps(published,sort_keys=True,ensure_ascii=False).encode()
         self.assertEqual(payload_params[1],len(safe_payload))
         self.assertEqual(payload_params[0], hashlib.sha256(safe_payload).hexdigest())

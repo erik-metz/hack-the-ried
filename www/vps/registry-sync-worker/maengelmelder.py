@@ -117,6 +117,26 @@ async def import_maengelmelder(conn, client, source):
     safe_payload = json.dumps(data, sort_keys=True, ensure_ascii=False).encode("utf-8")
     digest = hashlib.sha256(safe_payload).hexdigest()
     async with conn.transaction():
+        await conn.execute(
+            """CREATE TABLE IF NOT EXISTS maengelmelder_status_history (
+                report_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                observed_at TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (report_id, observed_at)
+            )"""
+        )
+        await conn.execute(
+            """INSERT INTO maengelmelder_status_history(report_id,status,observed_at)
+            SELECT item->>'id', item->'properties'->>'status', %s
+            FROM jsonb_array_elements(%s::jsonb->'features') AS feature(item)
+            WHERE NULLIF(item->'properties'->>'status','') IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM maengelmelder_status_history h
+                WHERE h.report_id=item->>'id' AND h.status=item->'properties'->>'status'
+              )
+            ON CONFLICT DO NOTHING""",
+            (now, json.dumps(data)),
+        )
         # Archive only the minimized publication, never the provider's original
         # response, which may contain free text or street-level personal data.
         await conn.execute(
