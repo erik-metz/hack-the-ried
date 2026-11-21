@@ -76,7 +76,8 @@ class MaengelmelderTests(unittest.TestCase):
                         "geometry": {"type": "Point", "coordinates": [8.45, 49.64]},
                         "properties": {
                             "created": "2026-10-27", "type": "Beleuchtung",
-                            "state": "open", "description": "private report text",
+                            "marker_uri": "https://static.werdenktwas.de/r/893/static/img/marker/mm2020/marker-solved-202.png",
+                            "description": "private report text",
                             "address": "private street address",
                         },
                     }],
@@ -116,6 +117,8 @@ class MaengelmelderTests(unittest.TestCase):
             (query, params) for query, params in conn.calls if "INSERT INTO collected_payloads" in query
         )
         published = next(params[7].obj for query,params in conn.calls if "INSERT INTO collected_datasets" in query)
+        self.assertEqual(published["features"][0]["properties"]["status"], "solved")
+        self.assertNotIn("marker_uri", published["features"][0]["properties"])
         safe_payload = json.dumps(published,sort_keys=True,ensure_ascii=False).encode()
         self.assertEqual(payload_params[1],len(safe_payload))
         self.assertEqual(payload_params[0], hashlib.sha256(safe_payload).hexdigest())

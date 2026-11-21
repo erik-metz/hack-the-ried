@@ -7,6 +7,7 @@ intentionally discarded.
 
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 
 from civic_measurements import write_civic_measurement, write_dashboard_snapshot
@@ -14,6 +15,7 @@ from publications import publish
 
 API_URL = "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson"
 DATASET = "civic/maengelmelder"
+MARKER_STATUS = re.compile(r"/marker-([a-z]+)-\d+\.png$")
 # Six map requests keep each viewport below the provider's 200-feature cap.
 # The region runs from Worms through Bensheim to north of Darmstadt.
 BOUNDS = (
@@ -62,13 +64,18 @@ def parse_geojson(payload, bounds):
         identifier = _first(props, "id", "messageid", "message_id", "number") or feature.get("id")
         if identifier is None:
             continue
+        status = _first(props, "state", "status", "state_name")
+        if status is None and isinstance(props.get("marker_uri"), str):
+            marker = MARKER_STATUS.search(props["marker_uri"])
+            if marker:
+                status = marker[1]
         item = {
             "id": str(identifier),
             "latitude": lat,
             "longitude": lon,
             "reportedAt": _first(props, "created", "created_at", "date", "reported_at"),
             "category": _first(props, "type", "category", "category_name"),
-            "status": _first(props, "state", "status", "state_name"),
+            "status": status,
             "url": f"https://www.xn--mngelmelder-l8a.de/bms/{identifier}",
         }
         result.append(item)
