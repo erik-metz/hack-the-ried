@@ -8,7 +8,11 @@ import { publicMapDataUrl } from "@/lib/publicMapData";
 type Report = { id?: string; category?: string | null; status?: string | null; reportedAt?: string | null; url?: string };
 type ReportDetails = { id: string; category: string | null; status: string | null; reportedAt: string | null; description: string | null; images: { preview: string; original: string }[] };
 type Snapshot = FeatureCollection & { source?: string; license?: string; attribution?: string };
-const STATUS_COLORS: Record<string, string> = { open: "#f97316", checked: "#eab308", approved: "#3b82f6", solved: "#22c55e", closed: "#64748b" };
+const ACTIVE_STATUS_COLORS = new Map([
+  ["open", "#f97316"],
+  ["checked", "#eab308"],
+  ["approved", "#3b82f6"],
+]);
 
 export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -19,7 +23,13 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
       .then(response => { if (!response.ok) throw new Error("unavailable"); return response.json(); })
       .then((body: Snapshot) => {
         if (body.type !== "FeatureCollection" || !Array.isArray(body.features) || body.features.length > 1000) throw new Error("invalid");
-        setSnapshot(body); setFailed(false);
+        setSnapshot({
+          ...body,
+          features: body.features.filter(feature =>
+            ACTIVE_STATUS_COLORS.has(String(feature.properties?.status ?? "").trim().toLowerCase()),
+          ),
+        });
+        setFailed(false);
       })
       .catch(() => { if (!controller.signal.aborted) { setSnapshot(null); setFailed(true); } });
     return () => controller.abort();
@@ -32,7 +42,7 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
     const layer = L.geoJSON(snapshot, {
       pane: paneName,
       pointToLayer: (feature, latlng) => {
-        const color = STATUS_COLORS[String(feature.properties?.status ?? "").toLowerCase()] ?? "#a855f7";
+        const color = ACTIVE_STATUS_COLORS.get(String(feature.properties?.status ?? "").trim().toLowerCase());
         const icon = L.divIcon({ className: "", iconSize: [24, 24], iconAnchor: [12, 12], html: `<span style="display:block;width:20px;height:20px;border:3px solid white;border-radius:50%;background:${color};box-shadow:0 1px 5px #0009"></span>` });
         return L.marker(latlng, { pane: paneName, icon, title: `Mängelmeldung ${String(feature.properties?.id ?? "")}` });
       },
@@ -103,7 +113,7 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
   return <section className="space-y-1" aria-label="Mängelmelder">
     <strong>Mängelmelder · Worms bis nördlich Darmstadt</strong>
     <p>Öffentliche Meldungen aus Worms, dem Hessischen Ried und dem Raum Darmstadt. Beschreibung und öffentliche Fotos erscheinen beim Öffnen einer Meldung.</p>
-    <p role="status">{failed ? "Mängelmeldungen derzeit nicht verfügbar." : snapshot ? `${snapshot.features.length} Meldungen · Datenstand bei letzter Erfassung.` : "Mängelmeldungen werden geladen …"}</p>
+    <p role="status">{failed ? "Mängelmeldungen derzeit nicht verfügbar." : snapshot ? `${snapshot.features.length} offene oder in Bearbeitung befindliche Meldungen · Datenstand bei letzter Erfassung.` : "Mängelmeldungen werden geladen …"}</p>
     <p><a className="underline" href="https://www.xn--mngelmelder-l8a.de/" target="_blank" rel="noreferrer">Mängelmelder.de</a> · Inhalte CC BY-SA</p>
   </section>;
 }
