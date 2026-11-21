@@ -16,6 +16,8 @@ from publications import publish
 API_URL = "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson"
 DATASET = "civic/maengelmelder"
 MARKER_STATUS = re.compile(r"/marker-([a-z]+)-\d+\.png$")
+# Provider marker codes: approved = "Ungeprüft" (open), checked = "in
+# Bearbeitung", solved = "Gelöst", unsolvable = "Ungelöst abgeschlossen".
 # Six map requests keep each viewport below the provider's 200-feature cap.
 # The region runs from Worms through Bensheim to north of Darmstadt.
 BOUNDS = (
@@ -129,11 +131,15 @@ async def import_maengelmelder(conn, client, source):
             """INSERT INTO maengelmelder_status_history(report_id,status,observed_at)
             SELECT item->>'id', item->'properties'->>'status', %s
             FROM jsonb_array_elements(%s::jsonb->'features') AS feature(item)
+            LEFT JOIN LATERAL (
+                SELECT h.status FROM maengelmelder_status_history h
+                WHERE h.report_id=item->>'id'
+                ORDER BY h.observed_at DESC LIMIT 1
+            ) AS latest ON TRUE
+            -- Record a row only when the status differs from the latest one,
+            -- so repeated transitions (e.g. reopened reports) stay visible.
             WHERE NULLIF(item->'properties'->>'status','') IS NOT NULL
-              AND NOT EXISTS (
-                SELECT 1 FROM maengelmelder_status_history h
-                WHERE h.report_id=item->>'id' AND h.status=item->'properties'->>'status'
-              )
+              AND latest.status IS DISTINCT FROM item->'properties'->>'status'
             ON CONFLICT DO NOTHING""",
             (now, json.dumps(data)),
         )

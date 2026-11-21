@@ -6,8 +6,8 @@
       "adapter": "maengelmelder",
       "enabled": true,
       "url": "https://www.xn--mngelmelder-l8a.de/api/v1/domain/32/message/geojson",
-      "interval_seconds": 21600,
-      "max_age_seconds": 43200,
+      "interval_seconds": 86400,
+      "max_age_seconds": 172800,
       "description": "Öffentliche Mängelmelder-Punkte von Worms über das Hessische Ried bis nördlich Darmstadt; speichert nur ID, Zeit, Kategorie, Status und Koordinaten gemäß CC BY-SA."
     },
     {

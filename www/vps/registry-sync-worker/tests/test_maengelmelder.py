@@ -123,7 +123,8 @@ class MaengelmelderTests(unittest.TestCase):
             (query, params) for query, params in conn.calls
             if "INSERT INTO maengelmelder_status_history" in query
         )
-        self.assertIn("NOT EXISTS", history_query)
+        self.assertIn("ORDER BY h.observed_at DESC LIMIT 1", history_query)
+        self.assertIn("latest.status IS DISTINCT FROM", history_query)
         self.assertEqual(history_params[1], json.dumps(published))
         safe_payload = json.dumps(published,sort_keys=True,ensure_ascii=False).encode()
         self.assertEqual(payload_params[1],len(safe_payload))
