@@ -1,23 +1,31 @@
 # RayDIY-Passproben für SHT41 und RAK
 
-Die beiden gegenüberliegenden Clips sind über ihre festen Füße
-mit einer gemeinsamen PETG-Grundplatte verbunden. Unter den Federarmen
-bleibt ein Spalt. Das Paar kommt als ein Teil aus dem Drucker und braucht
-keinen Klebstoff. Die Platine liegt auf den Auflagen und rastet an den
-Kanten ein.
+Jede Probe besteht aus einer Grundplatte und zwei separat gedruckten
+PETG-Clips. Beim SHT41 kommt ein kleiner Steckanschlag hinzu. Die Clips werden von außen in die Schwalbenschwanzführungen
+geschoben. Die Führung hält den starren Clipfuß beim Anheben der Platine
+fest. In Einschubrichtung bleibt sie für den Prüfaufbau lösbar.
 
 | Platine | Maße aus der R7-Referenz | Anpassung |
 | --- | --- | --- |
 | SHT41 | 10,5 × 13 × 1 mm | Innenprofil gegenüber dem 15-mm-Generatorprofil verschmälert. Nasenbreite und äußere Wandstärken bleiben nominell erhalten. Der Clip an der Steckerseite sitzt weiter innen. Ein eigener Anschlag hält die Platine in Längsrichtung. |
 | RAK | 29 × 40 × 1 mm | Generatorprofil in Originalbreite mit der jeweiligen Druckzugabe. |
 
-Die drei Endungen 25, 40 und 55 geben die Zugabe in Hundertstelmillimetern an.
-Mit 40 beginnen. Zu stramm sitzende Platinen mit 55, zu lockere mit 25 prüfen.
-Die Clipbreite beträgt 4 mm. Die Proben mit der Grundplatte auf dem Bett
-in PETG drucken. Im Slicer prüfen, wo die Nasen und freien Federarme Stützen
-brauchen. Stützen im Spalt vollständig entfernen, bevor die Arme gebogen
-werden. Das separat erzeugte Clipprofil liegt auf der Seite und dient zum
-Vergleich der Druckrichtung.
+Die Endungen 25, 40 und 55 geben die Druckzugabe in Hundertstelmillimetern
+an. Mit 40 beginnen. Für jede Probe jeweils die Grundplatte und die beiden
+Clips A und B derselben Variante drucken. Beim SHT41 auch den zugehörigen
+Anschlag (`end_stop`) drucken. Die STLs liegen bereits in ihrer
+Drucklage. Die Grundplatte liegt flach auf dem Bett und die Clips liegen auf
+der Seite. Die Clipfedern arbeiten damit in der Druckebene.
+
+Die Schichtprüfung bei 0,2 mm fand in den Drucklagen keine ungestützten
+Flächen oberhalb der Prüftoleranz. Einen automatisch erzeugten Brim nach dem
+Druck von den Gleitflächen entfernen.
+
+Clip A und B jeweils an der Außenseite der passenden Führung ansetzen
+und bis zum Anschlag einschieben. Beim SHT41 danach den Steckanschlag in
+die rechteckige Öffnung drücken. Anschließend die Platine einclipsen. Die OBJ-Datei
+zeigt die Einbaulage und dient zur Ansicht der Montage. Zum Ausclipsen die
+Grundplatte festhalten und die PCB-Rastnasen an den freien Armen bedienen.
 
 Mit der echten Platine Einrasten, Lösen und Abziehen eines Steckers prüfen.
 Dabei auf Lötstellen unter der Platine und Bauteile am Rand achten. Die STEP-
@@ -49,4 +57,4 @@ python build.py /tmp/pcb-clip-profile /pfad/zu/normalisierten/STEP-referenzen /t
 PCB-Clip-Geometrie von [René Aye (RAYDIY)](https://raydiy.de/pcb-clips/)
 unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 Anpassungen für dieses Projekt sind die schmalere SHT41-Geometrie, die
-Positionierung auf der gemeinsamen Grundplatte und die Druckzugaben.
+Positionierung auf der Grundplatte, die Einschubfüße und die Druckzugaben.
