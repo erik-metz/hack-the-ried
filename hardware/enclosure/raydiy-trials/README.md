@@ -8,7 +8,7 @@ fest. In Einschubrichtung bleibt sie für den Prüfaufbau lösbar.
 | Platine | Maße aus der R7-Referenz | Anpassung |
 | --- | --- | --- |
 | SHT41 | 10,5 × 13 × 1 mm | Innenprofil gegenüber dem 15-mm-Generatorprofil verschmälert. Nasenbreite und äußere Wandstärken bleiben nominell erhalten. Der Clip an der Steckerseite sitzt weiter innen. Ein eigener Anschlag hält die Platine in Längsrichtung. |
-| RAK | 29 × 40 × 1 mm | Generatorprofil in Originalbreite mit der jeweiligen Druckzugabe. |
+| RAK | 29 × 40 × 1 mm | Generatorprofil in Originalbreite mit der jeweiligen Druckzugabe. Die Basis hat eine verrundete 28 × 26-mm-Aussparung im freien Mittelbereich. Es bleiben seitlich mindestens 5 mm sowie an den Clip-Enden mindestens 9,7 mm Material stehen. |
 
 Die Endungen 25, 40 und 55 geben die Druckzugabe in Hundertstelmillimetern
 an. Mit 40 beginnen. Für jede Probe jeweils die Grundplatte und die beiden
@@ -20,6 +20,11 @@ der Seite. Die Clipfedern arbeiten damit in der Druckebene.
 Die Schichtprüfung bei 0,2 mm fand in den Drucklagen keine ungestützten
 Flächen oberhalb der Prüftoleranz. Einen automatisch erzeugten Brim nach dem
 Druck von den Gleitflächen entfernen.
+
+Die Aussparung betrifft nur die RAK-Basis: Sie spart gegenüber der zuvor
+vollflächigen Platte Material und Druckzeit, ohne die beiden Schwalbenschwanz-
+Aufnahmen zu schwächen. Die berechnete Ersparnis steht je Variante in
+`checks.json` unter `base_plate_material_saving_percent`.
 
 Clip A und B jeweils an der Außenseite der passenden Führung ansetzen
 und bis zum Anschlag einschieben. Beim SHT41 danach den Steckanschlag in

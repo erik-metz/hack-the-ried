@@ -14,6 +14,31 @@ def block(extents, center):
     return mesh.apply_translation(center)
 
 
+def rounded_rectangle_cutout(width, length, radius, height, center):
+    """Make a rounded rectangular through-cut, centred on *center*."""
+    if radius * 2 >= min(width, length):
+        raise ValueError("Corner radius is too large for rounded rectangle")
+    x, y, z = center
+    pieces = [
+        block((width - 2 * radius, length, height), (x, y, z)),
+        block((width, length - 2 * radius, height), (x, y, z)),
+    ]
+    for dx in (-1, 1):
+        for dy in (-1, 1):
+            corner = trimesh.creation.cylinder(
+                radius=radius, height=height, sections=32
+            )
+            corner.apply_translation(
+                (
+                    x + dx * (width / 2 - radius),
+                    y + dy * (length / 2 - radius),
+                    z,
+                )
+            )
+            pieces.append(corner)
+    return trimesh.boolean.union(pieces, engine="manifold")
+
+
 def reference(path):
     shape = cq.importers.importStep(str(path)).val()
     solids = []
@@ -68,7 +93,16 @@ def make_carrier(profile, spec):
         profile.faces,
     )
     anchor_x = (spec["anchorStart"] + spec["anchorEnd"]) / 2 - 1.5 - half
-    plate = block((spec["width"] + 9, 2 * outer + 2, 1.6), (0, 0, 0.8))
+    plate_size = (spec["width"] + 9, 2 * outer + 2, 1.6)
+    plate = block(plate_size, (0, 0, 0.8))
+    # The RAK has a wide, otherwise unused centre area.  Opening it up saves
+    # material and print time while retaining a 5 mm rim and solid end zones
+    # around both dovetail fixtures.
+    if spec["name"] == "RAK":
+        plate = trimesh.boolean.difference(
+            [plate, rounded_rectangle_cutout(28, 26, 6, 3, (0, 0, 0.8))],
+            engine="manifold",
+        )
     pedestal = block((5.6, 5.2, 1.4), (anchor_x, outer - 2.25, 2.25))
     parts = []
     feet = []
@@ -172,6 +206,8 @@ def main():
             [trimesh.boolean.union(installed, engine="manifold"), board],
             engine="manifold",
         )
+        outer = (spec["length"] + spec["allowance"]) / 2 + 1.5
+        solid_base_volume = (spec["width"] + 9) * (2 * outer + 2) * 1.6
         results[path.stem] = {
             **spec,
             "mesh_closed": True,
@@ -180,6 +216,11 @@ def main():
             "reference_solids_using_bounds": approximated,
             "reference_interference_mm3": round(float(common.volume), 5),
             "board_underside_above_fixture_mm": 8,
+            "base_plate_volume_mm3": round(float(base.volume), 2),
+            "base_plate_solid_volume_mm3": round(solid_base_volume, 2),
+            "base_plate_material_saving_percent": round(
+                (1 - float(base.volume) / solid_base_volume) * 100, 1
+            ),
         }
         carrier.export(args.output / f"{path.stem}_assembled.obj")
     (args.output / "checks.json").write_text(json.dumps(results, indent=2) + "\n")
