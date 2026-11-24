@@ -26,9 +26,15 @@ vollflächigen Platte Material und Druckzeit, ohne die beiden Schwalbenschwanz-
 Aufnahmen zu schwächen. Die berechnete Ersparnis steht je Variante in
 `checks.json` unter `base_plate_material_saving_percent`.
 
+Die rechteckige Öffnung für den SHT41-Anschlag hat 0,3 mm Spiel je Seite
+um den 2,85 × 1,25-mm-Zapfen. Die erste Probe mit 0,1 mm war zu eng. Eine
+45°-Schräge am Anschlag setzt genau an der Plattenoberkante auf und zentriert
+ihn. Der Zapfen endet 0,2 mm über der Plattenunterseite, die Grundplatte
+liegt also weiter plan auf.
+
 Clip A und B jeweils an der Außenseite der passenden Führung ansetzen
 und bis zum Anschlag einschieben. Beim SHT41 danach den Steckanschlag in
-die rechteckige Öffnung drücken. Anschließend die Platine einclipsen. Die OBJ-Datei
+die rechteckige Öffnung stecken. Anschließend die Platine einclipsen. Die OBJ-Datei
 zeigt die Einbaulage und dient zur Ansicht der Montage. Zum Ausclipsen die
 Grundplatte festhalten und die PCB-Rastnasen an den freien Armen bedienen.
 

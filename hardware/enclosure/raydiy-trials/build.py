@@ -8,6 +8,11 @@ import cadquery as cq
 import numpy as np
 import trimesh
 
+# SHT41 end-stop peg and its per-side clearance in the base socket.  The first
+# print with 0.1 mm per side was too tight for the upright-printed peg.
+STOP_PEG = (2.85, 1.25)
+STOP_CLEARANCE = 0.3
+
 
 def block(extents, center):
     mesh = trimesh.creation.box(extents)
@@ -131,12 +136,31 @@ def make_carrier(profile, spec):
     stop = None
     if spec["name"] == "SHT41":
         y = spec["length"] / 2 + 0.9
-        peg = block((2.85, 1.25, 1.6), (0, y, 0.8))
-        stop = trimesh.boolean.union(
-            [peg, block((3, 1.4, 7.45), (0, y, 5.275))],
-            engine="manifold",
+        # Seated geometry: a 1:1 tapered shoulder grows from the peg size and
+        # reaches the socket width exactly at the plate top (z = 1.6).  It
+        # centres the stop and keeps the upright print free of overhangs.
+        taper_start = 1.6 - STOP_CLEARANCE
+        taper_end = taper_start + (4.6 - STOP_PEG[0]) / 2
+        peg = block(
+            (*STOP_PEG, taper_start - 0.2), (0, y, (taper_start + 0.2) / 2)
         )
-        socket = block((3.05, 1.45, 2), (0, y, 0.65))
+        corners = [
+            (sx * w / 2, y + sy * d / 2, z)
+            for w, d, z in ((*STOP_PEG, taper_start), (4.6, 2.4, taper_end))
+            for sx in (-1, 1)
+            for sy in (-1, 1)
+        ]
+        shoulder = trimesh.convex.convex_hull(corners)
+        body = block((3, 1.4, 9 - taper_end), (0, y, (9 + taper_end) / 2))
+        stop = trimesh.boolean.union([peg, shoulder, body], engine="manifold")
+        socket = block(
+            (
+                STOP_PEG[0] + 2 * STOP_CLEARANCE,
+                STOP_PEG[1] + 2 * STOP_CLEARANCE,
+                2,
+            ),
+            (0, y, 0.65),
+        )
         base = trimesh.boolean.difference([base, socket], engine="manifold")
     return base, parts, stop
 
@@ -172,7 +196,9 @@ def main():
         if stop is not None:
             tags.append("end_stop")
             # Print upright on the short locating peg.
-            printed.append(stop)
+            printed.append(
+                stop.copy().apply_translation((0, 0, -stop.bounds[0, 2]))
+            )
         for tag, part in zip(tags, printed, strict=True):
             if not part.is_volume or len(part.split()) != 1:
                 raise ValueError(f"Invalid printable part: {path.stem}_{tag}")
@@ -200,6 +226,23 @@ def main():
         )
         if insertion_overlap > 0.01 or lift_overlap <= 0.01:
             raise ValueError(f"Invalid slide or vertical capture: {path.stem}")
+        stop_checks = {}
+        if stop is not None:
+            stop_overlap = max(
+                abs(
+                    trimesh.boolean.intersection(
+                        [stop, other], engine="manifold"
+                    ).volume
+                )
+                for other in (base, *clips)
+            )
+            if stop_overlap > 0.01:
+                raise ValueError(f"End stop collides with carrier: {path.stem}")
+            stop_checks = {
+                "end_stop_peg_mm": list(STOP_PEG),
+                "end_stop_clearance_per_side_mm": STOP_CLEARANCE,
+                "end_stop_max_overlap_mm3": round(stop_overlap, 5),
+            }
         mesh, approximated = boards[spec["name"]]
         board = mesh.copy().apply_translation((0, 0, 8))
         common = trimesh.boolean.intersection(
@@ -210,6 +253,7 @@ def main():
         solid_base_volume = (spec["width"] + 9) * (2 * outer + 2) * 1.6
         results[path.stem] = {
             **spec,
+            **stop_checks,
             "mesh_closed": True,
             "slide_max_overlap_mm3": round(insertion_overlap, 5),
             "vertical_capture_mm3_at_0p4_mm": round(lift_overlap, 5),
