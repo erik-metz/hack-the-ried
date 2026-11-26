@@ -132,3 +132,11 @@ test("Grundradar reference sources name and link their provider", async () => {
     assert.equal(SOURCE_INFO[id].providerUrl, "https://grundradar.de/");
   }
 });
+
+test("Every registered collection source has a title and provider", async () => {
+  const { SOURCE_INFO } = await import("../app/quellen/sourceInfo.ts");
+  const manifest = JSON.parse(fs.readFileSync(new URL("../../vps/registry-sync-worker/sources.json", import.meta.url), "utf8"));
+  const sources = Array.isArray(manifest) ? manifest : manifest.sources;
+  const missing = sources.map((source) => source.id).filter((id) => !SOURCE_INFO[id]?.title || !SOURCE_INFO[id]?.provider);
+  assert.deepEqual(missing, []);
+});
