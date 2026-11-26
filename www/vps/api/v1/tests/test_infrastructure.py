@@ -23,6 +23,7 @@ class InfrastructureTests(unittest.IsolatedAsyncioTestCase):
         self.cursor = MagicMock()
         self.cursor.fetchall = AsyncMock(return_value=[])
         self.cursor.execute = AsyncMock()
+        self.cursor.fetchone = AsyncMock(return_value=(False,))
         self.conn = MagicMock()
         self.conn.cursor.return_value.__aenter__.return_value = self.cursor
         self.pool = MagicMock()
@@ -171,6 +172,14 @@ class InfrastructureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].ssid, "Hessen-WLAN")
         self.assertEqual(result[0].municipality, "Bürstadt")
+
+    async def test_emf_sites_use_key_lookups_with_core_storage(self):
+        self.cursor.fetchone.return_value = {"ready": True}
+        await get_emf_sites(self.pool)
+        sql = self.cursor.execute.call_args_list[1].args[0]
+        self.assertIn("LEFT JOIN measurement_heads h", sql)
+        self.assertIn("LEFT JOIN LATERAL", sql)
+        self.assertNotIn("latest_readings", sql)
 
     async def test_get_emf_sites(self):
         meta = {

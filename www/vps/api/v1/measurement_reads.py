@@ -61,3 +61,23 @@ async def ensure_core_ready(conn):
     incomplete = row['incomplete'] if isinstance(row, dict) else row[0]
     if incomplete:
         raise RuntimeError("Core measurement read cutover refused: current-value parity is incomplete")
+
+
+async def latest_value_join(cur, *, left=False):
+    """Join fragment exposing `lr.value` for each `md.id`, safe for core storage.
+
+    In core storage latest_readings is a view joining measurement_heads with the
+    whole compressed readings hypertable. Joining that view to many definitions lets
+    the planner hash every reading in parallel workers, which exhausts the
+    database's shared memory. A lateral key lookup per head avoids that.
+    """
+    await cur.execute("SELECT to_regclass('measurement_heads') IS NOT NULL AS ready")
+    row = await cur.fetchone()
+    heads = row["ready"] if isinstance(row, dict) else row[0]
+    join = "LEFT JOIN" if left else "JOIN"
+    if not heads:
+        return f"{join} latest_readings lr ON lr.measurement_id = md.id"
+    return (f"{join} measurement_heads h ON h.measurement_id = md.id "
+            f"{'LEFT JOIN' if left else 'CROSS JOIN'} LATERAL (SELECT x.value FROM readings x "
+            "WHERE x.measurement_id = h.measurement_id AND x.observed_at = h.observed_at "
+            f"LIMIT 1) lr{' ON TRUE' if left else ''}")

@@ -9,10 +9,10 @@ from time import monotonic
 
 import psycopg
 from dependencies import get_db_pool
-from endpoints.infrastructure import get_emf_sites
+from endpoints.infrastructure import EmfSitesSummary, get_emf_sites
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.encoders import jsonable_encoder
-from measurement_reads import core_reads, read_sql
+from measurement_reads import core_reads, latest_value_join, read_sql
 from publication_service import cached_response, read_publication
 from ship_motion import display_position
 from starlette.responses import StreamingResponse
@@ -321,61 +321,68 @@ RIED_CORRIDORS = [
 
 
 LOG = logging.getLogger(__name__)
-GATEWAY_COLUMNS = """e.id, e.name, e.metadata,
-       MAX(r.value) FILTER (WHERE md.metric='latitude') AS latitude,
-       MAX(r.value) FILTER (WHERE md.metric='longitude') AS longitude,
-       MAX(r.value) FILTER (WHERE md.metric='online_status') AS online_status"""
-GATEWAY_FILTER = """WHERE e.entity_type='lora_gateway' AND e.is_hidden=FALSE
-    GROUP BY e.id, e.name, e.metadata ORDER BY e.id"""
-# Legacy storage keeps latest values in a small table.
-GATEWAY_LEGACY_SQL = f"""SELECT {GATEWAY_COLUMNS}
-    FROM entities e
-    JOIN measurement_definitions md ON md.entity_id=e.id
-    JOIN latest_readings r ON r.measurement_id=md.id
-    {GATEWAY_FILTER}"""
-# Core storage: latest_readings is a view over the whole readings hypertable. A
-# plain join lets the planner hash all readings in parallel workers, which
-# exhausts the database's shared memory. Look up each head by its key instead.
-GATEWAY_HEADS_SQL = f"""SELECT {GATEWAY_COLUMNS}
-    FROM entities e
-    JOIN measurement_definitions md ON md.entity_id=e.id
-        AND md.metric IN ('latitude','longitude','online_status')
-    JOIN measurement_heads h ON h.measurement_id=md.id
-    CROSS JOIN LATERAL (SELECT x.value FROM readings x
-        WHERE x.measurement_id=h.measurement_id AND x.observed_at=h.observed_at
-        LIMIT 1) r
-    {GATEWAY_FILTER}"""
-GATEWAY_TTL = 300
-GATEWAY_STALE = 900
-_gateway_cache = {"at": None, "rows": []}
-_gateway_lock = asyncio.Lock()
 
 
-def _gateway_age():
-    at = _gateway_cache["at"]
-    return None if at is None else monotonic() - at
+class StaleCache:
+    """Reuse slowly changing map reads; a failed refresh keeps recent rows for a while."""
+
+    def __init__(self, name, ttl, stale):
+        self.name, self.ttl, self.stale = name, ttl, stale
+        self.at, self.value = None, None
+        self.lock = asyncio.Lock()
+
+    def clear(self):
+        self.at, self.value = None, None
+
+    def age(self):
+        return None if self.at is None else monotonic() - self.at
+
+    async def get(self, load, fallback):
+        age = self.age()
+        if age is not None and (age < self.ttl or (self.lock.locked() and age < self.stale)):
+            return self.value
+        async with self.lock:
+            age = self.age()
+            if age is not None and age < self.ttl:
+                return self.value
+            try:
+                value = await load()
+            except psycopg.Error as exc:
+                LOG.warning("%s read failed: %s", self.name, type(exc).__name__)
+                return self.value if age is not None and age < self.stale else fallback
+            self.at, self.value = monotonic(), value
+            return value
+
+
+gateway_cache = StaleCache("LoRaWAN gateway", 300, 900)
+emf_cache = StaleCache("EMF site", 3600, 21600)  # BNetzA sites change at most daily
+
+
+async def load_lora_gateways(conn):
+    async with conn.transaction(), conn.cursor() as cur:
+        readings = await latest_value_join(cur)
+        await cur.execute(
+            """SELECT e.id, e.name, e.metadata,
+                      MAX(lr.value) FILTER (WHERE md.metric='latitude') AS latitude,
+                      MAX(lr.value) FILTER (WHERE md.metric='longitude') AS longitude,
+                      MAX(lr.value) FILTER (WHERE md.metric='online_status') AS online_status
+               FROM entities e
+               JOIN measurement_definitions md ON md.entity_id=e.id
+                   AND md.metric IN ('latitude','longitude','online_status')
+               """ + readings + """
+               WHERE e.entity_type='lora_gateway' AND e.is_hidden=FALSE
+               GROUP BY e.id, e.name, e.metadata ORDER BY e.id""")
+        return await cur.fetchall()
 
 
 async def lora_gateways(conn):
     """Gateway status changes slowly; one failed read must not hide every map layer."""
-    age = _gateway_age()
-    if age is not None and (age < GATEWAY_TTL or (_gateway_lock.locked() and age < GATEWAY_STALE)):
-        return _gateway_cache["rows"]
-    async with _gateway_lock:
-        age = _gateway_age()
-        if age is not None and age < GATEWAY_TTL:
-            return _gateway_cache["rows"]
-        try:
-            async with conn.transaction():
-                cursor = await conn.execute("SELECT to_regclass('measurement_heads') IS NOT NULL AS ready")
-                heads = (await cursor.fetchone())["ready"]
-                cursor = await conn.execute(GATEWAY_HEADS_SQL if heads else GATEWAY_LEGACY_SQL)
-                rows = await cursor.fetchall()
-        except psycopg.Error as exc:
-            LOG.warning("LoRaWAN gateway read failed: %s", type(exc).__name__)
-            return _gateway_cache["rows"] if age is not None and age < GATEWAY_STALE else []
-        _gateway_cache.update(at=monotonic(), rows=rows)
-        return rows
+    return await gateway_cache.get(lambda: load_lora_gateways(conn), [])
+
+
+async def map_emf_sites(pool):
+    return await emf_cache.get(lambda: get_emf_sites(pool),
+                               EmfSitesSummary(total_sites=0, providers={}, sites=[]))
 
 
 @router.get("/map/collected-layers")
@@ -437,7 +444,7 @@ async def map_layers(request: Request, pool=Depends(get_db_pool)):
         for r in rows
         if r["dataset"].startswith("map/layers/")
     }
-    emf = await get_emf_sites(pool)
+    emf = await map_emf_sites(pool)
     emf_features = [
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [site.longitude, site.latitude]},
          "properties": site.model_dump()}

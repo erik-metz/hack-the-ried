@@ -11,6 +11,7 @@ from typing import Annotated, Any
 import psycopg_pool
 from dependencies import get_db_pool
 from fastapi import APIRouter, Depends, Query
+from measurement_reads import latest_value_join
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/infrastructure", tags=["Infrastructure & Energy"])
@@ -466,6 +467,7 @@ class EmfSitesSummary(BaseModel):
 async def get_emf_sites(pool: DbPool):
     """Retrieve certified radio transmission sites (BNetzA EMF) from the entities & measurement core."""
     async with pool.connection() as conn, conn.cursor() as cur:
+        readings = await latest_value_join(cur, left=True)
         await cur.execute(
             """
             SELECT e.id, e.name, e.metadata,
@@ -476,7 +478,11 @@ async def get_emf_sites(pool: DbPool):
                    MAX(CASE WHEN md.metric = 'antenna_count' THEN lr.value END) AS antenna_count
             FROM entities e
             LEFT JOIN measurement_definitions md ON md.entity_id = e.id
-            LEFT JOIN latest_readings lr ON lr.measurement_id = md.id
+                AND md.metric IN ('latitude', 'longitude', 'max_antenna_height',
+                                  'safety_distance_horizontal', 'antenna_count')
+            """
+            + readings
+            + """
             WHERE e.entity_type = 'radio_tower' AND e.is_hidden = FALSE
             GROUP BY e.id, e.name, e.metadata
             ORDER BY e.name

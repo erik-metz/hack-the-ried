@@ -30,6 +30,9 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.publication_emf = patch('publication_service.get_emf_sites', self.emf)
         self.publication_emf.start()
         self.addCleanup(self.publication_emf.stop)
+        from endpoints.collected import emf_cache
+        emf_cache.clear()
+        self.addCleanup(emf_cache.clear)
         self.gateways_mock = patch("endpoints.collected.lora_gateways", new_callable=AsyncMock, return_value=[])
         self.gateways = self.gateways_mock.start()
         self.addCleanup(self.gateways_mock.stop)
@@ -175,45 +178,56 @@ class LoraGatewayReadTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         from endpoints import collected
         self.collected = collected
-        collected._gateway_cache.update(at=None, rows=[])
-        self.addCleanup(collected._gateway_cache.update, at=None, rows=[])
+        collected.gateway_cache.clear()
+        self.addCleanup(collected.gateway_cache.clear)
 
     def connection(self, heads, rows=None, error=None):
-        conn = MagicMock()
+        conn, cur = MagicMock(), MagicMock()
         conn.transaction.return_value.__aenter__ = AsyncMock()
         conn.transaction.return_value.__aexit__ = AsyncMock(return_value=False)
-        ready, result = MagicMock(), MagicMock()
-        ready.fetchone = AsyncMock(return_value={'ready': heads})
-        result.fetchall = AsyncMock(return_value=rows or [])
-        conn.execute = AsyncMock(side_effect=[ready, error or result])
+        conn.cursor.return_value.__aenter__ = AsyncMock(return_value=cur)
+        conn.cursor.return_value.__aexit__ = AsyncMock(return_value=False)
+        cur.execute = AsyncMock()
+        cur.fetchone = AsyncMock(return_value={'ready': heads})
+        cur.fetchall = AsyncMock(side_effect=error, return_value=rows or [])
+        self.cur = cur
         return conn
 
     async def test_core_storage_looks_up_heads_instead_of_joining_all_readings(self):
         conn = self.connection(True, [{'id': 'gw'}])
         self.assertEqual(await self.collected.lora_gateways(conn), [{'id': 'gw'}])
-        sql = conn.execute.call_args_list[1].args[0]
+        sql = self.cur.execute.call_args_list[1].args[0]
         self.assertIn('JOIN measurement_heads h', sql)
         self.assertIn('CROSS JOIN LATERAL', sql)
         self.assertNotIn('latest_readings', sql)
 
     async def test_legacy_storage_reads_latest_table(self):
-        conn = self.connection(False, [])
-        await self.collected.lora_gateways(conn)
-        self.assertIn('JOIN latest_readings r', conn.execute.call_args_list[1].args[0])
+        await self.collected.lora_gateways(self.connection(False, []))
+        self.assertIn('JOIN latest_readings lr', self.cur.execute.call_args_list[1].args[0])
 
     async def test_recent_result_is_reused_without_database_reads(self):
         await self.collected.lora_gateways(self.connection(True, [{'id': 'gw'}]))
         conn = MagicMock()
-        conn.execute = AsyncMock()
         self.assertEqual(await self.collected.lora_gateways(conn), [{'id': 'gw'}])
-        conn.execute.assert_not_called()
+        conn.cursor.assert_not_called()
 
     async def test_failed_read_keeps_recent_rows_and_expires_old_ones(self):
         import psycopg
+        cache = self.collected.gateway_cache
         await self.collected.lora_gateways(self.connection(True, [{'id': 'gw'}]))
-        with patch('endpoints.collected.monotonic', return_value=self.collected._gateway_cache['at'] + 600):
+        with patch('endpoints.collected.monotonic', return_value=cache.at + 600):
             rows = await self.collected.lora_gateways(self.connection(True, error=psycopg.errors.DiskFull()))
         self.assertEqual(rows, [{'id': 'gw'}])
-        with patch('endpoints.collected.monotonic', return_value=self.collected._gateway_cache['at'] + 1000):
+        with patch('endpoints.collected.monotonic', return_value=cache.at + 1000):
             rows = await self.collected.lora_gateways(self.connection(True, error=psycopg.errors.DiskFull()))
         self.assertEqual(rows, [])
+
+    async def test_failed_emf_read_keeps_other_map_layers(self):
+        import psycopg
+        from endpoints.collected import emf_cache, map_emf_sites
+        emf_cache.clear()
+        self.addCleanup(emf_cache.clear)
+        with patch('endpoints.collected.get_emf_sites', new_callable=AsyncMock,
+                   side_effect=psycopg.errors.DiskFull()):
+            summary = await map_emf_sites(MagicMock())
+        self.assertEqual(summary.sites, [])
