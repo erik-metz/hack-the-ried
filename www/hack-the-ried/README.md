@@ -93,9 +93,11 @@ from `BACKEND_API_URL` at build time and permits only the required public
 namespaces in the Content Security Policy; credentials are not bundled.
 The VPS must remain reachable over HTTPS and allow browser CORS requests.
 
-All public page shells are prerendered, including the atlas, forecasts, source
-status and archive catalogue. Their existing tables and filters load public VPS
-publications in the browser. Collected publications get a fresh request and a
+All public page shells are prerendered, including the atlas, forecasts and
+archive catalogue. Their existing tables and filters load public VPS
+publications in the browser. The source status page (`/quellen`) is rendered
+with the status data and regenerated at most once a day (ISR); the browser
+loads it once only if the build could not reach the API. Collected publications get a fresh request and a
 display deadline bounded by the upstream Cache-Control TTL (available through
 CORS even when custom expiry headers are hidden). Expired batches are removed
 before another batch is displayed; failed sources remain unavailable.

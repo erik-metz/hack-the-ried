@@ -38,7 +38,10 @@ test("All 8 public & admin pages render the unified SiteFooter", () => {
 
 test("Quellen page renders collected status without invented totals", () => {
   const source = fs.readFileSync(new URL("../app/quellen/PageContent.tsx", import.meta.url), "utf8");
-  assert.ok(source.includes('["collection/status"], 300000, { keepWhileRefreshing: true })'));
+  const page = fs.readFileSync(new URL("../app/quellen/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /export const revalidate = 86400;/);
+  assert.ok(page.includes('publicApiUrl("collection/status")'));
+  assert.doesNotMatch(source, /usePublicDatasets|pollVisible|setInterval/);
   assert.ok(source.includes('info.providerUrl'));
   assert.ok(source.includes('sources.map'));
   assert.ok(source.includes('source.last_success_at'));

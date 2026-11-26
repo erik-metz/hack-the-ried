@@ -397,4 +397,10 @@ export const SOURCE_INFO: Record<
   "ried-melibokus-panorama": { title: "Webcam Melibokus-Panorama", domain: "Webcams (deaktiviert)", provider: "melibokus.com" },
   "ried-heppenheim-flugfeld": { title: "Webcam Flugplatz Heppenheim", domain: "Webcams (deaktiviert)", provider: "Aero-Club Heppenheim Kreis Bergstraße e.V." },
   "ried-oppenheim-flugfeld": { title: "Webcam Flugplatz Oppenheim", domain: "Webcams (deaktiviert)", provider: "Aero-Club Oppenheim-Guntersblum am Rhein e.V." },
+  "project4-events": { title: "Veranstaltungen von Project4 Events", domain: "Kultur & Termine", provider: "Project4 Events" },
+  "astronomy-engine:hessisches-ried-v1": { title: "Sonnen- und Mondstand (berechnet)", domain: "Umwelt & Wetter", provider: "Eigene Berechnung mit Astronomy Engine" },
+  "environment-entsoe-generation": { title: "Stromerzeugung Deutschland", domain: "Energie", provider: "ENTSO-E Transparency Platform" },
+  "environment-entsoe-load": { title: "Stromverbrauch Deutschland (Last)", domain: "Energie", provider: "ENTSO-E Transparency Platform" },
+  "environment-entsoe-price": { title: "Day-Ahead-Strompreis Deutschland–Luxemburg", domain: "Energie", provider: "ENTSO-E Transparency Platform" },
+  "nasa-ecostress:raster": { title: "ECOSTRESS-Rasterverarbeitung", domain: "Umwelt & Erdbeobachtung", provider: "NASA / JPL · Earthdata" },
 };
