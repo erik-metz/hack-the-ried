@@ -5,6 +5,11 @@ import type { FeatureCollection, Geometry } from "geojson";
 import type { Map as LeafletMap, GeoJSON } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+function linkGrundradar(text: string) {
+  return text.split(/(Grundradar)/).map((part, i) => part === "Grundradar"
+    ? <a key={i} href="https://grundradar.de/" target="_blank" rel="noopener" className="underline">Grundradar</a>
+    : part);
+}
 type Source = { layer: string; title: string; checked_at: string; reference_date: string | null; count: number; attribution: string; license: string; url: string; note: string; stale: boolean; interval_seconds: number };
 type Measurement = { metric: string; value: number | null; unit: string; observed_at: string; basis: string };
 type Props = Record<string, unknown> & { name: string; measurements: Measurement[] };
@@ -92,7 +97,7 @@ export default function ReferenceData() {
     </label>
     <p role="status">{loading ? "Gespeicherte Referenzdaten werden geladen …" : error || (source ? `${source.count} Datensätze · zuletzt geprüft ${date(source.checked_at)}${source.stale ? " · Quellenprüfung überfällig" : ""}` : "")}</p>
     {error ? <button className="underline" onClick={() => { setError(""); setLoading(true); setAttempt(n => n + 1); }}>Erneut versuchen</button> : null}
-    {source ? <div className="rounded border border-slate-700 p-4 space-y-2"><h2 className="text-xl font-semibold">{source.title}</h2><p>{source.note}</p><p>{source.attribution}</p><p>Prüfintervall: {Math.round(source.interval_seconds / 86400)} Tage. Der Datenstand steht am jeweiligen Wert; das Prüfdatum ändert ihn nicht.</p><a className="underline" href={source.url} target="_blank" rel="noreferrer">Originalquelle</a><p>Lizenz: {source.license}</p></div> : null}
+    {source ? <div className="rounded border border-slate-700 p-4 space-y-2"><h2 className="text-xl font-semibold">{source.title}</h2><p>{source.note}</p><p>{linkGrundradar(source.attribution)}</p><p>Prüfintervall: {Math.round(source.interval_seconds / 86400)} Tage. Der Datenstand steht am jeweiligen Wert; das Prüfdatum ändert ihn nicht.</p><a className="underline" href={source.url} target="_blank" rel="noreferrer">Originalquelle</a><p>Lizenz: {source.license}</p></div> : null}
     <div ref={host} className={`h-[480px] rounded border border-slate-700 ${isSpatial ? "" : "hidden"}`} aria-label="Karte der ausgewählten Referenzdaten" />
     {snapshot ? <div className="space-y-3">{snapshot.features.slice(0,100).map(f => <article key={String(f.id)} className="rounded border border-slate-800 p-4"><h3 className="font-semibold">{f.properties.name}</h3>
       {f.properties.measurements.map(m => <p key={m.metric}>{labels[m.metric] ?? m.metric}: <strong>{m.value == null ? "unbekannt" : m.value.toLocaleString("de-DE")} {unit(m.unit)}</strong> · Stand {date(m.observed_at)} · {m.basis === "model" ? "modelliert" : "veröffentlicht"}</p>)}
