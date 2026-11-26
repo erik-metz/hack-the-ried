@@ -770,8 +770,8 @@ export default function HaushaltClient({
                   Bebauungspläne & Stadtentwicklung ({selectedMunicipality})
                 </h3>
                 <p className="text-sm text-slate-400 mt-1">
-                  Rechtskräftige und in Aufstellung befindliche Bau-Pläne,
-                  Neubaugebiete und Gewerbeflächen.
+                  Amtliche Bebauungspläne, Satzungen und Flächennutzungspläne aus dem
+                  Bauleitplanungskataster des Kreises Bergstraße.
                 </p>
               </div>
               <Link
@@ -783,53 +783,47 @@ export default function HaushaltClient({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {currentDevPlans.length === 0 && (
+                <p className="text-sm text-slate-400 md:col-span-2">
+                  Für {selectedMunicipality} enthält das Bauleitplanungskataster des
+                  Kreises Bergstraße derzeit keine Pläne.
+                </p>
+              )}
               {currentDevPlans.map((plan) => (
                 <div
                   key={plan.id}
                   className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                          plan.status === "rechtskraeftig"
-                            ? "bg-emerald-950/50 border border-emerald-500/40 text-emerald-400"
-                            : "bg-amber-950/50 border border-amber-500/40 text-amber-400"
-                        }`}
-                      >
-                        {plan.status === "rechtskraeftig"
-                          ? "Rechtskräftig"
-                          : "Im Verfahren"}
-                      </span>
-                      <h4 className="text-sm font-bold text-slate-100 mt-1.5">
-                        {plan.plan_name}
-                      </h4>
-                    </div>
-                    <div className="text-right text-xs text-slate-400">
-                      <div>
-                        Plan: <strong>{plan.plan_number}</strong>
-                      </div>
-                      <div>{plan.area_hectares} ha</div>
-                    </div>
+                  <div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        plan.status === "rechtskraeftig"
+                          ? "bg-emerald-950/50 border border-emerald-500/40 text-emerald-400"
+                          : "bg-amber-950/50 border border-amber-500/40 text-amber-400"
+                      }`}
+                    >
+                      {plan.status_label ?? (plan.status === "rechtskraeftig" ? "Rechtskräftig" : plan.status === "im_verfahren" ? "Im Verfahren" : "Status nicht angegeben")}
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-100 mt-1.5">
+                      {plan.plan_name}
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {[plan.plan_type, plan.district && `Gemarkung ${plan.district}`, plan.legal_since && `rechtskräftig seit ${plan.legal_since.split("-").reverse().join(".")}`].filter(Boolean).join(" · ")}
+                    </p>
                   </div>
 
-                  <div className="text-xs text-slate-400 flex items-center justify-between pt-2 border-t border-slate-800/80">
-                    <span>
-                      Nutzung:{" "}
-                      <strong className="text-slate-200">
-                        {plan.target_use}
-                      </strong>
-                    </span>
+                  <div className="text-xs text-slate-400 flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800/80">
                     {plan.document_url && (
-                      <a
-                        href={plan.document_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-emerald-400 hover:underline"
-                      >
-                        Amtlicher Plan <ExternalLink className="w-3 h-3" />
+                      <a href={plan.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-400 hover:underline">
+                        Planzeichnung <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
+                    {plan.text_url && (
+                      <a href={plan.text_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-400 hover:underline">
+                        Textteil <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {plan.source && <span className="ml-auto">{plan.source}{plan.license ? ` · ${plan.license}` : ""}</span>}
                   </div>
                 </div>
               ))}

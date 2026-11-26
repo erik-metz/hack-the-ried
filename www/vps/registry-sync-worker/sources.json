@@ -1435,6 +1435,93 @@
       "reason": "Historische amtliche Bodenrichtwertzonen zum 01.01.2024; 2026 laut HVBG nicht per WFS verfügbar. Keine Immobilienmarktpreise."
     },
     {
+      "id": "kreis-bergstrasse-bauleitplanung",
+      "group": "realestate",
+      "adapter": "bauleitplanung-wfs",
+      "enabled": true,
+      "url": "https://www.gdi-inspireumsetzer.de/ows/services/org.20.aab6a228-f01d-475b-b58d-a091bb6c3265_wfs",
+      "type_name": "ft1:Planung",
+      "namespaces": "xmlns(ft1,http://www.esdi-humboldt.eu/hale/gpkg)",
+      "interval_seconds": 86400,
+      "max_age_seconds": 15552000,
+      "http_retries": 2,
+      "bbox": [
+        49.55,
+        8.3,
+        49.8,
+        8.65
+      ],
+      "municipalities": {
+        "06431003": "Biblis",
+        "06431005": "Bürstadt",
+        "06431010": "Groß-Rohrheim",
+        "06431013": "Lampertheim"
+      },
+      "attribution": "Kreis Bergstraße · Bauleitplanungskataster (GDI-Südhessen)",
+      "license": "dl-de/by-2-0",
+      "license_url": "https://www.govdata.de/dl-de/by-2-0",
+      "reason": "Amtliche Geltungsbereiche von Bebauungsplänen, Satzungen und Flächennutzungsplänen. Das Kataster enthält im Ried derzeit nur Lampertheim; fehlende Gemeinden werden ausgewiesen, nicht ergänzt."
+    },
+    {
+      "id": "bnetza-broadband-grid",
+      "group": "infrastructure",
+      "adapter": "wms",
+      "enabled": true,
+      "url": "https://breitbandatlas-wms.gigabit-grundbuch.online/WMS/Breitbandatlas",
+      "interval_seconds": 604800,
+      "max_age_seconds": 31536000,
+      "bbox": [
+        49.55,
+        8.3,
+        49.8,
+        8.65
+      ],
+      "min_zoom": 13,
+      "max_zoom": 15,
+      "layer": "broadband",
+      "transparent": true,
+      "wms_layer_title_path": [
+        "Festnetz",
+        "Privathaushalte",
+        "≥ 1000 Mbit/s",
+        "Festnetz, 100m Gitter, Privathaushalte ≥ 1000 Mbit/s"
+      ],
+      "data_stand": {
+        "url": "https://gigabitgrundbuch.bund.de/GIGA/DE/Breitbandatlas/Downloads/start.html",
+        "pattern": "Versorgungsdaten_Gitterzellen_Stand_(\\d{8})"
+      },
+      "publication": {
+        "title": "Breitbandverfügbarkeit ≥ 1000 Mbit/s, Anteil der Privathaushalte je 100-m-Zelle",
+        "attribution": "© BNetzA. Datenstand: {stand}.",
+        "source_url": "https://gigabitgrundbuch.bund.de/GIGA/DE/Breitbandatlas/start.html",
+        "legend": [
+          {
+            "label": "> 95 %",
+            "color": "#336f91"
+          },
+          {
+            "label": "> 75–95 %",
+            "color": "#66b3b9"
+          },
+          {
+            "label": "> 50–75 %",
+            "color": "#cce6e8"
+          },
+          {
+            "label": "> 10–50 %",
+            "color": "#fce4b1"
+          },
+          {
+            "label": "0–10 %",
+            "color": "#fef9d8"
+          }
+        ]
+      },
+      "request_interval_seconds": 0.25,
+      "http_retries": 2,
+      "reason": "Amtlicher Breitbandatlas, 100-m-Gitter, als vorab abgerufene Kacheln; keine Abrufe aus dem Browser."
+    },
+    {
       "id": "ried-griesheim-flugfeld",
       "adapter": "webcam-snapshot",
       "group": "infrastructure",

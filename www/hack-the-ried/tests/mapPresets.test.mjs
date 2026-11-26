@@ -156,7 +156,7 @@ test("raster and context overlays restrict their overview by zoom", () => {
   for (const id of urlState.MAP_LAYER_IDS) {
     for (let zoom = 8; zoom <= 19; zoom++) {
       assert.equal(mapPresets.isLayerZoomRestricted(id, zoom),
-        (["starkregen", "lora", "landcover", "floodrisk", "census", "monitoring", "nature", "charging", "warnings"].includes(id)) && zoom < mapPresets.LAYER_MIN_ZOOM[id],
+        (["starkregen", "broadband", "lora", "landcover", "floodrisk", "census", "monitoring", "nature", "charging", "warnings"].includes(id)) && zoom < mapPresets.LAYER_MIN_ZOOM[id],
         `${id} at zoom ${zoom}`);
     }
   }

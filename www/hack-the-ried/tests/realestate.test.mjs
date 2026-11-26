@@ -80,17 +80,9 @@ test("BASELINE_BORIS_ZONES has valid polygons and pricing", () => {
   }
 });
 
-test("BASELINE_DEVELOPMENT_PLANS has valid coordinates and legally sound status", () => {
-  const plans = realestate.BASELINE_DEVELOPMENT_PLANS;
-  assert.ok(plans.length >= 6, "Expected at least 6 development plans");
-
-  const validStatuses = ["rechtskraeftig", "in_aufstellung", "im_verfahren"];
-  for (const p of plans) {
-    assert.ok(validStatuses.includes(p.status), `Valid status for ${p.plan_name}: ${p.status}`);
-    assert.ok(p.center_lat >= 49.5 && p.center_lat <= 49.8, "Latitude within Ried geofence");
-    assert.ok(p.center_lng >= 8.3 && p.center_lng <= 8.7, "Longitude within Ried geofence");
-    assert.ok(p.area_hectares > 0, "Hectares must be positive");
-  }
+test("development plans come only from the official cadastre publication", () => {
+  // Former bundled sample plans looked like official data and must not return.
+  assert.equal(realestate.BASELINE_DEVELOPMENT_PLANS, undefined);
 });
 
 test("Formatting and color helpers produce expected outputs", () => {

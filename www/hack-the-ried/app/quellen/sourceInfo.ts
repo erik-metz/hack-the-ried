@@ -69,6 +69,16 @@ export const SOURCE_INFO: Record<
     domain: "Bauen & Wohnen",
     provider: "HVBG · BORIS Hessen",
   },
+  "kreis-bergstrasse-bauleitplanung": {
+    title: "Bauleitplanungskataster · Bebauungspläne & Satzungen",
+    domain: "Bauen & Wohnen",
+    provider: "Kreis Bergstraße · GDI-Südhessen (dl-de/by-2-0)",
+  },
+  "bnetza-broadband-grid": {
+    title: "Breitbandverfügbarkeit im 100-m-Raster (Karte)",
+    domain: "Infrastruktur & Konnektivität",
+    provider: "Bundesnetzagentur · Breitbandatlas",
+  },
   "bnetza-broadband-households": {
     title: "Breitbandverfügbarkeit für Privathaushalte",
     domain: "Infrastruktur & Konnektivität",

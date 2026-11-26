@@ -175,7 +175,46 @@ function formatFieldValue(key: string, value: string | number): string {
   return String(value);
 }
 
+function germanDate(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-");
+  return `${day}.${month}.${year}`;
+}
+
+function documentLink(label: string, href: unknown): HTMLElement | null {
+  if (typeof href !== "string" || !href.startsWith("https://")) return null;
+  const row = document.createElement("p");
+  const link = document.createElement("a");
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = label;
+  row.append(link);
+  return row;
+}
+
+/** Official development plan: only cadastre fields, documents as links. */
+export function developmentPlanCard(values: Record<string, unknown>): HTMLElement {
+  const style = mapSymbol("devplans");
+  const text = (key: string) => (typeof values[key] === "string" && values[key] ? String(values[key]) : null);
+  const rows = [
+    text("plan_type") && `Art: ${text("plan_type")}`,
+    `Status: ${text("status_label") ?? "Status nicht angegeben"}`,
+    germanDate(values.legal_since) && `Rechtskräftig seit: ${germanDate(values.legal_since)}`,
+    germanDate(values.adopted_at) && `Satzungsbeschluss: ${germanDate(values.adopted_at)}`,
+    text("municipality") && `Gemeinde: ${text("municipality")}${text("district") ? ` (Gemarkung ${text("district")})` : ""}`,
+    text("plan_number") && `Plannummer: ${text("plan_number")}`,
+    germanDate(values.data_as_of) && `Datenstand im Kataster: ${germanDate(values.data_as_of)}`,
+  ].filter((row): row is string => Boolean(row));
+  const card = detailCard(`${style.symbol} ${text("plan_name") ?? text("name") ?? style.label}`, "Bauleitplanungskataster Kreis Bergstraße", rows);
+  for (const link of [documentLink("Planzeichnung (PDF)", values.document_url), documentLink("Textliche Festsetzungen (PDF)", values.text_url), documentLink("Begründung (PDF)", values.justification_url)]) {
+    if (link) card.append(link);
+  }
+  return card;
+}
+
 export function featureCard(kind: string, values: Record<string, unknown>): HTMLElement {
+  if (kind === "devplans") return developmentPlanCard(values);
   const style = mapSymbol(featureKind(kind, values));
   let title = String(values.name ?? values.title ?? style.label);
   let subtitle = style.label;

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_LIVE_API_ORIGIN: liveApiOrigin },
   async rewrites() {
     return { beforeFiles: [{
-      source: "/api/map-tiles/:layer(base|rain)/:z(\\d+)/:x(\\d+)/:y(\\d+).png",
+      source: "/api/map-tiles/:layer(base|rain|broadband)/:z(\\d+)/:x(\\d+)/:y(\\d+).png",
       destination: `${liveApiOrigin}/api/v1/map-tiles/:layer/:z/:x/:y.png`,
     }, {
       // The combined GeoJSON exceeds Next's data-cache and function-body limits.

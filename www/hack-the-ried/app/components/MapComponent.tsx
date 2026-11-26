@@ -55,9 +55,32 @@ interface MapProps {
   skyEnabled?: boolean;
   satelliteSceneId?: string;
 }
+interface TileLayerPublication {
+  title?: string;
+  attribution?: string;
+  source_url?: string;
+  data_as_of?: string;
+  min_zoom?: number;
+  max_zoom?: number;
+  legend?: { label: string; color: string }[];
+}
+interface LayerMetadata {
+  attribution?: string;
+  license?: string;
+  license_url?: string;
+  exported_at?: string;
+  covered_municipalities?: string[];
+  missing_municipalities?: string[];
+}
 interface LayerPublication {
   layers: Partial<Record<MapLayerId, GeoJsonObject>>;
+  tile_layers?: Partial<Record<string, TileLayerPublication>>;
   unavailable: string[];
+}
+
+function layerMetadata(layer: GeoJsonObject | undefined): LayerMetadata | null {
+  const value = (layer as { metadata?: unknown } | undefined)?.metadata;
+  return value && typeof value === "object" ? value as LayerMetadata : null;
 }
 
 function textPopup(lines: string[]) {
@@ -578,6 +601,13 @@ export default function MapComponent(props: MapProps) {
     }
     const starkregenMinZoom = LAYER_MIN_ZOOM.starkregen ?? 12;
     if (layers.starkregen && zoom >= starkregenMinZoom) L.tileLayer(publicMapTileUrl("rain"), { opacity: .5 }).addTo(group);
+    const broadband = publication.tile_layers?.broadband;
+    if (layers.broadband && broadband && zoom >= (LAYER_MIN_ZOOM.broadband ?? 13)) {
+      // Pre-collected Breitbandatlas tiles; zoom levels above the collected ones are scaled.
+      L.tileLayer(publicMapTileUrl("broadband"), {
+        opacity: .7, zIndex: 11, minNativeZoom: broadband.min_zoom ?? 13, maxNativeZoom: broadband.max_zoom ?? 15,
+      }).addTo(group);
+    }
 
     const loraMinZoom = LAYER_MIN_ZOOM.lora ?? 9;
     setLoraTilesFailed(false);
@@ -683,6 +713,15 @@ export default function MapComponent(props: MapProps) {
       {tilesMissing && <p role="status">Hintergrundkarten sind noch nicht verfügbar.</p>}
       {layers.starkregen && isLayerZoomRestricted("starkregen", zoom) && <p role="status">Starkregen: Details beim Hineinzoomen (ab Zoom {LAYER_MIN_ZOOM.starkregen}).</p>}
       {layers.lora && isLayerZoomRestricted("lora", zoom) && <p role="status">LoRaWAN-Heatmap: Details beim Hineinzoomen (ab Zoom {LAYER_MIN_ZOOM.lora}).</p>}
+      {layers.broadband && publication.tile_layers?.broadband && <div role="status">
+        <p>{publication.tile_layers.broadband.title ?? "Breitbandverfügbarkeit"}{isLayerZoomRestricted("broadband", zoom) ? ` – sichtbar ab Zoom ${LAYER_MIN_ZOOM.broadband}` : ""}.</p>
+        <p className="flex flex-wrap gap-x-2">{(publication.tile_layers.broadband.legend ?? []).map(item => <span key={item.label}><span aria-hidden="true" className="inline-block h-2.5 w-2.5 border border-slate-500 align-middle" style={{ backgroundColor: item.color }} /> {item.label}</span>)}</p>
+        <p><a href={publication.tile_layers.broadband.source_url ?? "https://gigabitgrundbuch.bund.de"} target="_blank" rel="noreferrer">{publication.tile_layers.broadband.attribution ?? "© BNetzA"}</a></p>
+      </div>}
+      {layers.devplans && layerMetadata(publication.layers.devplans) && <p role="status">
+        Bau-Pläne: <a href={layerMetadata(publication.layers.devplans)?.license_url ?? "https://www.govdata.de/dl-de/by-2-0"} target="_blank" rel="noreferrer">{layerMetadata(publication.layers.devplans)?.attribution} · {layerMetadata(publication.layers.devplans)?.license}</a>
+        {layerMetadata(publication.layers.devplans)?.missing_municipalities?.length ? ` · nicht im Kataster: ${layerMetadata(publication.layers.devplans)?.missing_municipalities?.join(", ")}` : ""}.
+      </p>}
       {layers.lora && missing.includes("lora") && <p role="status">Keine gespeicherten LoRaWAN-Gateways verfügbar.</p>}
       {layers.lora && loraTilesFailed && <p role="status">TTN-Mapper-Heatmap konnte nicht geladen werden. Gateway-Standorte bleiben sichtbar.</p>}
       <button className="mt-2 mr-3 underline" onClick={() => {

@@ -215,12 +215,15 @@ async def ogn_telemetry(entity_id, request, pool, start, end):
         'basis':'observed'},request,0,{'Cache-Control':'no-store'})
 
 
+TILE_LAYERS = {"base", "rain", "broadband"}
+
+
 @router.get("/map-tiles/{layer}/{z}/{x}/{y}.png")
 async def tile(
     layer: str, z: int, x: int, y: int, request: Request, pool=Depends(get_db_pool)
 ):
     if (
-        layer not in {"base", "rain"}
+        layer not in TILE_LAYERS
         or not 0 <= z <= 19
         or not (0 <= x < 2**z and 0 <= y < 2**z)
     ):
@@ -412,7 +415,8 @@ async def map_layers(request: Request, pool=Depends(get_db_pool)):
         cursor = await conn.execute(
             "SELECT dataset,data,expires_at FROM "
             + ("core_map_datasets" if core_reads() else "collected_datasets")
-            + " WHERE (dataset LIKE 'map/layers/%%' OR dataset LIKE 'transport/stops/%%') AND expires_at > NOW()"
+            + " WHERE (dataset LIKE 'map/layers/%%' OR dataset LIKE 'map/tiles/%%'"
+            " OR dataset LIKE 'transport/stops/%%') AND expires_at > NOW()"
         )
         rows = await cursor.fetchall()
         gateways = await lora_gateways(conn)
@@ -443,6 +447,12 @@ async def map_layers(request: Request, pool=Depends(get_db_pool)):
         r["dataset"].removeprefix("map/layers/"): r["data"]
         for r in rows
         if r["dataset"].startswith("map/layers/")
+    }
+    # Pre-collected raster layers: attribution, data date and legend, never images.
+    tile_layers = {
+        r["dataset"].removeprefix("map/tiles/"): r["data"]
+        for r in rows
+        if r["dataset"].startswith("map/tiles/") and r["dataset"].removeprefix("map/tiles/") in TILE_LAYERS
     }
     emf = await map_emf_sites(pool)
     emf_features = [
@@ -592,7 +602,8 @@ async def map_layers(request: Request, pool=Depends(get_db_pool)):
             ],
         }
     return cached_response(
-        {"layers": layers, "unavailable": sorted(expected - set(layers))},
+        {"layers": layers, "tile_layers": tile_layers,
+         "unavailable": sorted(expected - set(layers) - set(tile_layers))},
         request,
         30,
         {"X-Data-Expires-At": min(r["expires_at"] for r in rows).isoformat()}

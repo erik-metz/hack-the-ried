@@ -12,7 +12,7 @@ export function publicMapDataUrl(resource: keyof typeof PUBLIC_MAP_PATHS) {
   return `${process.env.NEXT_PUBLIC_LIVE_API_ORIGIN}${PUBLIC_MAP_PATHS[resource]}`;
 }
 
-export function publicMapTileUrl(layer: "base" | "rain") {
+export function publicMapTileUrl(layer: "base" | "rain" | "broadband") {
   return `${process.env.NEXT_PUBLIC_LIVE_API_ORIGIN}/api/v1/map-tiles/${layer}/{z}/{x}/{y}.png`;
 }
 

@@ -4,6 +4,22 @@ Stand: 26.11.2026. Betrifft die Kartenebenen `broadband`, `devplans`,
 `elections` und `road`, die `/api/v1/map/collected-layers` derzeit unter
 `unavailable` meldet.
 
+## Umsetzungsstand (26.11.2026)
+
+- **Bau-Pläne (5.2): umgesetzt.** Adapter `bauleitplanung-wfs` → Quelle `kreis-bergstrasse-bauleitplanung`,
+  Veröffentlichung `map/layers/devplans` (mit Quellenvermerk und fehlenden Gemeinden) und
+  `realestate/development-plans`. Popups mit Links zu Planzeichnung und Textteil.
+  Die erfundene Liste `BASELINE_DEVELOPMENT_PLANS` ist entfernt.
+- **Glasfaser (5.1, Schritte 2 und 4): umgesetzt.** Quelle `bnetza-broadband-grid` holt die WMS-Kacheln
+  (Zoom 13–15) vorab; die Ebene wird über ihren Titelpfad aufgelöst, der Datenstand aus der
+  Download-Seite gelesen. Veröffentlichung `map/tiles/broadband` mit Quellenvermerk und Legende.
+  Werte per Klick (Schritt 3) stehen noch aus.
+- **Übergreifend (4.2–4.4): teilweise umgesetzt.** Kachelfreigabe über `TILE_LAYERS`,
+  `tile_layers` in der Kartenantwort, Quellenvermerk und fehlende Gemeinden in der Karte.
+  Die gemeinsame Ebenen-Registry (4.1) steht noch aus.
+- **Wahlbezirke und Straßen-KI:** offen, siehe Phase 0. Die Wahlbekanntmachungen zur
+  Bundestagswahl 2025 der vier Gemeinden waren online nicht auffindbar.
+
 ## 1. Ausgangslage
 
 ### 1.1 Was früher angezeigt wurde
@@ -206,7 +222,7 @@ Werte mit Datenstand, und der Quellenvermerk wird angezeigt.
 
 ### 5.2 Bau-Pläne (`devplans`)
 
-1. **Adapter:** Neuer Adapter `bauleitplan-wfs` nach dem Muster von `boris.py`:
+1. **Adapter:** Neuer Adapter `bauleitplanung-wfs` nach dem Muster von `boris.py`:
    - seitenweiser Abruf (`COUNT=1000`, `STARTINDEX`),
    - Filter auf die vier AGS,
    - Abbildung der Felder `NAME`, `TYP`, `RECHTSKR`, `SATZBESCHL`,

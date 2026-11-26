@@ -897,7 +897,7 @@ export default function BauenWohnenClient({
                           ? "Rechtskräftig"
                           : plan.status === "im_verfahren"
                           ? "Im Verfahren"
-                          : "In Aufstellung"}
+                          : "Status nicht angegeben"}
                       </span>
                     </div>
 
@@ -905,20 +905,14 @@ export default function BauenWohnenClient({
                       {plan.plan_name}
                     </h4>
                     <p className="text-xs text-slate-400">
-                      Nutzungsziel:{" "}
-                      <strong className="text-slate-200">
-                        {plan.target_use}
-                      </strong>{" "}
-                      · Plan-Nr.: {plan.plan_number}
+                      {[plan.plan_type, plan.district && `Gemarkung ${plan.district}`, plan.legal_since && `rechtskräftig seit ${plan.legal_since.split("-").reverse().join(".")}`].filter(Boolean).join(" · ")}
                     </p>
+                    {plan.plan_number && <p className="text-[11px] text-slate-500 font-mono">Plan-Nr.: {plan.plan_number}</p>}
                   </div>
 
                   <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-mono">
-                      Fläche:{" "}
-                      <strong className="text-slate-300">
-                        {plan.area_hectares} ha
-                      </strong>
+                    <span className="text-slate-500">
+                      {plan.source ?? "Bauleitplanungskataster Kreis Bergstraße"}{plan.license ? ` · ${plan.license}` : ""}
                     </span>
                     {plan.document_url && (
                       <a
@@ -927,7 +921,7 @@ export default function BauenWohnenClient({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium"
                       >
-                        <span>Gemeindeseite</span>
+                        <span>Planzeichnung</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}

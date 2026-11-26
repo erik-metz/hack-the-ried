@@ -101,17 +101,21 @@ export interface DevelopmentPlan {
   district?: string | null;
   plan_name: string;
   plan_number?: string | null;
-  status: "rechtskraeftig" | "in_aufstellung" | "im_verfahren";
-  target_use: "Wohnen" | "Gewerbe" | "Mischgebiet" | "Sondergebiet";
-  area_hectares?: number | null;
-  resolution_year?: number | null;
+  /** Official plan type, e.g. "Bebauungsplan" or "Weitere Satzung". */
+  plan_type?: string | null;
+  /** Only derived from cadastre dates; null when the cadastre states none. */
+  status: "rechtskraeftig" | "im_verfahren" | null;
+  status_label?: string | null;
+  legal_since?: string | null;
+  adopted_at?: string | null;
   document_url?: string | null;
+  text_url?: string | null;
+  justification_url?: string | null;
+  data_as_of?: string | null;
+  source?: string | null;
+  license?: string | null;
   center_lat: number;
   center_lng: number;
-  geometry?: {
-    type: string;
-    coordinates: number[][][] | number[][][][];
-  } | null;
 }
 
 export const AGE_BRACKET_LABELS: Record<string, { label: string; period: string; color: string }> = {
@@ -746,107 +750,6 @@ export const BASELINE_MARKET_BENCHMARKS: MarketBenchmark[] = [
 
   { id: "mb-bib-house-2025", municipality: "Biblis", year: 2025, metric_type: "house_buy_avg", avg_val: 360000.0, median_val: 355000.0, min_val: 240000.0, max_val: 520000.0, unit: "EUR", transaction_count: 34, source: "Gutachterausschuss Bergstraße" },
   { id: "mb-bib-rent-2025", municipality: "Biblis", year: 2025, metric_type: "rent_cold_sqm", avg_val: 8.10, median_val: 8.05, min_val: 6.20, max_val: 10.50, unit: "EUR/m2", source: "Zensus / Mietindex" },
-];
-
-export const BASELINE_DEVELOPMENT_PLANS: DevelopmentPlan[] = [
-  {
-    id: "dp-bst-sonneneck-2",
-    municipality: "Bürstadt",
-    district: "Kernstadt",
-    plan_name: "Bebauungsplan Sonneneck II",
-    plan_number: "BP-BST-52",
-    status: "rechtskraeftig",
-    target_use: "Wohnen",
-    area_hectares: 8.4,
-    resolution_year: 2021,
-    document_url: "https://buerstadt.de/stadtentwicklung/sonneneck-2",
-    center_lat: 49.6480,
-    center_lng: 8.4670,
-  },
-  {
-    id: "dp-bst-gewerbe-ost-erw",
-    municipality: "Bürstadt",
-    district: "Kernstadt",
-    plan_name: "Gewerbegebiet Ost – 3. Bauabschnitt",
-    plan_number: "BP-BST-61",
-    status: "im_verfahren",
-    target_use: "Gewerbe",
-    area_hectares: 6.2,
-    resolution_year: 2024,
-    document_url: "https://buerstadt.de/stadtentwicklung/gewerbe-ost-3",
-    center_lat: 49.6430,
-    center_lng: 8.4750,
-  },
-  {
-    id: "dp-la-rosenstock-3",
-    municipality: "Lampertheim",
-    district: "Kernstadt",
-    plan_name: "Bebauungsplan Rosenstock III",
-    plan_number: "BP-LA-88",
-    status: "rechtskraeftig",
-    target_use: "Wohnen",
-    area_hectares: 11.2,
-    resolution_year: 2022,
-    document_url: "https://lampertheim.de/bauen-wohnen/rosenstock-3",
-    center_lat: 49.6040,
-    center_lng: 8.4740,
-  },
-  {
-    id: "dp-la-gleisdreieck",
-    municipality: "Lampertheim",
-    district: "Kernstadt",
-    plan_name: "Gewerbepark Gleisdreieck",
-    plan_number: "BP-LA-94",
-    status: "in_aufstellung",
-    target_use: "Gewerbe",
-    area_hectares: 7.5,
-    resolution_year: 2025,
-    document_url: "https://lampertheim.de/wirtschaft/gleisdreieck",
-    center_lat: 49.5910,
-    center_lng: 8.4790,
-  },
-  {
-    id: "dp-bib-hinter-kirche",
-    municipality: "Biblis",
-    district: "Kernort",
-    plan_name: "Wohngebiet Hinter der katholischen Kirche",
-    plan_number: "BP-BIB-28",
-    status: "rechtskraeftig",
-    target_use: "Wohnen",
-    area_hectares: 3.2,
-    resolution_year: 2023,
-    document_url: "https://biblis.de/bauen/hinter-der-kirche",
-    center_lat: 49.6890,
-    center_lng: 8.4420,
-  },
-  {
-    id: "dp-einh-am-sportfeld",
-    municipality: "Einhausen",
-    district: "Ortsrand",
-    plan_name: "Wohngebiet Am Sportfeld Nord",
-    plan_number: "BP-EINH-19",
-    status: "rechtskraeftig",
-    target_use: "Wohnen",
-    area_hectares: 4.1,
-    resolution_year: 2023,
-    document_url: "https://einhausen.de/bauen/am-sportfeld",
-    center_lat: 49.6760,
-    center_lng: 8.5480,
-  },
-  {
-    id: "dp-lorsch-klosterfeld",
-    municipality: "Lorsch",
-    district: "Nordost",
-    plan_name: "Wohn- und Mischgebiet Klosterfeld",
-    plan_number: "BP-LOR-45",
-    status: "im_verfahren",
-    target_use: "Mischgebiet",
-    area_hectares: 5.6,
-    resolution_year: 2024,
-    document_url: "https://lorsch.de/stadtplanung/klosterfeld",
-    center_lat: 49.6590,
-    center_lng: 8.5750,
-  },
 ];
 
 export function getBorisZoneColor(value: number, type: string): string {

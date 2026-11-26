@@ -95,7 +95,7 @@ export const LAYER_MIN_ZOOM: Record<MapLayerId, number> = {
 // Collected vectors retain overview styling. Raster and optional context overlays
 // load only at their supported zoom.
 export function isLayerZoomRestricted(id: MapLayerId, zoom: number): boolean {
-  return (["starkregen", "lora", "landcover", "floodrisk", "census", "monitoring", "maengelmelder", "schadlingsradar", "nature", "charging", "warnings"].includes(id)) && zoom < LAYER_MIN_ZOOM[id];
+  return (["starkregen", "broadband", "lora", "landcover", "floodrisk", "census", "monitoring", "maengelmelder", "schadlingsradar", "nature", "charging", "warnings"].includes(id)) && zoom < LAYER_MIN_ZOOM[id];
 }
 
 export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {
@@ -288,7 +288,7 @@ export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {
     label: "Glasfaser",
     icon: "🌐",
     category: "infrastructure",
-    description: "Breitband- und Glasfaser-Ausbaugebiete im Ried",
+    description: "Gigabit-Versorgung der Haushalte im 100-m-Raster (BNetzA Breitbandatlas)",
     minZoom: LAYER_MIN_ZOOM.broadband,
     highlightColor: "border-purple-400 text-purple-300",
   },
@@ -329,7 +329,7 @@ export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {
     icon: "🏗️",
     category: "planning",
     description:
-      "Bebauungspläne und Neubaugebiete in Bürstadt, Lampertheim & Biblis",
+      "Bebauungspläne & Satzungen aus dem Bauleitplanungskataster Kreis Bergstraße (derzeit nur Lampertheim)",
     minZoom: LAYER_MIN_ZOOM.devplans,
     highlightColor: "border-amber-400 text-amber-300",
   },

@@ -124,6 +124,40 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(features[0]['properties']['online_status'], 'Online')
         self.assertNotIn('lora', body['unavailable'])
 
+    async def test_tile_layer_metadata_marks_broadband_available(self):
+        from endpoints.collected import map_layers
+        pool, conn = pool_for()
+        publications, traffic, closures = [MagicMock() for _ in range(3)]
+        expires = datetime.now(UTC) + timedelta(days=30)
+        meta = {'attribution': '© BNetzA. Datenstand: 06.2026.', 'layer': 'broadband', 'min_zoom': 13}
+        plans = {'type': 'FeatureCollection', 'metadata': {'missing_municipalities': ['Bürstadt']}, 'features': []}
+        publications.fetchall = AsyncMock(return_value=[
+            {'dataset': 'map/tiles/broadband', 'expires_at': expires, 'data': meta},
+            {'dataset': 'map/tiles/unknown', 'expires_at': expires, 'data': {}},
+            {'dataset': 'map/layers/devplans', 'expires_at': expires, 'data': plans},
+        ])
+        for cursor in [traffic, closures]:
+            cursor.fetchall = AsyncMock(return_value=[])
+        conn.execute.side_effect = [publications, traffic, closures, closures]
+        body = json.loads((await map_layers(request(), pool)).body)
+        self.assertEqual(body['tile_layers'], {'broadband': meta})
+        self.assertNotIn('broadband', body['layers'])
+        self.assertNotIn('broadband', body['unavailable'])
+        self.assertEqual(body['layers']['devplans']['metadata']['missing_municipalities'], ['Bürstadt'])
+        self.assertNotIn('devplans', body['unavailable'])
+        self.assertIn("map/tiles/", conn.execute.call_args_list[0].args[0])
+
+    async def test_broadband_tiles_are_served_only_from_collected_tiles(self):
+        from endpoints.collected import tile
+        pool, _ = pool_for(row=None)
+        with self.assertRaises(HTTPException) as missing:
+            await tile('broadband', 14, 8573, 5612, request(), pool)
+        self.assertEqual(missing.exception.status_code, 404)
+        self.assertEqual(missing.exception.detail, 'Tile not collected')
+        with self.assertRaises(HTTPException) as unknown:
+            await tile('anything', 14, 8573, 5612, request(), pool)
+        self.assertEqual(unknown.exception.detail, 'Not Found')
+
     async def test_no_online_gateways_does_not_restore_historical_dataset(self):
         from endpoints.collected import map_layers
         pool, conn = pool_for()

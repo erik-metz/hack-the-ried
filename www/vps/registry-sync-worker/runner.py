@@ -15,6 +15,7 @@ import psycopg
 from adapters import import_cross7, import_lampertheim_events, import_tiles
 from autobahn_inventory import import_autobahn_inventory
 from bahn import import_fasta, import_netex, import_ris_stations, import_siri
+from bauleitplanung import import_bauleitplanung
 from biblis_events import import_biblis_events
 from boris import import_boris
 from broadband import import_broadband
@@ -80,6 +81,7 @@ ADAPTERS = {
     "hessen": import_hessen,
     "bba-households": import_broadband,
     "boris-wfs": import_boris,
+    "bauleitplanung-wfs": import_bauleitplanung,
     "election-precincts": import_elections,
     "bnetza": import_chargers,
     "gtfs": import_gtfs,
