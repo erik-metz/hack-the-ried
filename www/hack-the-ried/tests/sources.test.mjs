@@ -38,7 +38,8 @@ test("All 8 public & admin pages render the unified SiteFooter", () => {
 
 test("Quellen page renders collected status without invented totals", () => {
   const source = fs.readFileSync(new URL("../app/quellen/PageContent.tsx", import.meta.url), "utf8");
-  assert.ok(source.includes('["collection/status"], 30000)'));
+  assert.ok(source.includes('["collection/status"], 300000, { keepWhileRefreshing: true })'));
+  assert.ok(source.includes('info.providerUrl'));
   assert.ok(source.includes('sources.map'));
   assert.ok(source.includes('source.last_success_at'));
   assert.ok(source.includes('source.interval_seconds'));
@@ -122,4 +123,12 @@ test("Invalid responses and unsafe provider links are rejected", () => {
   assert.equal(exported.formatTimestamp("invalid"), "Nicht gemeldet");
   assert.match(exported.formatTimestamp("2026-10-07T10:00:00Z"), /12:00:00/);
   assert.equal(exported.formatInterval(86400), "Jeden Tag");
+});
+
+test("Grundradar reference sources name and link their provider", async () => {
+  const { SOURCE_INFO } = await import("../app/quellen/sourceInfo.ts");
+  for (const id of ["reference-catalogue", "reference-tax", "reference-county-values"]) {
+    assert.equal(SOURCE_INFO[id].provider, "Grundradar");
+    assert.equal(SOURCE_INFO[id].providerUrl, "https://grundradar.de/");
+  }
 });

@@ -55,7 +55,8 @@ function SourceTable({ sources, now }: { sources: SourceItem[]; now: number }) {
                       {info?.title ?? source.source_id}<ExternalLink aria-hidden="true" className="ml-1 inline h-3 w-3" />
                       <span className="sr-only"> (öffnet die Originalquelle in einem neuen Tab)</span>
                     </a> : <span className="font-semibold text-slate-200">{info?.title ?? source.source_id}</span>}
-                    <p className="text-xs text-slate-400">{info?.provider ?? "Anbieter nicht hinterlegt"}</p>
+                    <p className="text-xs text-slate-400">{info?.providerUrl ? <a href={info.providerUrl} target="_blank" rel="noopener"
+                      className="underline decoration-slate-500/50 underline-offset-2 hover:text-slate-200">{info.provider}</a> : info?.provider ?? "Anbieter nicht hinterlegt"}</p>
                     {info?.domain ? <p className="text-xs text-slate-500">{info.domain}</p> : null}
                     <p className="break-all font-mono text-[11px] text-slate-500">{source.source_id}</p>
                     {!url ? <p className="text-xs text-slate-500">Kein Quellenlink hinterlegt.</p> : null}
@@ -101,7 +102,7 @@ function SourceTable({ sources, now }: { sources: SourceItem[]; now: number }) {
 }
 
 export default function SourcesPage() {
-  const publication = usePublicDatasets<[unknown]>(["collection/status"], 30000);
+  const publication = usePublicDatasets<[unknown]>(["collection/status"], 300000, { keepWhileRefreshing: true });
   if (!publication) return <PublicPageLoading title="Datenquellen & Erfassungsstatus" />;
   const result = publication.results[0];
   let sources: SourceItem[] | null = null;
@@ -120,7 +121,7 @@ export default function SourcesPage() {
         <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold uppercase tracking-wider"><Database aria-hidden="true" className="w-4 h-4" /><span>Herkunft &amp; Aktualität</span></div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">Datenquellen &amp; Erfassungsstatus</h1>
         <p className="text-slate-300 text-base sm:text-lg max-w-3xl leading-relaxed">Woher stammen die Daten im Ried? Hier siehst du, welche Quellen erreichbar sind, welche Daten verarbeitet wurden und wo Einschränkungen bestehen.</p>
-        <p className="text-xs text-slate-500">Ansicht geladen: <TimeValue value={new Date(now).toISOString()} /> · Status wird bei sichtbarer Seite regelmäßig aktualisiert.</p>
+        <p className="text-xs text-slate-500">Ansicht geladen: <TimeValue value={new Date(now).toISOString()} /> · Status wird bei sichtbarer Seite alle fünf Minuten im Hintergrund aktualisiert.</p>
       </div>
       {sources === null ? <div role="status" className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-sm flex items-center gap-3"><Activity aria-hidden="true" className="w-5 h-5 shrink-0" /><span>Der Erfassungsstatus ist momentan <strong>nicht erreichbar</strong>. Bitte später erneut versuchen.</span></div>
         : sources.length === 0 ? <div className="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 text-slate-400">Noch keine Quellenstatusmeldungen vorhanden.</div>

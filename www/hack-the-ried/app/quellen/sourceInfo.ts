@@ -26,6 +26,7 @@ export const SOURCE_INFO: Record<
     title: string;
     domain: string;
     provider: string;
+    providerUrl?: string;
   }
 > = {
   "vrn-realtime": {
@@ -358,4 +359,19 @@ export const SOURCE_INFO: Record<
   "infrastructure-published-source": { title: "Weitere Infrastrukturdaten", domain: "Infrastruktur", provider: "Anbieter noch nicht hinterlegt" },
   "traffic-published-source": { title: "Weitere Verkehrsdaten", domain: "Verkehr", provider: "Anbieter noch nicht hinterlegt" },
   "energy-meter-feed": { title: "Gemessene Energieerzeugung", domain: "Energie", provider: "Anbieter noch nicht hinterlegt" },
+  "reference-catalogue": { title: "Grundradar-Quellenkatalog", domain: "Referenzdaten", provider: "Grundradar", providerUrl: "https://grundradar.de/" },
+  "reference-tax": { title: "Grundsteuer-B-Hebesätze", domain: "Referenzdaten", provider: "Grundradar", providerUrl: "https://grundradar.de/" },
+  "reference-county-values": { title: "Bodenrichtwerte: Kreismediane", domain: "Referenzdaten", provider: "Grundradar", providerUrl: "https://grundradar.de/" },
+  "reference-floodrisk": { title: "Hochwasserrisikoflächen", domain: "Referenzdaten", provider: "WasserBLIcK/BfG und Landesbehörden · Esri Deutschland" },
+  "reference-protected": { title: "Schutzgebiete", domain: "Referenzdaten", provider: "BfN · Aufbereitung Esri Deutschland" },
+  "reference-monitoring": { title: "Umweltmessstellen", domain: "Referenzdaten", provider: "BfG · Aufbereitung Esri Deutschland" },
+  "reference-census": { title: "Zensus 2022: Bevölkerung, Miete und Wohnen", domain: "Referenzdaten", provider: "Statistische Ämter des Bundes und der Länder · Esri Deutschland" },
+  "reference-landcover": { title: "Landbedeckung 2021", domain: "Referenzdaten", provider: "BKG · Esri Deutschland" },
+  "reference-water-protection": { title: "Trinkwasserschutzgebiete", domain: "Referenzdaten", provider: "HLNUG / Land Hessen" },
+  "reference-geology": { title: "Geologie GÜK250", domain: "Referenzdaten", provider: "Bundesanstalt für Geowissenschaften und Rohstoffe (BGR)" },
+  "reference-soil": { title: "Bodenübersicht BÜK200", domain: "Referenzdaten", provider: "BGR / Staatliche Geologische Dienste" },
+  "reference-heavy-rain": { title: "Starkregenstatistik KOSTRA", domain: "Referenzdaten", provider: "Deutscher Wetterdienst (DWD)" },
+  "reference-groundwater-depth": { title: "Mittlerer Grundwasserflurabstand", domain: "Referenzdaten", provider: "Umweltbundesamt (UBA) / MoRE-DE" },
+  "reference-heat": { title: "Zusätzliche Tropennächte durch Bebauung", domain: "Referenzdaten", provider: "Deutscher Wetterdienst (DWD)" },
+  "reference-radon": { title: "Geogenes Radonpotenzial", domain: "Referenzdaten", provider: "Bundesamt für Strahlenschutz (BfS)" },
 };
