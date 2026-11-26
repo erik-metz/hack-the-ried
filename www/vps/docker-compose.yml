@@ -476,6 +476,7 @@ services:
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       AIRCRAFT_POLL_SECONDS: ${AIRCRAFT_POLL_SECONDS:-15}
+      ADSBLOL_API_KEY: ${ADSBLOL_API_KEY:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import pathlib,time,os; p=pathlib.Path('/tmp/aircraft-heartbeat'); exit(0 if p.exists() and time.time()-p.stat().st_mtime<max(60,float(os.getenv('AIRCRAFT_POLL_SECONDS','15'))*2) else 1)"]
       interval: 30s

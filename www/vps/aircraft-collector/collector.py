@@ -128,10 +128,35 @@ async def persist(conn, payload, now=None):
     return accepted
 
 
+def header_number(value):
+    """First number of a rate-limit header such as `500, 500;w=86400`."""
+    match = re.match(r'\s*(\d+(?:\.\d+)?)', value or '')
+    return float(match.group(1)) if match else None
+
+
+def quota_delay(response, interval):
+    """Spread the remaining daily quota until its reset instead of exhausting it early.
+
+    adsb.lol allows a fixed number of requests per day (500 without a key). Polling at
+    the configured interval would use that up within hours and leave no aircraft for
+    the rest of the day.
+    """
+    if response is None:
+        return interval
+    remaining = header_number(response.headers.get('x-ratelimit-remaining'))
+    reset = header_number(response.headers.get('x-ratelimit-reset'))
+    if remaining is None or reset is None or not 0 < reset <= 86400:
+        return interval
+    return reset if remaining < 1 else max(interval, reset / remaining)
+
+
 def retry_delay(response, failures, interval):
-    """Respect Retry-After; exponential backoff and jitter for transient failures."""
+    """Respect Retry-After and quota reset; exponential backoff and jitter for transient failures."""
     delay = min(900, interval * 2 ** min(failures, 6))
     if response is not None and response.status_code == 429:
+        reset = header_number(response.headers.get('x-ratelimit-reset'))
+        if reset is not None and 0 < reset <= 86400:
+            delay = max(delay, reset)
         value = response.headers.get('Retry-After', '')
         try:
             delay = max(delay, float(value))
@@ -153,8 +178,11 @@ async def run_adsb(seconds=None):
           'password': os.getenv('DB_PASSWORD', ''), 'connect_timeout': 10, 'options': os.getenv('DB_OPTIONS', '')}
     stop_at = asyncio.get_running_loop().time() + seconds if seconds else math.inf
     failures = 0
-    async with httpx.AsyncClient(timeout=20, follow_redirects=False, headers={
-            'User-Agent': 'HackTheRied-aircraft/1.0', 'Accept': 'application/json', 'Accept-Encoding': 'gzip'}) as client:
+    headers = {'User-Agent': 'HackTheRied-aircraft/1.0', 'Accept': 'application/json', 'Accept-Encoding': 'gzip'}
+    # Optional free key (https://www.adsb.lol/mmb) raises the daily request quota.
+    if os.getenv('ADSBLOL_API_KEY', '').strip():
+        headers['x-api-key'] = os.environ['ADSBLOL_API_KEY'].strip()
+    async with httpx.AsyncClient(timeout=20, follow_redirects=False, headers=headers) as client:
         while asyncio.get_running_loop().time() < stop_at:
             response = None
             delay = interval
@@ -171,11 +199,12 @@ async def run_adsb(seconds=None):
                     await conn.execute("""INSERT INTO collection_attempts(source_id,http_status,status,error_stage)
                         VALUES (%s,%s,'success','acquisition')""", (SOURCE, response.status_code))
                     Path('/tmp/aircraft-heartbeat').touch()
-                    LOG.info('ADS-B snapshot accepted; new observations: %d', accepted)
+                    delay = quota_delay(response, interval)
+                    LOG.info('ADS-B snapshot accepted; new observations: %d; next request in %.0f s', accepted, delay)
                     failures = 0
             except (httpx.HTTPError, OSError, psycopg.Error, ValueError, TypeError, RuntimeError) as exc:
                 failures += 1
-                delay = retry_delay(response, failures, interval)
+                delay = max(retry_delay(response, failures, interval), quota_delay(response, interval))
                 LOG.warning('Aircraft acquisition failed: %s', type(exc).__name__)
                 try:
                     async with await psycopg.AsyncConnection.connect(**db, autocommit=True) as conn:

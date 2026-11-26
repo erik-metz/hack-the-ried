@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-from collector import MAX_AGE, SOURCE, decode, persist, retry_delay
+from collector import MAX_AGE, SOURCE, decode, persist, quota_delay, retry_delay
 from db_support import DatabaseCase
 
 NOW = datetime(2026, 10, 5, 12, tzinfo=UTC)
@@ -59,6 +59,22 @@ class DecodeTests(unittest.TestCase):
         from httpx import Response
         self.assertGreaterEqual(retry_delay(Response(429, headers={'Retry-After': '3600'}), 1, 15), 3600)
         self.assertGreaterEqual(retry_delay(None, 3, 15), 120)
+
+    def test_exhausted_daily_quota_waits_for_reset(self):
+        from httpx import Response
+        headers = {'x-ratelimit-limit': '500, 500;w=86400', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '39786'}
+        self.assertGreaterEqual(retry_delay(Response(429, headers=headers), 1, 15), 39786)
+        self.assertEqual(quota_delay(Response(429, headers=headers), 15), 39786)
+
+    def test_daily_quota_is_spread_until_reset(self):
+        from httpx import Response
+        spread = {'x-ratelimit-remaining': '499', 'x-ratelimit-reset': '86400'}
+        self.assertAlmostEqual(quota_delay(Response(200, headers=spread), 15), 86400 / 499)
+        # A large quota (e.g. with an API key) keeps the configured interval.
+        large = {'x-ratelimit-remaining': '7000', 'x-ratelimit-reset': '3600'}
+        self.assertEqual(quota_delay(Response(200, headers=large), 15), 15)
+        self.assertEqual(quota_delay(Response(200), 15), 15)
+        self.assertEqual(quota_delay(None, 15), 15)
 
 
 class PersistenceTests(DatabaseCase):

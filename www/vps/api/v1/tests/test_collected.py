@@ -30,6 +30,9 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.publication_emf = patch('publication_service.get_emf_sites', self.emf)
         self.publication_emf.start()
         self.addCleanup(self.publication_emf.stop)
+        self.gateways_mock = patch("endpoints.collected.lora_gateways", new_callable=AsyncMock, return_value=[])
+        self.gateways = self.gateways_mock.start()
+        self.addCleanup(self.gateways_mock.stop)
 
     async def test_emf_sites_reach_map_and_infrastructure(self):
         from endpoints.collected import map_layers
@@ -83,9 +86,7 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
         }])
         closures = MagicMock()
         closures.fetchall = AsyncMock(return_value=[])
-        gateways = MagicMock()
-        gateways.fetchall = AsyncMock(return_value=[])
-        conn.execute.side_effect = [publications, gateways, traffic, closures, closures]
+        conn.execute.side_effect = [publications, traffic, closures, closures]
         response = await map_layers(request(), pool)
         data = json.loads(response.body)
         feature = data['layers']['traffic']['features'][0]
@@ -98,10 +99,10 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_gateway_in_lorsch_is_published_independently_of_heatmap(self):
         from endpoints.collected import map_layers
         pool, conn = pool_for()
-        publications, gateways, traffic, closures = [MagicMock() for _ in range(4)]
+        publications, traffic, closures = [MagicMock() for _ in range(3)]
         for cursor in [publications, traffic, closures]:
             cursor.fetchall = AsyncMock(return_value=[])
-        gateways.fetchall = AsyncMock(return_value=[
+        self.gateways.return_value = [
             {'id': 'lora:gateway:lorsch', 'name': 'Gateway Lorsch',
              'metadata': {'gateway_id': 'lorsch', 'antenna_placement': 'OUTDOOR'},
              'latitude': 49.653, 'longitude': 8.568, 'online_status': 1},
@@ -111,8 +112,8 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
              'latitude': 49.653, 'longitude': 8.568, 'online_status': None},
             {'id': 'lora:gateway:invalid', 'name': 'Invalid', 'metadata': {},
              'latitude': float('nan'), 'longitude': 8.568, 'online_status': 1},
-        ])
-        conn.execute.side_effect = [publications, gateways, traffic, closures, closures]
+        ]
+        conn.execute.side_effect = [publications, traffic, closures, closures]
         body = json.loads((await map_layers(request(), pool)).body)
         features = body['layers']['lora']['features']
         self.assertEqual(len(features), 1)
@@ -123,19 +124,19 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_no_online_gateways_does_not_restore_historical_dataset(self):
         from endpoints.collected import map_layers
         pool, conn = pool_for()
-        publications, gateways, traffic, closures = [MagicMock() for _ in range(4)]
+        publications, traffic, closures = [MagicMock() for _ in range(3)]
         publications.fetchall = AsyncMock(return_value=[{
             'dataset': 'map/layers/lora',
             'expires_at': datetime.now(UTC) + timedelta(hours=1),
             'data': {'type': 'FeatureCollection', 'features': [{'id': 'historical'}]},
         }])
-        gateways.fetchall = AsyncMock(return_value=[{
+        self.gateways.return_value = [{
             'id': 'lora:gateway:offline', 'name': 'Offline', 'metadata': {},
             'latitude': 49.653, 'longitude': 8.568, 'online_status': 0,
-        }])
+        }]
         for cursor in [traffic, closures]:
             cursor.fetchall = AsyncMock(return_value=[])
-        conn.execute.side_effect = [publications, gateways, traffic, closures, closures]
+        conn.execute.side_effect = [publications, traffic, closures, closures]
         body = json.loads((await map_layers(request(), pool)).body)
         self.assertNotIn('lora', body['layers'])
         self.assertIn('lora', body['unavailable'])
@@ -168,3 +169,51 @@ class CollectedEndpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPException) as context:
             await movement_telemetry('other:gate',request(),pool)
         self.assertEqual(context.exception.status_code,400)
+
+
+class LoraGatewayReadTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        from endpoints import collected
+        self.collected = collected
+        collected._gateway_cache.update(at=None, rows=[])
+        self.addCleanup(collected._gateway_cache.update, at=None, rows=[])
+
+    def connection(self, heads, rows=None, error=None):
+        conn = MagicMock()
+        conn.transaction.return_value.__aenter__ = AsyncMock()
+        conn.transaction.return_value.__aexit__ = AsyncMock(return_value=False)
+        ready, result = MagicMock(), MagicMock()
+        ready.fetchone = AsyncMock(return_value={'ready': heads})
+        result.fetchall = AsyncMock(return_value=rows or [])
+        conn.execute = AsyncMock(side_effect=[ready, error or result])
+        return conn
+
+    async def test_core_storage_looks_up_heads_instead_of_joining_all_readings(self):
+        conn = self.connection(True, [{'id': 'gw'}])
+        self.assertEqual(await self.collected.lora_gateways(conn), [{'id': 'gw'}])
+        sql = conn.execute.call_args_list[1].args[0]
+        self.assertIn('JOIN measurement_heads h', sql)
+        self.assertIn('CROSS JOIN LATERAL', sql)
+        self.assertNotIn('latest_readings', sql)
+
+    async def test_legacy_storage_reads_latest_table(self):
+        conn = self.connection(False, [])
+        await self.collected.lora_gateways(conn)
+        self.assertIn('JOIN latest_readings r', conn.execute.call_args_list[1].args[0])
+
+    async def test_recent_result_is_reused_without_database_reads(self):
+        await self.collected.lora_gateways(self.connection(True, [{'id': 'gw'}]))
+        conn = MagicMock()
+        conn.execute = AsyncMock()
+        self.assertEqual(await self.collected.lora_gateways(conn), [{'id': 'gw'}])
+        conn.execute.assert_not_called()
+
+    async def test_failed_read_keeps_recent_rows_and_expires_old_ones(self):
+        import psycopg
+        await self.collected.lora_gateways(self.connection(True, [{'id': 'gw'}]))
+        with patch('endpoints.collected.monotonic', return_value=self.collected._gateway_cache['at'] + 600):
+            rows = await self.collected.lora_gateways(self.connection(True, error=psycopg.errors.DiskFull()))
+        self.assertEqual(rows, [{'id': 'gw'}])
+        with patch('endpoints.collected.monotonic', return_value=self.collected._gateway_cache['at'] + 1000):
+            rows = await self.collected.lora_gateways(self.connection(True, error=psycopg.errors.DiskFull()))
+        self.assertEqual(rows, [])

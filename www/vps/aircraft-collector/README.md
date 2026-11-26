@@ -8,10 +8,17 @@ This covers local flying and through flights, rather than inferring traffic from
 The boundary is a configurable-code MVP region, not a precise administrative Ried polygon.
 No origin/destination, airport ownership or complete aircraft coverage is inferred.
 
-The public API needs no key. `AIRCRAFT_POLL_SECONDS` supports 10–300 seconds;
+`AIRCRAFT_POLL_SECONDS` supports 10–300 seconds;
 slower polling can produce intervals without visible aircraft because positions always
 expire 60 seconds after the actual observation, independent of fetch time.
-Dynamic limits are handled using Retry-After, exponential backoff and jitter.
+Without a key adsb.lol allows 500 requests per day and IP, reset at 00:00 UTC. The
+collector reads `x-ratelimit-remaining`/`x-ratelimit-reset` and spreads the remaining
+quota evenly until the reset (about one request every three minutes), instead of
+exhausting it within two hours and showing no ADS-B aircraft for the rest of the day.
+An optional free key in `ADSBLOL_API_KEY` (sent as `x-api-key`, obtainable at
+https://www.adsb.lol/mmb) raises the quota; a feeder key (7,200/day) allows the
+default 15-second interval. Retry-After, quota reset, exponential backoff and jitter
+handle 429 and transient failures.
 Failed requests are recorded in collection_attempts and never generate synthetic aircraft.
 Health checks track successful acquisition from either source, not whether aircraft were present.
 

@@ -231,13 +231,19 @@ async def _import_inaturalist(conn, client, source):
         await conn.execute("INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING", (digest, len(audit)))
         # Retain unchanged accepted observations and stable identities. Withdraw
         # removed/private records and corrected original dates atomically.
-        await conn.execute('DELETE FROM reading_revisions WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
-        await conn.execute("""WITH current AS MATERIALIZED (
+        ids = await source_measurements(conn, source['id'])
+        await conn.execute('DELETE FROM reading_revisions WHERE measurement_id=ANY(%s)', (ids,))
+        stale = await (await conn.execute("""WITH current AS MATERIALIZED (
             SELECT key AS entity_id,value::timestamptz AS observed_at FROM jsonb_each_text(%s)
-        ) DELETE FROM readings r USING measurement_definitions d
-        WHERE r.measurement_id=d.id AND d.source_id=%s AND NOT EXISTS(
+        ) SELECT r.measurement_id,r.observed_at FROM readings r
+        JOIN measurement_definitions d ON d.id=r.measurement_id
+        WHERE r.measurement_id=ANY(%s) AND NOT EXISTS(
             SELECT 1 FROM current c WHERE c.entity_id=d.entity_id AND c.observed_at=r.observed_at)""",
-            (Jsonb(current),source['id']))
+            (Jsonb(current), ids))).fetchall()
+        # Constant keys let TimescaleDB decompress only the affected segments.
+        for measurement_id, observed_at in stale:
+            await conn.execute('DELETE FROM readings WHERE measurement_id=%s AND observed_at=%s',
+                               (measurement_id, observed_at))
         await conn.execute('DELETE FROM measurement_definitions WHERE source_id=%s AND entity_id<>ALL(%s::text[])', (source['id'],current_entities))
         await conn.execute("DELETE FROM entities WHERE entity_type='inaturalist_observation' AND id LIKE 'inaturalist:%%' AND id<>ALL(%s::text[])", (current_entities,))
         await conn.execute('DELETE FROM collected_dataset_versions WHERE dataset=%s', (DATASET,))
@@ -254,10 +260,19 @@ async def _import_inaturalist(conn, client, source):
             await conn.execute("SELECT write_environment_measurement(%s,'occurrence_presence','count',%s,'observation',%s,%s,1,%s,%s,'valid',NULL,NULL,'reference')",
                                (entity, source['id'], Jsonb({}), stamp, receipt, Jsonb(item)))
         # Older schema installations may still produce revisions on upsert.
-        await conn.execute('DELETE FROM reading_revisions WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
+        await conn.execute('DELETE FROM reading_revisions WHERE measurement_id=ANY(%s)',
+                           (await source_measurements(conn, source['id']),))
         await publish(conn, source, DATASET, publication, digest, now)
     await conn.commit()
     return 'success'
+
+
+async def source_measurements(conn, source_id):
+    """Resolve keys first: a join or subquery on compressed readings decompresses every
+    chunk and exceeds TimescaleDB's per-transaction decompression limit."""
+    rows = await (await conn.execute('SELECT id FROM measurement_definitions WHERE source_id=%s',
+                                     (source_id,))).fetchall()
+    return [row[0] for row in rows]
 
 
 async def import_inaturalist(conn, client, source):
@@ -267,8 +282,9 @@ async def import_inaturalist(conn, client, source):
         # A failed daily revalidation withdraws the previous precise publication.
         await conn.rollback()
         async with conn.transaction():
+            ids = await source_measurements(conn, source['id'])
             for table in ('reading_revisions', 'readings'):
-                await conn.execute(f'DELETE FROM {table} WHERE measurement_id IN (SELECT id FROM measurement_definitions WHERE source_id=%s)', (source['id'],))
+                await conn.execute(f'DELETE FROM {table} WHERE measurement_id=ANY(%s)', (ids,))
             await conn.execute('DELETE FROM measurement_definitions WHERE source_id=%s', (source['id'],))
             await conn.execute("DELETE FROM entities WHERE entity_type='inaturalist_observation' AND id LIKE 'inaturalist:%'")
             await conn.execute('DELETE FROM collected_dataset_versions WHERE dataset=%s', (DATASET,))

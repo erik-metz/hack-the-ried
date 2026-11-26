@@ -2,10 +2,12 @@
 
 import asyncio
 import json
+import logging
 import math
 from datetime import UTC, datetime, timedelta
 from time import monotonic
 
+import psycopg
 from dependencies import get_db_pool
 from endpoints.infrastructure import get_emf_sites
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -318,6 +320,64 @@ RIED_CORRIDORS = [
 ]
 
 
+LOG = logging.getLogger(__name__)
+GATEWAY_COLUMNS = """e.id, e.name, e.metadata,
+       MAX(r.value) FILTER (WHERE md.metric='latitude') AS latitude,
+       MAX(r.value) FILTER (WHERE md.metric='longitude') AS longitude,
+       MAX(r.value) FILTER (WHERE md.metric='online_status') AS online_status"""
+GATEWAY_FILTER = """WHERE e.entity_type='lora_gateway' AND e.is_hidden=FALSE
+    GROUP BY e.id, e.name, e.metadata ORDER BY e.id"""
+# Legacy storage keeps latest values in a small table.
+GATEWAY_LEGACY_SQL = f"""SELECT {GATEWAY_COLUMNS}
+    FROM entities e
+    JOIN measurement_definitions md ON md.entity_id=e.id
+    JOIN latest_readings r ON r.measurement_id=md.id
+    {GATEWAY_FILTER}"""
+# Core storage: latest_readings is a view over the whole readings hypertable. A
+# plain join lets the planner hash all readings in parallel workers, which
+# exhausts the database's shared memory. Look up each head by its key instead.
+GATEWAY_HEADS_SQL = f"""SELECT {GATEWAY_COLUMNS}
+    FROM entities e
+    JOIN measurement_definitions md ON md.entity_id=e.id
+        AND md.metric IN ('latitude','longitude','online_status')
+    JOIN measurement_heads h ON h.measurement_id=md.id
+    CROSS JOIN LATERAL (SELECT x.value FROM readings x
+        WHERE x.measurement_id=h.measurement_id AND x.observed_at=h.observed_at
+        LIMIT 1) r
+    {GATEWAY_FILTER}"""
+GATEWAY_TTL = 300
+GATEWAY_STALE = 900
+_gateway_cache = {"at": None, "rows": []}
+_gateway_lock = asyncio.Lock()
+
+
+def _gateway_age():
+    at = _gateway_cache["at"]
+    return None if at is None else monotonic() - at
+
+
+async def lora_gateways(conn):
+    """Gateway status changes slowly; one failed read must not hide every map layer."""
+    age = _gateway_age()
+    if age is not None and (age < GATEWAY_TTL or (_gateway_lock.locked() and age < GATEWAY_STALE)):
+        return _gateway_cache["rows"]
+    async with _gateway_lock:
+        age = _gateway_age()
+        if age is not None and age < GATEWAY_TTL:
+            return _gateway_cache["rows"]
+        try:
+            async with conn.transaction():
+                cursor = await conn.execute("SELECT to_regclass('measurement_heads') IS NOT NULL AS ready")
+                heads = (await cursor.fetchone())["ready"]
+                cursor = await conn.execute(GATEWAY_HEADS_SQL if heads else GATEWAY_LEGACY_SQL)
+                rows = await cursor.fetchall()
+        except psycopg.Error as exc:
+            LOG.warning("LoRaWAN gateway read failed: %s", type(exc).__name__)
+            return _gateway_cache["rows"] if age is not None and age < GATEWAY_STALE else []
+        _gateway_cache.update(at=monotonic(), rows=rows)
+        return rows
+
+
 @router.get("/map/collected-layers")
 async def map_layers(request: Request, pool=Depends(get_db_pool)):
     expected = {
@@ -348,18 +408,7 @@ async def map_layers(request: Request, pool=Depends(get_db_pool)):
             + " WHERE (dataset LIKE 'map/layers/%%' OR dataset LIKE 'transport/stops/%%') AND expires_at > NOW()"
         )
         rows = await cursor.fetchall()
-        gateway_cursor = await conn.execute(
-            """SELECT e.id, e.name, e.metadata,
-                      MAX(lr.value) FILTER (WHERE md.metric='latitude') AS latitude,
-                      MAX(lr.value) FILTER (WHERE md.metric='longitude') AS longitude,
-                      MAX(lr.value) FILTER (WHERE md.metric='online_status') AS online_status
-               FROM entities e
-               JOIN measurement_definitions md ON md.entity_id=e.id
-               JOIN latest_readings lr ON lr.measurement_id=md.id
-               WHERE e.entity_type='lora_gateway' AND e.is_hidden=FALSE
-               GROUP BY e.id, e.name, e.metadata ORDER BY e.id"""
-        )
-        gateways = await gateway_cursor.fetchall()
+        gateways = await lora_gateways(conn)
         traffic_cursor = await conn.execute(
             """SELECT id,road_name,direction,location_from,location_to,description,cause_type,
                       delay_seconds,length_meters,severity,coordinates,last_seen_at,

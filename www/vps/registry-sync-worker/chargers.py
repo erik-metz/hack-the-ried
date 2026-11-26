@@ -11,8 +11,16 @@ from layers import map_collection
 from publications import acquire, publish
 
 
+def decode_register(body):
+    """BNetzA has published the register both as UTF-8 and as Windows-1252."""
+    try:
+        return body.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return body.decode("cp1252")
+
+
 def parse_register(body, bbox):
-    text = body.decode("utf-8-sig")
+    text = decode_register(body)
     date_match = re.search(r"Letzte Aktualisierung vom:\s*(\d{2}\.\d{2}\.\d{4})", text)
     if not date_match:
         raise ValueError("Charger register publication date missing")
