@@ -4,6 +4,7 @@ import L from "leaflet";
 import { useEffect, useState } from "react";
 import type { FeatureCollection, Point } from "geojson";
 import { detailCard } from "@/lib/mapPresentation";
+import MapLayerPanel from "./MapLayerPanel";
 import { publicMapDataUrl } from "@/lib/publicMapData";
 
 type PeriodCounts = { d7: number; d30: number; d90: number; d365: number; dalle: number };
@@ -182,7 +183,7 @@ export default function MapSchadlingsradarLayer({ map }: { map: L.Map }) {
     return () => { layer.remove(); map.attributionControl?.removeAttribution(attribution); };
   }, [map, snapshot]);
 
-  if (failed) return <p role="status">Schädlingsradar-Daten sind derzeit nicht verfügbar.</p>;
-  if (!snapshot) return <p role="status">Schädlingsradar-Daten werden geladen …</p>;
-  return <p>Schädlingsmeldungen je PLZ · Stand {snapshot.generated ? new Date(snapshot.generated).toLocaleString("de-DE") : "unbekannt"}. Marker zeigen PLZ-Gebiete, keine Fundorte.</p>;
+  return <MapLayerPanel title="Schädlingsradar" status={failed ? "derzeit nicht verfügbar" : !snapshot ? "wird geladen …" : `Stand ${snapshot.generated ? new Date(snapshot.generated).toLocaleString("de-DE") : "unbekannt"}`}>
+    <p>Schädlingsmeldungen je PLZ. Marker zeigen PLZ-Gebiete, keine Fundorte.</p>
+  </MapLayerPanel>;
 }

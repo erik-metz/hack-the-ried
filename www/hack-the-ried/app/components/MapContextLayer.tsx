@@ -3,6 +3,7 @@ import L from "leaflet";
 import { useEffect, useState } from "react";
 import type { FeatureCollection } from "geojson";
 import { CONTEXT_LAYERS, CONTEXT_REGION, contextColor, contextRows, type ContextLayerId } from "@/lib/contextLayers";
+import MapLayerPanel from "./MapLayerPanel";
 import { detailCard } from "@/lib/mapPresentation";
 
 export default function MapContextLayer({ map, id }: { map: L.Map; id: ContextLayerId }) {
@@ -48,14 +49,12 @@ export default function MapContextLayer({ map, id }: { map: L.Map; id: ContextLa
     map.attributionControl?.addAttribution(attribution);
     return () => { layer.remove(); renderer.remove(); map.attributionControl?.removeAttribution(attribution); };
   }, [map, id, data, visible, config]);
-  return <section className="space-y-1 border-t border-slate-700 pt-2" aria-label={config.title}>
-    <strong>{config.title}</strong>
+  return <MapLayerPanel title={config.title} status={!visible ? `Anzeige ab Zoom ${config.minZoom}.` : failed ? "Quelldaten derzeit nicht vollständig verfügbar." : data ? `${data.features.length} Flächen geladen.` : "Flächen werden geladen …"}>
     <p>{config.legend}</p>
     <p>{config.note}</p>
     <p>Regionaler Ausschnitt: Bürstadt, Lampertheim, Biblis und Groß-Rohrheim; Randflächen können darüber hinausreichen.</p>
     <p><a className="underline" href={`https://opendata-esridech.hub.arcgis.com/maps/${config.item}`} target="_blank" rel="noreferrer">{config.attribution}</a> · <a className="underline" href={config.license} target="_blank" rel="noreferrer">Lizenz</a> · Geometrien für die Anzeige vereinfacht.</p>
-    <p role="status">{!visible ? `Anzeige ab Zoom ${config.minZoom}.` : failed ? "Quelldaten derzeit nicht vollständig verfügbar." : data ? `${data.features.length} Flächen geladen.` : "Flächen werden geladen …"}</p>
     {failed ? <button className="underline" onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>Erneut versuchen</button> : null}
     <button className="underline" onClick={() => { map.fitBounds([[CONTEXT_REGION[1], CONTEXT_REGION[0]], [CONTEXT_REGION[3], CONTEXT_REGION[2]]]); map.setZoom(Math.max(map.getZoom(), config.minZoom)); }}>Zum Ried-Ausschnitt</button>
-  </section>;
+  </MapLayerPanel>;
 }

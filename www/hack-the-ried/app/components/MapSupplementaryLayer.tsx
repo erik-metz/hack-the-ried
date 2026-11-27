@@ -8,6 +8,7 @@ import { SUPPLEMENTARY_SOURCES, retainedWarning, type SupplementaryId } from "@/
 import { decodeSupplementarySnapshot, mergedChargers, supplementaryColor, supplementaryRows, supplementaryTitle, warningsFresh, type SupplementarySnapshot } from "@/lib/supplementaryPresentation";
 import { autobahnChargerCollection, autobahnChargerRows, freshAutobahnOffers, type AutobahnChargerSnapshot } from "@/lib/autobahnChargers";
 import { detailCard, placeMarker } from "@/lib/mapPresentation";
+import MapLayerPanel from "./MapLayerPanel";
 
 const PRESENTATION = {
   protected: { title: "Schutzgebiete", zoom: 8, legend: "Grün: Landschafts-/Naturschutz und Naturparke · Türkis: FFH · Cyan: Vogelschutz. Kategorien überlagern sich." },
@@ -106,15 +107,14 @@ export default function MapSupplementaryLayer({ map, id, primary }: { map: L.Map
   const primaryCollection = primary && "features" in primary ? primary as FeatureCollection : undefined;
   const autobahnDetails = id === "chargers" ? autobahnChargerCollection(freshAutobahnOffers(autobahn, now), mergedChargers(primaryCollection, state.data)).features : [];
   const count = id === "chargers" ? mergedChargers(primaryCollection, state.data).features.length : id === "warnings" ? currentWarnings?.length : state.data?.features.length;
-  return <section className="space-y-1 border-t border-slate-700 pt-2" aria-label={presentation.title}>
-    <strong>{presentation.title}</strong>
+  const status = !visible ? `Anzeige ab Zoom ${presentation.zoom}.` : state.failed ? id === "chargers" ? `Esri-Vergleichsstand nicht verfügbar; ${count ?? 0} Standorte aus dem direkten Import angezeigt.` : "Quelldaten derzeit nicht verfügbar." : id === "warnings" && state.data && !fresh ? "Warnungsbestand veraltet; aktuelle Warnlage unbekannt." : state.data ? id === "warnings" && count === 0 ? "Keine gültigen Warnpolygone im zuletzt geprüften Esri-Bestand des Ausschnitts." : `${count} ${id === "monitoring" ? "Messstellen" : id === "chargers" ? "Ladestandorte" : id === "warnings" ? "Warnpolygone" : "Schutzgebietsflächen"} angezeigt.` : "Quelldaten werden geladen …";
+  return <MapLayerPanel title={presentation.title} status={status}>
     <p>{presentation.legend}</p>
     <p>{id === "chargers" ? "Esri-Vergleichsstand Juli 2026 · direkter Registerstand je Standort im Popup." : config.dataStand}</p>
     {id === "protected" || id === "warnings" ? <p>Flächen für die Anzeige vereinfacht.</p> : null}
     <p>{id === "chargers" ? "Zusätzlicher Registerstand: über die BNetzA-ID mit dem direkten Import zusammengeführt. Keine Live-Belegung." : config.note}</p>
     <p>Regionaler Auswahlbereich um Bürstadt, Lampertheim, Biblis und Groß-Rohrheim.</p>
     <p><a className="underline" href={`https://opendata-esridech.hub.arcgis.com/maps/${config.item}`} target="_blank" rel="noreferrer">{config.attribution}</a> · <a className="underline" href={config.license} target="_blank" rel="noreferrer">Nutzungsbedingungen</a></p>
-    <p role="status">{!visible ? `Anzeige ab Zoom ${presentation.zoom}.` : state.failed ? id === "chargers" ? `Esri-Vergleichsstand nicht verfügbar; ${count ?? 0} Standorte aus dem direkten Import angezeigt.` : "Quelldaten derzeit nicht verfügbar." : id === "warnings" && state.data && !fresh ? "Warnungsbestand veraltet; aktuelle Warnlage unbekannt." : state.data ? id === "warnings" && count === 0 ? "Keine gültigen Warnpolygone im zuletzt geprüften Esri-Bestand des Ausschnitts." : `${count} ${id === "monitoring" ? "Messstellen" : id === "chargers" ? "Ladestandorte" : id === "warnings" ? "Warnpolygone" : "Schutzgebietsflächen"} angezeigt.` : "Quelldaten werden geladen …"}</p>
     {id === "chargers" ? <>
       <p>Grüne Ladestationsmarker: {freshAutobahnOffers(autobahn, now).length} ergänzende Autobahn-Ladeangebote. Angebote an exakt derselben Position mit gleicher Richtung teilen einen Marker; alle Kennungen bleiben im Popup erhalten. Die Quelle steht im Popup; Nähe zu einem Registereintrag belegt keine identische Anlage.</p>
       <p>Registereinträge im Umkreis von 75 m erscheinen als unbestätigte Zuordnungskandidaten. Fahrtrichtungen bleiben getrennt; Ladepunktzahlen verschiedener Quellen werden nicht addiert.</p>
@@ -128,5 +128,5 @@ export default function MapSupplementaryLayer({ map, id, primary }: { map: L.Map
       {currentWarnings?.length ? <details><summary>Warnmeldungen lesen</summary>{currentWarnings.map((f, index) => <article className="mt-2" key={`${f.properties?.IDENTIFIER}-${index}`}><strong>{supplementaryTitle(id, f.properties ?? {})}</strong>{supplementaryRows(id, f.properties ?? {}, now).map((row, i) => <p key={i}>{row}</p>)}</article>)}</details> : null}
     </> : null}
     {state.failed || (id === "chargers" && (autobahnFailed || Boolean(autobahn?.unavailableRoads.length))) ? <button className="underline" onClick={() => setAttempt(value => value + 1)}>Erneut versuchen</button> : null}
-  </section>;
+  </MapLayerPanel>;
 }

@@ -270,25 +270,18 @@ export default function DashboardClient({ nodes: initialNodes, loadFailed = fals
 
       <div id="ried-map">
       <MapComponent
-        legend={<>
-      {filtered.length > mapNodes.length && <p className="text-xs text-slate-400">{filtered.length - mapNodes.length} Stationen außerhalb des Ried-Kartenbereichs oder ohne Position sind unter „Messwerte & Zeitverlauf“ auswählbar.</p>}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-400" aria-label="Kartenlegende">
-        {mode === "temperature" ? <>
+        legend={mode === "temperature" ? <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-400" aria-label="Kartenlegende">
           <div className="flex items-center gap-2">
             <span>&lt; 0 °C</span>
             <span className="h-2.5 w-28 sm:w-36 rounded-full border border-slate-700 shadow-inner inline-block" style={{ background: "linear-gradient(to right, #818cf8, #38bdf8, #2dd4bf, #fbbf24, #fb7185)" }} />
             <span>≥ 30 °C</span>
           </div>
-          <span>Flächige Temperatur-Interpolation</span>
-          <span>Punkte = Stationen (Klick / Hover für Details)</span>
-        </> : <>
-          <span>Symbol & Farbe = Thema · Gruppen zeigen dasselbe Sensorthema</span>
-          <span>Zahl am Symbol = Standorte</span>
-        </>}
-        <span>Blasse Stationspunkte = älterer Messwert oder keine Daten</span>
-      </div>
-
-      <p className="text-xs text-slate-500">Messwerte erscheinen beim Hineinzoomen. Parkplatzwerte zeigen den zuletzt gemeldeten Zustand, keinen Online-Status.</p>
+          <span>Flächige Temperatur-Interpolation · Punkte = Stationen</span>
+        </div> : undefined}
+        legendNotes={<>
+          <p className="mt-1">Symbol &amp; Farbe = Thema · Gruppen zeigen dasselbe Sensorthema · Zahl am Symbol = Standorte · Blasse Stationspunkte = älterer Messwert oder keine Daten.</p>
+          <p>Messwerte erscheinen beim Hineinzoomen. Parkplatzwerte zeigen den zuletzt gemeldeten Zustand, keinen Online-Status.</p>
+          {filtered.length > mapNodes.length && <p>{filtered.length - mapNodes.length} Stationen außerhalb des Ried-Kartenbereichs oder ohne Position sind unter „Messwerte &amp; Zeitverlauf“ auswählbar.</p>}
         </>}
         nodes={mapNodes}
         categories={categories}

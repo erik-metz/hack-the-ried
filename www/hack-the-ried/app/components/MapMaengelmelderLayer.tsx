@@ -3,6 +3,7 @@ import L from "leaflet";
 import { useEffect, useState } from "react";
 import type { FeatureCollection } from "geojson";
 import { detailCard } from "@/lib/mapPresentation";
+import MapLayerPanel from "./MapLayerPanel";
 import { publicMapDataUrl } from "@/lib/publicMapData";
 
 type Report = { id?: string; category?: string | null; status?: string | null; reportedAt?: string | null; url?: string };
@@ -110,10 +111,8 @@ export default function MapMaengelmelderLayer({ map }: { map: L.Map }) {
     map.attributionControl?.addAttribution(attribution);
     return () => { layer.remove(); map.attributionControl?.removeAttribution(attribution); };
   }, [map, snapshot]);
-  return <section className="space-y-1" aria-label="Mängelmelder">
-    <strong>Mängelmelder · Worms bis nördlich Darmstadt</strong>
-    <p>Öffentliche Meldungen aus Worms, dem Hessischen Ried und dem Raum Darmstadt. Beschreibung und öffentliche Fotos erscheinen beim Öffnen einer Meldung.</p>
-    <p role="status">{failed ? "Mängelmeldungen derzeit nicht verfügbar." : snapshot ? `${snapshot.features.length} offene oder in Bearbeitung befindliche Meldungen · Datenstand bei letzter Erfassung.` : "Mängelmeldungen werden geladen …"}</p>
+  return <MapLayerPanel title="Mängelmelder" status={failed ? "derzeit nicht verfügbar" : snapshot ? `${snapshot.features.length} offene oder in Bearbeitung befindliche Meldungen` : "wird geladen …"}>
+    <p>Öffentliche Meldungen aus Worms, dem Hessischen Ried und dem Raum Darmstadt. Beschreibung und öffentliche Fotos erscheinen beim Öffnen einer Meldung. Datenstand bei letzter Erfassung.</p>
     <p><a className="underline" href="https://www.xn--mngelmelder-l8a.de/" target="_blank" rel="noreferrer">Mängelmelder.de</a> · Inhalte CC BY-SA</p>
-  </section>;
+  </MapLayerPanel>;
 }

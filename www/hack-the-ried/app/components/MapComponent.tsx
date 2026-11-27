@@ -6,6 +6,7 @@ import { publicMapDataUrl, publicMapTileUrl } from "@/lib/publicMapData";
 import { corridorLabel, trafficFeatureVisible } from "@/lib/trafficPresentation";
 import { updateMarkerDialogs } from "@/lib/mapDialogs";
 import MapContextLayer from "./MapContextLayer";
+import MapLayerPanel from "./MapLayerPanel";
 import MapSupplementaryLayer from "./MapSupplementaryLayer";
 import MapMaengelmelderLayer from "./MapMaengelmelderLayer";
 import MapSchadlingsradarLayer from "./MapSchadlingsradarLayer";
@@ -36,6 +37,8 @@ import { crossingSites, crossingLabel, mobilityNodes, type Position, type Crossi
 export type { SensorNode } from "@/lib/mapData";
 interface MapProps {
   legend?: import("react").ReactNode;
+  /** Explanations shown inside "Symbole & Hinweise" rather than below the map. */
+  legendNotes?: import("react").ReactNode;
   nodes: SensorNode[];
   selectedNodeId: string | undefined;
   onSelectNode: (id: string) => void;
@@ -681,6 +684,14 @@ export default function MapComponent(props: MapProps) {
     )}
     <div className="space-y-2 text-xs text-slate-400" aria-label="Kartenlegende und Hinweise">
       {props.legend}
+      <details className="rounded border border-slate-700/70 px-2 py-1"><summary className="cursor-pointer"><strong className="text-slate-300">Symbole & Hinweise</strong></summary>
+      {props.legendNotes}
+      <p className="mt-1">🚌 Bus · 🚆 Zug · 🚛 Abfallsammlung · 🚢 Schiff · ✈ Flugverkehr · 🛰 Satelliten</p>
+      <p>Ⓗ Haltestelle · ⚡ Ladestation</p>
+      <p>⛔ Sperrung · 🚧 Baustelle · 🚗 Verkehrsachse</p>
+      <p className="mt-1">Symbol anklicken für Details und Abfahrten.</p>
+      <p className="mt-1 text-slate-400">Gestrichelter Rand: Prognose · Durchgehend: beobachtet (Fahrzeuge)</p>
+      </details>
       {ready && mapInstance ? <>
         {props.categories.includes("parking") ? <MapRestAreaLayer map={mapInstance} nodes={props.nodes} /> : null}
         {layers.nature ? <MapSupplementaryLayer map={mapInstance} id="protected" /> : null}
@@ -696,14 +707,7 @@ export default function MapComponent(props: MapProps) {
       {ready && mapInstance && props.satelliteMode && props.satelliteMode !== "none" ? <MapEarthObservationLayer map={mapInstance} mode={props.satelliteMode} /> : null}
       {ready && layers.fuel && mapInstance ? <MapFuelLayer map={mapInstance} clustered={clusteringReady} onSelectStation={(id, fuel) => { callbacks.current.onSelectFuel?.(id, fuel); }} /> : null}
       {ready && layers.satellites && mapInstance ? <MapSatelliteLayer map={mapInstance} clustered={clusterVehicles} /> : null}
-      <details><summary className="cursor-pointer font-semibold">Symbole & Hinweise</summary>
-      <p className="mt-1">🚌 Bus · 🚆 Zug · 🚛 Abfallsammlung · 🚢 Schiff · ✈ Flugverkehr · 🛰 Satelliten</p>
-      <p>Ⓗ Haltestelle · ⚡ Ladestation</p>
-      <p>⛔ Sperrung · 🚧 Baustelle · 🚗 Verkehrsachse</p>
-      <p className="mt-1">Symbol anklicken für Details und Abfahrten.</p>
-      <p className="mt-1 text-slate-400">Gestrichelter Rand: Prognose · Durchgehend: beobachtet (Fahrzeuge)</p>
-      </details>
-      {(layers.aircraft || layers.ships) && <details><summary className="cursor-pointer font-semibold">Empfang &amp; Datenquellen</summary>
+      {(layers.aircraft || layers.ships) && <details className="rounded border border-slate-700/70 px-2 py-1"><summary className="cursor-pointer"><strong className="text-slate-300">Empfang &amp; Datenquellen</strong></summary>
       <div className="mt-2 space-y-1">
       {layers.aircraft && <AircraftLegend />}
       {layers.aircraft && <p role="status">{aircraftSource?.status === "connected" && aircraftSource.last_contact && Date.parse(aircraftSource.last_contact) + 60000 > props.now
@@ -725,12 +729,11 @@ export default function MapComponent(props: MapProps) {
       {layers.elections && publication.unavailable.includes("elections") && <p role="status">Wahlbezirke: Die Bezirksgrenzen sind nicht als offene Geodaten veröffentlicht, daher keine Kartenfläche. Ergebnisse je Wahlbezirk (BTW 2025) stehen unter <a className="underline" href="/wahlen">Wahlen</a>.</p>}
       {tilesMissing && <p role="status">Hintergrundkarten sind noch nicht verfügbar.</p>}
       {layers.lora && isLayerZoomRestricted("lora", zoom) && <p role="status">LoRaWAN-Heatmap: Details beim Hineinzoomen (ab Zoom {LAYER_MIN_ZOOM.lora}).</p>}
-      {layers.starkregen && <TileLayerStatus id="starkregen" zoom={zoom} meta={publication.tile_layers?.rain} fallback="Starkregengefahren" />}
-      {layers.broadband && <TileLayerStatus id="broadband" zoom={zoom} meta={publication.tile_layers?.broadband} fallback="Breitbandverfügbarkeit" />}
-      {layers.devplans && layerMetadata(publication.layers.devplans) && <p role="status">
-        Bau-Pläne: <a href={layerMetadata(publication.layers.devplans)?.license_url ?? "https://www.govdata.de/dl-de/by-2-0"} target="_blank" rel="noreferrer">{layerMetadata(publication.layers.devplans)?.attribution} · {layerMetadata(publication.layers.devplans)?.license}</a>
-        {layerMetadata(publication.layers.devplans)?.missing_municipalities?.length ? ` · nicht im Kataster: ${layerMetadata(publication.layers.devplans)?.missing_municipalities?.join(", ")}` : ""}.
-      </p>}
+      {layers.starkregen && <TileLayerStatus id="starkregen" label="Starkregen" zoom={zoom} meta={publication.tile_layers?.rain} fallback="Starkregengefahren" />}
+      {layers.broadband && <TileLayerStatus id="broadband" label="Glasfaser" zoom={zoom} meta={publication.tile_layers?.broadband} fallback="Breitbandverfügbarkeit" />}
+      {layers.devplans && layerMetadata(publication.layers.devplans) && <MapLayerPanel title="Bau-Pläne" status={layerMetadata(publication.layers.devplans)?.missing_municipalities?.length ? `nicht im Kataster: ${layerMetadata(publication.layers.devplans)?.missing_municipalities?.join(", ")}` : undefined}>
+        <p><a className="underline" href={layerMetadata(publication.layers.devplans)?.license_url ?? "https://www.govdata.de/dl-de/by-2-0"} target="_blank" rel="noreferrer">{layerMetadata(publication.layers.devplans)?.attribution} · {layerMetadata(publication.layers.devplans)?.license}</a></p>
+      </MapLayerPanel>}
       {layers.lora && missing.includes("lora") && <p role="status">Keine gespeicherten LoRaWAN-Gateways verfügbar.</p>}
       {layers.lora && loraTilesFailed && <p role="status">TTN-Mapper-Heatmap konnte nicht geladen werden. Gateway-Standorte bleiben sichtbar.</p>}
       <button className="mt-2 mr-3 underline" onClick={() => {
@@ -741,12 +744,12 @@ export default function MapComponent(props: MapProps) {
 }
 
 /** Title, zoom hint, legend and required source note of a pre-collected tile layer. */
-function TileLayerStatus({ id, zoom, meta, fallback }: { id: MapLayerId; zoom: number; meta?: TileLayerPublication; fallback: string }) {
-  if (!meta) return <p role="status">{fallback}: Kacheln sind noch nicht gesammelt.</p>;
-  return <div role="status">
-    <p>{meta.title ?? fallback}{isLayerZoomRestricted(id, zoom) ? ` – sichtbar ab Zoom ${LAYER_MIN_ZOOM[id]}` : ""}.</p>
+function TileLayerStatus({ id, zoom, meta, fallback, label }: { id: MapLayerId; zoom: number; meta?: TileLayerPublication; fallback: string; label: string }) {
+  if (!meta) return <MapLayerPanel title={label} status="Kacheln sind noch nicht gesammelt" />;
+  return <MapLayerPanel title={label} status={isLayerZoomRestricted(id, zoom) ? `sichtbar ab Zoom ${LAYER_MIN_ZOOM[id]}` : "angezeigt"}>
+    <p>{meta.title ?? fallback}.</p>
     {meta.note ? <p>{meta.note}</p> : null}
     <p className="flex flex-wrap gap-x-2">{(meta.legend ?? []).map(item => <span key={item.label}><span aria-hidden="true" className="inline-block h-2.5 w-2.5 border border-slate-500 align-middle" style={{ backgroundColor: item.color }} /> {item.label}</span>)}</p>
-    {meta.attribution ? <p>{meta.source_url ? <a href={meta.source_url} target="_blank" rel="noreferrer">{meta.attribution}</a> : meta.attribution}</p> : null}
-  </div>;
+    {meta.attribution ? <p>{meta.source_url ? <a className="underline" href={meta.source_url} target="_blank" rel="noreferrer">{meta.attribution}</a> : meta.attribution}</p> : null}
+  </MapLayerPanel>;
 }

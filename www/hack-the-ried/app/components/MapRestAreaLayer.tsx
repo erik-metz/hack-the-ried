@@ -37,8 +37,8 @@ export default function MapRestAreaLayer({ map, nodes }: { map: L.Map; nodes: Se
     return () => { group.remove(); map.attributionControl?.removeAttribution(attribution); };
   }, [map, nodes, snapshot, now]);
   const areas = snapshot?.areas.filter(a => restAreaFresh(a,now)) ?? [];
-  return <details className="rounded border border-slate-700 p-2">
-    <summary>Autobahn-Rastplätze · {areas.length} Inventareinträge</summary>
+  return <details className="rounded border border-slate-700/70 px-2 py-1" aria-label="Autobahn-Rastplätze">
+    <summary className="cursor-pointer"><strong className="text-slate-300">Autobahn-Rastplätze</strong> · {areas.length} Inventareinträge</summary>
     <p>Lila P: Parkplatz. Bei identischer DATEX-Kennung wird nur der vorhandene Belegungsmarker angezeigt; zusätzliche Inventarangaben stehen in dieser Liste. LKW-Belegung aus rast-monitor nur bei eindeutiger Kennung; spätestens nach 30 Minuten als veraltet behandelt.</p>
     {failed ? <p role="status">Rastplatzinventar derzeit nicht verfügbar.</p> : null}
     {snapshot?.unavailableRoads.length ? <p role="status">Inventar fehlt: {snapshot.unavailableRoads.join(", ")}</p> : null}
