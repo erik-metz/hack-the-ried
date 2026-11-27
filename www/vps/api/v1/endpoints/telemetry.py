@@ -317,7 +317,17 @@ async def get_latest_sensor_metrics(
     sensor_id: str = Query(..., description="The ID of the sensor"),
     pool: psycopg_pool.AsyncConnectionPool = Depends(get_db_pool),
 ):
-    query = """
+    # The maintained latest projection is a key lookup. DISTINCT ON over the full
+    # sensor_data history needs a parallel hash over all readings of the sensor and
+    # exhausted the database's shared memory for long series (DiskFull /dev/shm).
+    latest = """
+        SELECT sl.timestamp, sl.sensor_id, sl.value, sl.unit, sl.metric
+        FROM sensor_latest sl
+        JOIN sensor_metadata sm ON sl.sensor_id = sm.id
+        WHERE sl.sensor_id = %s AND sm.is_hidden = FALSE
+        ORDER BY sl.metric, sl.unit;
+    """
+    history = """
         SELECT DISTINCT ON (sd.metric, sd.unit)
             sd.timestamp, sd.sensor_id, sd.value, sd.unit, sd.metric
         FROM sensor_data sd
@@ -326,8 +336,12 @@ async def get_latest_sensor_metrics(
         ORDER BY sd.metric, sd.unit, sd.timestamp DESC;
     """
     async with pool.connection() as conn:
-        cur = await conn.execute(read_sql(query), (sensor_id,))
+        cur = await conn.execute(read_sql(latest), (sensor_id,))
         rows = await cur.fetchall()
+        if not rows:
+            # Series without a latest projection keep the previous behaviour.
+            cur = await conn.execute(read_sql(history), (sensor_id,))
+            rows = await cur.fetchall()
     return [dict(row) for row in rows]
 
 
