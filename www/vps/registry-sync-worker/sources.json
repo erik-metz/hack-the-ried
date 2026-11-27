@@ -1463,6 +1463,43 @@
       "reason": "Amtliche Geltungsbereiche von Bebauungsplänen, Satzungen und Flächennutzungsplänen. Das Kataster enthält im Ried derzeit nur Lampertheim; fehlende Gemeinden werden ausgewiesen, nicht ergänzt."
     },
     {
+      "id": "bkg-starkregen-tiefe",
+      "group": "maps",
+      "adapter": "wms",
+      "enabled": true,
+      "url": "https://sgx.geodatenzentrum.de/wms_starkregen",
+      "interval_seconds": 2592000,
+      "max_age_seconds": 31536000,
+      "bbox": [
+        49.55,
+        8.3,
+        49.8,
+        8.65
+      ],
+      "min_zoom": 12,
+      "max_zoom": 15,
+      "layer": "rain",
+      "wms_layer": "tiefe_extrem",
+      "transparent": true,
+      "request_interval_seconds": 0.25,
+      "http_retries": 2,
+      "publication": {
+        "title": "Hinweiskarte Starkregengefahren: Überflutungstiefe bei extremem Ereignis",
+        "attribution": "© BKG ({year}) dl-de/by-2-0, Datenquellen: Länder",
+        "source_url": "https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_hwk_srg.pdf",
+        "license_url": "https://www.govdata.de/dl-de/by-2-0",
+        "note": "Simuliertes Szenario (Hinweiskarte), keine Vorhersage und keine aktuelle Überflutung.",
+        "legend": [
+          {"label": "10–30 cm", "color": "#ccecff"},
+          {"label": "30–50 cm", "color": "#99ccff"},
+          {"label": "50–100 cm", "color": "#6e99ff"},
+          {"label": "100–200 cm", "color": "#3d66ff"},
+          {"label": "200–400 cm", "color": "#0033cc"},
+          {"label": "≥ 400 cm", "color": "#08306b"}
+        ]
+      }
+    },
+    {
       "id": "bnetza-broadband-grid",
       "group": "infrastructure",
       "adapter": "wms",

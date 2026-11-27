@@ -32,13 +32,19 @@ def extract_addresses(path, source):
             return 'nature'
         if tags.get('landuse') in ('farmland', 'orchard', 'vineyard'):
             return 'crops'
-        if tags.get('internet_access') == 'wlan' and tags.get('internet_access:access') in ('yes', 'public', 'customers'):
-            return 'wifi'
         if tags.get('power') in ('plant', 'generator'):
             return 'energy'
         if tags.get('name') and (tags.get('office') == 'company' or tags.get('industrial')):
             return 'companies'
         return None
+
+    def map_kinds(tags):
+        """Primary kind plus WLAN: a café or museum with WLAN appears in both layers."""
+        kinds = [kind] if (kind := map_kind(tags)) else []
+        # OSM rarely tags internet_access:access; only explicitly private access is excluded.
+        if tags.get('internet_access') in ('wlan', 'yes') and tags.get('internet_access:access') not in ('private', 'no'):
+            kinds.append('wifi')
+        return kinds
 
     def energy_meta(tags):
         source = tags.get('generator:source') or tags.get('plant:source')
@@ -107,6 +113,9 @@ def extract_addresses(path, source):
                 'source': 'OpenStreetMap / Geofabrik',
                 'description': 'Kartierter Standort bzw. Fläche; keine Live-Messung und kein vollständiges amtliches Register.',
             }
+            if kind == 'wifi':
+                props['fee'] = tags.get('internet_access:fee')
+                props['description'] = 'In OpenStreetMap als WLAN-Angebot kartiert (z. B. Gäste-WLAN); Verfügbarkeit und Zugang nicht geprüft.'
         map_layers[kind]['features'].append({'type': 'Feature', 'geometry': geometry, 'properties': props})
 
     def tags_for(obj):
@@ -136,8 +145,7 @@ def extract_addresses(path, source):
             if inside(lat, lon):
                 regional_nodes[obj.id] = (lon, lat)
                 raw = dict(obj.tags)
-                kind = map_kind(raw)
-                if kind:
+                for kind in map_kinds(raw):
                     add_feature(kind, f"osm-node-{obj.id}", raw, {"type": "Point", "coordinates": [lon, lat]})
                 if raw.get('railway') in ('level_crossing', 'crossing') and raw.get('crossing:barrier') in ('yes', 'full', 'half', 'double_half'):
                     crossings.append({'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [lon, lat]},
@@ -156,20 +164,21 @@ def extract_addresses(path, source):
                 for left, right in pairwise(refs):
                     if left in regional_nodes and right in regional_nodes:
                         rail_edges.append([left, right, regional_nodes[left], regional_nodes[right]])
-            kind = map_kind(tags)
-            if not kind:
+            kinds = map_kinds(tags)
+            if not kinds:
                 return
             refs = [node.ref for node in obj.nodes]
             if not refs or any(ref not in regional_nodes for ref in refs):
                 return
             points = [regional_nodes[ref] for ref in refs]
-            if kind in ('nature', 'crops'):
-                if len(points) < 4 or refs[0] != refs[-1]:
-                    return
-                geometry = {'type': 'Polygon', 'coordinates': [points]}
-            else:
-                geometry = {'type': 'Point', 'coordinates': [sum(p[0] for p in points)/len(points), sum(p[1] for p in points)/len(points)]}
-            add_feature(kind, f'osm-way-{obj.id}', tags, geometry)
+            for kind in kinds:
+                if kind in ('nature', 'crops'):
+                    if len(points) < 4 or refs[0] != refs[-1]:
+                        continue
+                    geometry = {'type': 'Polygon', 'coordinates': [points]}
+                else:
+                    geometry = {'type': 'Point', 'coordinates': [sum(p[0] for p in points)/len(points), sum(p[1] for p in points)/len(points)]}
+                add_feature(kind, f'osm-way-{obj.id}', tags, geometry)
 
     # Two streaming passes retain only nodes used by address-tagged local ways.
     # No all-Hessen node-location index is needed.

@@ -82,9 +82,9 @@ export const LAYER_MIN_ZOOM: Record<MapLayerId, number> = {
 
   // Neighborhood / Street (Zoom 14+)
   crossings: 14,
-  charging: 14,
+  charging: 11,
   fuel: 12,
-  wifi: 14,
+  wifi: 11,
   crops: 14,
   road: 14,
   stops: 14,
@@ -279,7 +279,7 @@ export const LAYER_DEFINITIONS: Record<MapLayerId, LayerMetadata> = {
     label: "WLAN",
     icon: "📶",
     category: "infrastructure",
-    description: "Öffentliche WLAN-Hotspots (Hessen-WLAN & Freifunk Ried)",
+    description: "WLAN-Angebote laut OpenStreetMap (Cafés, Hotels, Freifunk) · Zugang nicht geprüft",
     minZoom: LAYER_MIN_ZOOM.wifi,
     highlightColor: "border-cyan-400 text-cyan-300",
   },

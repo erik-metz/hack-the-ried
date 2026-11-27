@@ -78,6 +78,27 @@ async def persist_environment_data(
                     g.measured_at,
                 ),
             )
+            # Official gauge reading as a station series, so the map detail panel
+            # ("Messwerte & Zeitverlauf") shows its value and history.
+            await conn.execute("""
+                INSERT INTO sensor_metadata (id, friendly_name, latitude, longitude, description)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET friendly_name=EXCLUDED.friendly_name,
+                    latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, description=EXCLUDED.description
+            """, (g.id, f"Pegel {g.name.title()} ({g.water_body.title() or 'Rhein'})", g.latitude, g.longitude,
+                  f"WSV PEGELONLINE · Wasserstand am Pegel {g.source_station_id} · amtlicher Messwert, Pegelnullpunkt-bezogen"))
+            await conn.execute("""
+                INSERT INTO sensor_data(sensor_id, metric, unit, timestamp, value)
+                VALUES (%s, 'water_level', 'm', %s, %s)
+                ON CONFLICT DO NOTHING
+            """, (g.id, g.measured_at, g.level_m))
+            await conn.execute("""
+                INSERT INTO sensor_latest(sensor_id, metric, unit, timestamp, value)
+                VALUES (%s, 'water_level', 'm', %s, %s)
+                ON CONFLICT(sensor_id, metric, unit) DO UPDATE SET
+                timestamp=EXCLUDED.timestamp, value=EXCLUDED.value
+                WHERE EXCLUDED.timestamp >= sensor_latest.timestamp
+            """, (g.id, g.measured_at, g.level_m))
             updated_gauges += 1
 
         # 2. Update Weather in sensor_data & sensor_latest
@@ -355,6 +376,7 @@ async def persist_environment_data(
                             "name": g.name,
                             "level_m": g.level_m,
                             "measured_at": g.measured_at.isoformat(),
+                            "sensor_id": g.id,
                         },
                     }
                     for g in gauges

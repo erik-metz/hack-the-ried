@@ -158,6 +158,9 @@ async def import_wms(conn, client, source):
                 "min_zoom": source["min_zoom"], "max_zoom": source["max_zoom"],
                 "bbox": source["bbox"], "data_as_of": stamp.date().isoformat(),
                 "tiles": len(inventory)}
+        if "{year}" in meta.get("attribution", ""):
+            # "Jahr des letzten Datenbezugs" as required by BKG source notes.
+            meta["attribution"] = meta["attribution"].replace("{year}", str(datetime.now(UTC).year))
         if stand and "{stand}" in meta.get("attribution", ""):
             meta["attribution"] = meta["attribution"].replace("{stand}", stand.strftime("%m.%Y"))
         body = json.dumps(meta, sort_keys=True, ensure_ascii=False).encode()

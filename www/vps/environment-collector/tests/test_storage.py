@@ -37,6 +37,12 @@ class EnvironmentStorageTests(DatabaseCase):
         self.assertEqual(await self.scalar("SELECT source_updated_at FROM collected_datasets WHERE dataset='environment/flood/gauges'"),measured)
         self.assertEqual(await self.scalar("SELECT COUNT(*) FROM sensor_data WHERE sensor_id='weather-dwd-ried' AND timestamp=%s",(measured,)),3)
         self.assertEqual(await self.scalar("SELECT latitude FROM sensor_metadata WHERE id='weather-dwd-ried'"),49.625)
+        # The gauge is a station with a history, selectable in the map detail panel.
+        self.assertEqual(await self.scalar("SELECT friendly_name FROM sensor_metadata WHERE id='pegel-rhein-worms'"),'Pegel Worms (Rhein)')
+        self.assertEqual(await self.scalar("SELECT value FROM sensor_data WHERE sensor_id='pegel-rhein-worms' AND metric='water_level' AND timestamp=%s",(measured,)),-0.22)
+        self.assertEqual(await self.scalar("SELECT value FROM sensor_latest WHERE sensor_id='pegel-rhein-worms' AND metric='water_level'"),-0.22)
+        floods=await self.scalar("SELECT data FROM collected_datasets WHERE dataset='map/layers/floods'")
+        self.assertEqual(floods['features'][0]['properties']['sensor_id'],'pegel-rhein-worms')
 
     async def test_dual_weather_corrections_are_atomic_with_legacy_shadow(self):
         sys.path.append(str(Path(__file__).resolve().parents[2] / 'api' / 'v1'))

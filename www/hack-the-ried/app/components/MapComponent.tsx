@@ -57,6 +57,7 @@ interface MapProps {
 }
 interface TileLayerPublication {
   title?: string;
+  note?: string;
   attribution?: string;
   source_url?: string;
   data_as_of?: string;
@@ -563,6 +564,11 @@ export default function MapComponent(props: MapProps) {
             : mapSymbol(id).label;
           layer.bindPopup(featureCard(id, values), { maxHeight: 260, maxWidth: 260, autoPanPadding: L.point(20, 40) });
           layer.bindTooltip(detailCard(displayName, displaySubtitle, []));
+          // Gauges are also stations: select them for "Messwerte & Zeitverlauf".
+          if (id === "floods" && typeof values.sensor_id === "string") {
+            const sensorId = values.sensor_id;
+            layer.on("click", () => callbacks.current.onSelectNode(sensorId));
+          }
           if (id === "closures") {
             if (values.event_status !== "planned" && values.is_stale !== true) closures++;
             if (feature.geometry?.type === "LineString" && Array.isArray((feature.geometry as unknown as { coordinates?: unknown }).coordinates)) {
@@ -599,8 +605,13 @@ export default function MapComponent(props: MapProps) {
       }
       vectorLayer.eachLayer(layer => addPublishedLayer(layer));
     }
-    const starkregenMinZoom = LAYER_MIN_ZOOM.starkregen ?? 12;
-    if (layers.starkregen && zoom >= starkregenMinZoom) L.tileLayer(publicMapTileUrl("rain"), { opacity: .5 }).addTo(group);
+    const rain = publication.tile_layers?.rain;
+    if (layers.starkregen && rain && zoom >= (LAYER_MIN_ZOOM.starkregen ?? 12)) {
+      // Pre-collected BKG Starkregen tiles; zoom levels above the collected ones are scaled.
+      L.tileLayer(publicMapTileUrl("rain"), {
+        opacity: .65, zIndex: 10, minNativeZoom: rain.min_zoom ?? 12, maxNativeZoom: rain.max_zoom ?? 15,
+      }).addTo(group);
+    }
     const broadband = publication.tile_layers?.broadband;
     if (layers.broadband && broadband && zoom >= (LAYER_MIN_ZOOM.broadband ?? 13)) {
       // Pre-collected Breitbandatlas tiles; zoom levels above the collected ones are scaled.
@@ -632,7 +643,7 @@ export default function MapComponent(props: MapProps) {
     .filter(f => f.properties?.kind === "corridor" && trafficFeatureVisible(f.properties, "all"))
     .map(f => f.properties as { id: string; road_name: string; name: string; status: string; delay_minutes: number | null; description: string });
 
-  const missing = publication.unavailable.filter(id => id !== "nature" && id !== "charging" && id !== "maengelmelder" && layers[id as MapLayerId]);
+  const missing = publication.unavailable.filter(id => id !== "nature" && id !== "charging" && id !== "maengelmelder" && id !== "elections" && layers[id as MapLayerId]);
   return <div className="w-full space-y-3">
     <div className="relative">
       <div ref={container} className="sensor-map h-[500px] w-full" aria-label="Karte mit aktuellen Quelldaten" />
@@ -709,15 +720,13 @@ export default function MapComponent(props: MapProps) {
         ? "Keine aktuellen Temperaturwerte für die Farbfläche verfügbar. Ältere Messwerte bleiben als blasse Stationspunkte sichtbar."
         : "Keine Temperaturstationen im gewählten Themenfilter und Kartenbereich. Wähle Wetter & Klima, Boden & Bewässerung oder Alle."}</p>}
       {movementFailed && <p role="status">Bewegungsdaten nicht verfügbar.</p>}
+      {layers.waste && !movementFailed && !positions.some(position => position.kind === "waste") && <p role="status">Müllabfuhr: derzeit keine Sammeltour aktiv. Touren werden aus dem ZAKB-Abfuhrkalender für Abfuhrtage zwischen 7 und 17 Uhr modelliert (keine GPS-Positionen).</p>}
       {(layersFailed || missing.length > 0) && <p role="status">Ohne aktuelle Quelldaten: {missing.length ? missing.map(id => mapSymbol(id).label).join(", ") : "einige Kartenebenen"}.</p>}
+      {layers.elections && publication.unavailable.includes("elections") && <p role="status">Wahlbezirke: Die Bezirksgrenzen sind nicht als offene Geodaten veröffentlicht, daher keine Kartenfläche. Ergebnisse je Wahlbezirk (BTW 2025) stehen unter <a className="underline" href="/wahlen">Wahlen</a>.</p>}
       {tilesMissing && <p role="status">Hintergrundkarten sind noch nicht verfügbar.</p>}
-      {layers.starkregen && isLayerZoomRestricted("starkregen", zoom) && <p role="status">Starkregen: Details beim Hineinzoomen (ab Zoom {LAYER_MIN_ZOOM.starkregen}).</p>}
       {layers.lora && isLayerZoomRestricted("lora", zoom) && <p role="status">LoRaWAN-Heatmap: Details beim Hineinzoomen (ab Zoom {LAYER_MIN_ZOOM.lora}).</p>}
-      {layers.broadband && publication.tile_layers?.broadband && <div role="status">
-        <p>{publication.tile_layers.broadband.title ?? "Breitbandverfügbarkeit"}{isLayerZoomRestricted("broadband", zoom) ? ` – sichtbar ab Zoom ${LAYER_MIN_ZOOM.broadband}` : ""}.</p>
-        <p className="flex flex-wrap gap-x-2">{(publication.tile_layers.broadband.legend ?? []).map(item => <span key={item.label}><span aria-hidden="true" className="inline-block h-2.5 w-2.5 border border-slate-500 align-middle" style={{ backgroundColor: item.color }} /> {item.label}</span>)}</p>
-        <p><a href={publication.tile_layers.broadband.source_url ?? "https://gigabitgrundbuch.bund.de"} target="_blank" rel="noreferrer">{publication.tile_layers.broadband.attribution ?? "© BNetzA"}</a></p>
-      </div>}
+      {layers.starkregen && <TileLayerStatus id="starkregen" zoom={zoom} meta={publication.tile_layers?.rain} fallback="Starkregengefahren" />}
+      {layers.broadband && <TileLayerStatus id="broadband" zoom={zoom} meta={publication.tile_layers?.broadband} fallback="Breitbandverfügbarkeit" />}
       {layers.devplans && layerMetadata(publication.layers.devplans) && <p role="status">
         Bau-Pläne: <a href={layerMetadata(publication.layers.devplans)?.license_url ?? "https://www.govdata.de/dl-de/by-2-0"} target="_blank" rel="noreferrer">{layerMetadata(publication.layers.devplans)?.attribution} · {layerMetadata(publication.layers.devplans)?.license}</a>
         {layerMetadata(publication.layers.devplans)?.missing_municipalities?.length ? ` · nicht im Kataster: ${layerMetadata(publication.layers.devplans)?.missing_municipalities?.join(", ")}` : ""}.
@@ -728,5 +737,16 @@ export default function MapComponent(props: MapProps) {
         if (props.nodes.length) map.current?.fitBounds(L.latLngBounds(props.nodes.map(node => L.latLng(node.lat, node.lng))), { padding: [40, 40], maxZoom: 16 });
       }}>Sensoren im Überblick</button>
     </div>
+  </div>;
+}
+
+/** Title, zoom hint, legend and required source note of a pre-collected tile layer. */
+function TileLayerStatus({ id, zoom, meta, fallback }: { id: MapLayerId; zoom: number; meta?: TileLayerPublication; fallback: string }) {
+  if (!meta) return <p role="status">{fallback}: Kacheln sind noch nicht gesammelt.</p>;
+  return <div role="status">
+    <p>{meta.title ?? fallback}{isLayerZoomRestricted(id, zoom) ? ` – sichtbar ab Zoom ${LAYER_MIN_ZOOM[id]}` : ""}.</p>
+    {meta.note ? <p>{meta.note}</p> : null}
+    <p className="flex flex-wrap gap-x-2">{(meta.legend ?? []).map(item => <span key={item.label}><span aria-hidden="true" className="inline-block h-2.5 w-2.5 border border-slate-500 align-middle" style={{ backgroundColor: item.color }} /> {item.label}</span>)}</p>
+    {meta.attribution ? <p>{meta.source_url ? <a href={meta.source_url} target="_blank" rel="noreferrer">{meta.attribution}</a> : meta.attribution}</p> : null}
   </div>;
 }

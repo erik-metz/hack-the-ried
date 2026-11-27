@@ -37,6 +37,9 @@ class CalendarForm(HTMLParser):
             self.enabled = attrs.get("id") == "athos-os-form"
         if not self.enabled:
             return
+        if tag == "input" and attrs.get("type") == "radio" and attrs.get("name"):
+            # Offered alternatives, e.g. the calendar year ("aos[Zeitraum]").
+            self.options.setdefault(attrs["name"], []).append(attrs.get("value", ""))
         if (
             tag == "input"
             and attrs.get("name")
@@ -177,6 +180,21 @@ def verify_address(html, address, provider_city):
                     and limits[0] <= int(number) <= limits[1]):
                 return
     raise AddressMismatch("Calendar confirmed a different or missing address")
+
+
+def calendar_periods(offered, now):
+    """Every offered calendar year from the current one on.
+
+    From late autumn ZAKB preselects next year's overview; the current year's
+    remaining dates are only available as a separate selection.
+    """
+    year = now.astimezone(ZoneInfo("Europe/Berlin")).year
+    periods = []
+    for value in offered:
+        match = re.search(r"(?<![0-9])(20[0-9]{2})(?![0-9])", value)
+        if match and int(match[1]) >= year and value not in periods:
+            periods.append(value)
+    return periods or [None]
 
 
 def form(html):
@@ -387,14 +405,31 @@ async def calendar_for_address(conn, client, source, address, now, locations=Non
     fields.update({"aos[Strasse]": provider_street, "aos[Hausnummer]": number,
                    "aos[Hausnummerzusatz]": suffix,
                    "submitAction": "nextPage"})
-    response, _, _ = await request(fields)
-    if "filedownload_ICAL" not in response.text:
-        raise AddressNotAccepted("Address not accepted by calendar")
-    verify_address(response.text, {**address, "street": provider_street}, provider_city)
-    fields = form(response.text)
-    fields["submitAction"] = "filedownload_ICAL"
-    response, digest, _ = await request(fields)
-    events = parse_ical(response.content, address)
+    events, digests, seen = [], [], set()
+    for period in calendar_periods(initial.options.get("aos[Zeitraum]", []), now):
+        period_fields = dict(fields) if period is None else {**fields, "aos[Zeitraum]": period}
+        response, _, _ = await request(period_fields)
+        if "filedownload_ICAL" not in response.text:
+            raise AddressNotAccepted("Address not accepted by calendar")
+        verify_address(response.text, {**address, "street": provider_street}, provider_city)
+        download = form(response.text)
+        download["submitAction"] = "filedownload_ICAL"
+        response, digest, _ = await request(download)
+        digests.append(digest)
+        for event in parse_ical(response.content, address):
+            if (event["date"], event["fraction"]) not in seen:
+                seen.add((event["date"], event["fraction"]))
+                events.append(event)
+    if len(digests) == 1:
+        digest = digests[0]
+    else:
+        # One checkpoint per address: reference every downloaded year by a manifest.
+        manifest = json.dumps({"contract": "zakb-ical-periods-v1", "parts": digests}).encode()
+        digest = hashlib.sha256(manifest).hexdigest()
+        await conn.execute(
+            "INSERT INTO collected_payloads(sha256,size_bytes,content_type) VALUES (%s,%s,'application/json') ON CONFLICT DO NOTHING",
+            (digest, len(manifest)),
+        )
     fetched = datetime.now(UTC)
     await conn.execute(
         """INSERT INTO collection_checkpoints(source_id,item_key,payload_sha256,fetched_at)

@@ -51,3 +51,20 @@ def test_suffix_geometry_and_unsupported_compound_addresses(tmp_path):
     assert data['address_inventory_version'] == 2
     assert [(x['id'], x['tags']['addr:housenumber']) for x in data['elements']] == [(1, '9 c'), (5, '8A')]
     assert data['elements'][1]['center'] == {'lat': pytest.approx(49.61), 'lon': pytest.approx(8.41)}
+
+
+def test_wlan_places_without_access_tag_and_alongside_their_primary_layer(tmp_path):
+    path = tmp_path / 'wifi.osm'
+    path.write_text('''<osm version="0.6">
+    <node id="1" lat="49.6" lon="8.4"><tag k="addr:city" v="Biblis"/><tag k="addr:street" v="One"/><tag k="addr:housenumber" v="2"/></node>
+    <node id="2" lat="49.61" lon="8.41"><tag k="amenity" v="cafe"/><tag k="name" v="Dorfcafe"/><tag k="internet_access" v="wlan"/><tag k="internet_access:fee" v="no"/></node>
+    <node id="3" lat="49.61" lon="8.41"><tag k="tourism" v="museum"/><tag k="name" v="Heimatmuseum"/><tag k="internet_access" v="wlan"/></node>
+    <node id="4" lat="49.61" lon="8.41"><tag k="amenity" v="restaurant"/><tag k="internet_access" v="no"/></node>
+    <node id="5" lat="49.61" lon="8.41"><tag k="amenity" v="cafe"/><tag k="internet_access" v="wlan"/><tag k="internet_access:access" v="private"/></node>
+    <node id="6" lat="49.61" lon="8.41"><tag k="amenity" v="restaurant"/><tag k="internet_access" v="terminal"/></node>
+    </osm>''')
+    data = extract_addresses(path, {'municipalities': ['Biblis'], 'bbox': [49.55, 8.3, 49.8, 8.65]})
+    wifi = data['map_layers']['wifi']['features']
+    assert [f['properties']['name'] for f in wifi] == ['Dorfcafe', 'Heimatmuseum']
+    assert wifi[0]['properties']['fee'] == 'no'
+    assert [f['properties']['name'] for f in data['map_layers']['places']['features']] == ['Heimatmuseum']

@@ -79,6 +79,11 @@ export const SOURCE_INFO: Record<
     domain: "Infrastruktur & Konnektivität",
     provider: "Bundesnetzagentur · Breitbandatlas",
   },
+  "bkg-starkregen-tiefe": {
+    title: "Hinweiskarte Starkregengefahren · Überflutungstiefe (Karte)",
+    domain: "Umwelt & Gewässer",
+    provider: "BKG · Geodatenzentrum (dl-de/by-2-0)",
+  },
   "bnetza-broadband-households": {
     title: "Breitbandverfügbarkeit für Privathaushalte",
     domain: "Infrastruktur & Konnektivität",
